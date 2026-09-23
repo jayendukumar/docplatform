@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "name": "Welcome letter",
+  "description": "A sample document definition to explore the platform.",
+  "locale": "en",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margin_mm": 20
+  },
+  "blocks": [
+    {
+      "type": "text",
+      "text": "Welcome, {{recipient.name}}"
+    },
+    {
+      "type": "text",
+      "text": "Your document workspace is ready."
+    },
+    {
+      "type": "text",
+      "text": "\u0645\u0631\u062d\u0628\u0627 \u00b7 \u4f60\u597d"
+    }
+  ],
+  "sample_data": {
+    "recipient": {
+      "name": "Alex"
+    }
+  },
+  "capabilities": {
+    "rendering": false,
+    "editing": false
+  }
+}

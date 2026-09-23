@@ -1,0 +1,16 @@
+.venv
+**/.venv
+.git
+node_modules
+frontend/node_modules
+frontend/dist
+**/__pycache__
+**/.pytest_cache
+**/.pytest-tmp
+**/.ruff_cache
+.env
+.env.*
+config.local.toml
+data
+artifacts
+*.docx

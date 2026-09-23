@@ -1,0 +1,14 @@
+.venv/
+node_modules/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+*.pyc
+.env
+.env.*
+!.env.example
+config.local.toml
+data/
+frontend/dist/
+artifacts/

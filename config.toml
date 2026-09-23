@@ -1,0 +1,22 @@
+# Environment variables DOCPLATFORM_<UPPERCASE_FIELD> override these values.
+# Relative storage paths resolve against this file's directory.
+app_name = "Document Platform"
+host = "0.0.0.0"
+port = 8000
+log_level = "info"
+db_host = "localhost"
+db_port = 5432
+db_name = "docplatform"
+db_user = "docplatform"
+# Local development only. Override for any shared deployment.
+db_password = "docplatform-local"
+db_connect_timeout_seconds = 5
+storage_backend = "local"
+local_storage_path = "data/objects"
+s3_region = "us-east-1"
+s3_prefix = "docplatform"
+s3_addressing_style = "path"
+s3_timeout_seconds = 5
+s3_max_attempts = 2
+max_object_bytes = 10485760
+seed_sample = true

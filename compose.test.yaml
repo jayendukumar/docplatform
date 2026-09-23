@@ -1,0 +1,17 @@
+name: docplatform-e1-tests
+services:
+  database:
+    image: postgres:17-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
+    environment:
+      POSTGRES_DB: docplatform_test
+      POSTGRES_USER: docplatform_test
+      POSTGRES_PASSWORD: docplatform-test-only
+    ports:
+      - '127.0.0.1:${PLATFORM_TEST_DB_PORT:-55432}:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U docplatform_test -d docplatform_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30

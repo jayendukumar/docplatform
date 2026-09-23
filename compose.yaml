@@ -1,0 +1,75 @@
+name: docplatform
+
+x-app: &app
+  build:
+    context: .
+  image: docplatform:local
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DOCPLATFORM_CONFIG_FILE: /app/config.toml
+    DOCPLATFORM_HOST: 0.0.0.0
+    DOCPLATFORM_PORT: ${DOCPLATFORM_PORT:-8000}
+    DOCPLATFORM_DB_HOST: database
+    DOCPLATFORM_DB_PORT: 5432
+    DOCPLATFORM_DB_NAME: ${DOCPLATFORM_DB_NAME:-docplatform}
+    DOCPLATFORM_DB_USER: ${DOCPLATFORM_DB_USER:-docplatform}
+    DOCPLATFORM_DB_PASSWORD: ${DOCPLATFORM_DB_PASSWORD:-docplatform-local}
+    DOCPLATFORM_LOCAL_STORAGE_PATH: /data/objects
+  volumes:
+    - objects:/data/objects
+    - ${PLATFORM_CONFIG_PATH:-./config.toml}:/app/config.toml:ro
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+
+services:
+  database:
+    image: postgres:17-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
+    environment:
+      POSTGRES_DB: ${DOCPLATFORM_DB_NAME:-docplatform}
+      POSTGRES_USER: ${DOCPLATFORM_DB_USER:-docplatform}
+      POSTGRES_PASSWORD: ${DOCPLATFORM_DB_PASSWORD:-docplatform-local}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: [python, -m, app.bootstrap]
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    <<: *app
+    command: [python, -m, app.serve]
+    ports:
+      - '127.0.0.1:${PLATFORM_HTTP_PORT:-8000}:${DOCPLATFORM_PORT:-8000}'
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, 'import os, urllib.request; urllib.request.urlopen("http://127.0.0.1:" + os.environ.get("DOCPLATFORM_PORT", "8000") + "/health/ready", timeout=25)']
+      interval: 15s
+      timeout: 30s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  objects:
