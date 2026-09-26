@@ -31,6 +31,14 @@ def _kill_process(process: subprocess.Popen[str]) -> None:
             return
         except ProcessLookupError:
             return
+    if os.name == "nt":
+        # A worker may launch a converter or OCR child of its own.  Killing
+        # only the Python parent can leave that descendant running after a
+        # wall-time or output-limit breach.
+        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, check=False)
+        return
     process.kill()
 
 

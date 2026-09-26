@@ -3825,3 +3825,15 @@ Supersedes/superseded by: [Decision ID when applicable]
 - **Consequences:** The project has a traceable 30-story delivery boundary and honest remaining work. Some rows remain partial by design; the status overlay continues to distinguish implemented, partial and planned.
 - **Validation:** Re-run the focused renderer/editor checks, frontend build, existing backend regression suite where dependencies are available, and `scripts/audit_must_status.py`. Record unavailable environment checks rather than converting them into claims.
 - **Implementation references:** [next-30 validation](next-30-validation.md), [story status](../frontend/src/storyStatus.ts), [implementation plan](implementation-plan.md), [source stories](epics.md).
+
+## DD-264: Terminate Windows worker descendants on portable limit breaches
+
+- **Date:** 2026-09-26
+- **Status:** Accepted and Implemented as an E12-02 hardening slice; native deployment enforcement remains partial
+- **Affected stories:** E12-02, E11-04
+- **Context:** The portable worker supervisor already stopped its direct child on wall-time and output-limit failures. On Windows, the fallback used `Popen.kill()`, which does not guarantee termination of a converter, OCR process, or other descendant launched by that child.
+- **Choice:** Use Windows `taskkill /T /F` for supervisor-triggered termination, while retaining POSIX process-group termination and the existing Windows Job Object path. Add a platform-isolated regression proving the descendant-tree command is selected.
+- **Alternatives:** Kill only the Python parent; rejected because descendants could survive a failed job. Use a new native dependency; rejected because the platform already provides `taskkill` and the project keeps a dependency-free worker boundary. Claim full hostile-parser containment; rejected because deployment-level isolation and native exhaustion evidence remain open.
+- **Consequences:** Timeout and output-limit failures have a stronger descendant-cleanup guarantee on Windows without changing the public job contract. The remaining acceptance gate still requires stable native resource-exhaustion and supported-deployment evidence.
+- **Validation:** Focused worker tests pass, including the Windows termination-path regression; full backend regression remains the required follow-up.
+- **Implementation references:** [worker supervisor](../backend/app/worker.py), [worker tests](../backend/tests/test_jobs.py), [jobs contract](jobs-contract.md), [source stories](epics.md).

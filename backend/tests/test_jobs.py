@@ -55,6 +55,26 @@ def test_isolated_worker_timeout_is_killed_and_next_job_can_run(monkeypatch):
                         max_output_bytes=1024)["artifact"] == "next job"
 
 
+def test_windows_worker_kill_terminates_descendants(monkeypatch):
+    class Process:
+        pid = 4321
+
+        def kill(self):
+            raise AssertionError("fallback process kill should not be used on Windows")
+
+    calls = []
+    monkeypatch.setattr("app.worker.os.name", "nt")
+    monkeypatch.setattr("app.worker.subprocess.run", lambda *args, **kwargs: calls.append((args, kwargs)))
+    from app.worker import _kill_process
+
+    _kill_process(Process())
+
+    assert calls == [((["taskkill", "/PID", "4321", "/T", "/F"],), {
+        "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL, "check": False,
+    })]
+
+
 def test_isolated_worker_output_limit_terminates_child(monkeypatch):
     class OversizedProcess:
         returncode = 0
