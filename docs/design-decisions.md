@@ -3849,3 +3849,15 @@ Supersedes/superseded by: [Decision ID when applicable]
 - **Consequences:** Operators have a reproducible, provenance-bound path for measuring whether a reviewed profile improves calibration. The checked-in fixture remains contract coverage only, and the application continues to require an explicitly configured profile.
 - **Validation:** The evaluator regression covers raw/calibrated metric output; the full backend suite and script smoke command remain required for release evidence.
 - **Implementation references:** [evaluator](../scripts/evaluate_calibration.py), [evaluator tests](../backend/tests/test_calibration_evaluation.py), [extraction contract](extraction-contract.md), [source stories](epics.md).
+
+## DD-266: Harden page-flow compatibility and keyboard source selection
+
+- **Date:** 2026-09-26
+- **Status:** Accepted and Implemented as bounded E2-07/E10-01 slices; native-reader and full accessibility gates remain partial
+- **Affected stories:** E2-07, E10-01
+- **Context:** The renderer emitted modern `break-*` rules, but older PDF engines can require `page-break-*` aliases for the same orphan, keep-together and page-break behavior. Source-region SVG controls were keyboard-focusable but did not expose selected state or preserve the exact element box when activated from the keyboard.
+- **Choice:** Emit compatible `page-break-before`/`page-break-inside` rules alongside the modern properties for paragraphs, tables and media. When a source element is clicked or activated with Enter/Space, pass its exact box to the review selection and expose `aria-pressed`; expose the same state on field-source links.
+- **Alternatives:** Rely on a single CSS property; rejected because candidate engines differ. Treat visual focus alone as selection; rejected because assistive technology needs state and keyboard activation must produce the same provenance highlight as a pointer click. Claim full WCAG or native-reader acceptance; rejected because those reviews remain external gates.
+- **Consequences:** Page-flow intent survives more candidate-engine paths, and source highlighting is deterministic across pointer and keyboard interaction. Broader pagination corpus, IME behavior, native-reader review and accessibility audit remain open.
+- **Validation:** Focused renderer assertions and frontend typecheck/build are required; the existing browser source-overlay tests cover pointer behavior, with the keyboard state contract added at the component boundary.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [renderer test](../backend/tests/test_template_logic.py), [review UI](../frontend/src/main.tsx), [source stories](epics.md).

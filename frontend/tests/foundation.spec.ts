@@ -651,6 +651,11 @@ test('reviewer can select a line-item value and highlight its source', async ({ 
   await page.locator('.review-source-value').first().click()
   await expect(page.locator('.source-element.active')).toHaveCount(1)
   await expect(page.locator('.source-field-highlight')).toHaveCount(1)
+  const sourceElement = page.locator('.source-element').first()
+  await sourceElement.focus()
+  await sourceElement.press('Enter')
+  await expect(sourceElement).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.source-field-highlight')).toHaveCount(1)
 })
 
 test('reviewer can save a correction and undo it from the review UI', async ({ page }) => {

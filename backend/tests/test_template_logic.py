@@ -223,8 +223,11 @@ def test_page_flow_controls_emit_break_and_keep_together_rules():
     artifact = result["artifact"]
     assert 'style="break-before:page;break-inside:avoid"' in artifact
     assert '<table class="template-table page-break-before keep-together">' in artifact
-    assert '.page-break-before{break-before:page;}' in artifact
+    assert '.page-break-before{break-before:page;page-break-before:always;}' in artifact
     assert 'orphans:3;widows:3' in artifact
+    assert 'page-break-before:always' in artifact
+    assert 'page-break-inside:avoid' in artifact
+    assert 'table.template-table tr{break-inside:avoid;page-break-inside:avoid;}' in artifact
 
 
 def test_image_blocks_support_bounded_fixed_and_bound_base64_sources():
