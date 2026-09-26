@@ -39,7 +39,7 @@ def _image_command() -> list[str]:
 
 
 def _centered_image_command() -> list[str]:
-    return [sys.executable, "-c", f"import pathlib,sys; html=pathlib.Path(sys.argv[1]).read_text(); assert '<figure class=\"template-image image-align-center\" style=\"text-align:center\">' in html; assert 'style=\"display:inline-block;width:' in html; pathlib.Path(sys.argv[2]).write_bytes({_pdf()!r})"]
+    return [sys.executable, "-c", f"import pathlib,sys; html=pathlib.Path(sys.argv[1]).read_text(); assert '<figure class=\"template-image image-align-center\" style=\"text-align:center\">' in html; assert 'style=\"display:block;margin-left:auto;margin-right:auto;' in html; pathlib.Path(sys.argv[2]).write_bytes({_pdf()!r})"]
 
 
 def _blank_pdf() -> bytes:

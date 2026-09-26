@@ -236,7 +236,7 @@ def test_image_blocks_support_bounded_fixed_and_bound_base64_sources():
                                {"logo": pixel})
     artifact = result["artifact"]
     assert '<figure class="template-image image-align-left" style="text-align:left"><img' in artifact
-    assert 'style="display:inline-block;width:120px"' in artifact
+    assert 'style="display:block;margin-left:0;margin-right:auto;width:120px"' in artifact
     assert 'alt="Brand"' in artifact and pixel in artifact
 
 
@@ -245,6 +245,8 @@ def test_image_alignment_is_emitted_as_bounded_figure_margins():
     right = render_definition({"blocks": [{"type": "image", "src": "data:image/png;base64,AA==", "align": "right"}]})["artifact"]
     assert '<figure class="template-image image-align-center" style="text-align:center">' in centered
     assert '<figure class="template-image image-align-right" style="text-align:right">' in right
+    assert 'style="display:block;margin-left:auto;margin-right:auto;width:240px"' in centered
+    assert 'style="display:block;margin-left:auto;margin-right:0;width:240px"' in right
 
 
 def test_image_blocks_reject_external_sources_by_default():

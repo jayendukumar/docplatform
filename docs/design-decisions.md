@@ -3861,3 +3861,15 @@ Supersedes/superseded by: [Decision ID when applicable]
 - **Consequences:** Page-flow intent survives more candidate-engine paths, and source highlighting is deterministic across pointer and keyboard interaction. Broader pagination corpus, IME behavior, native-reader review and accessibility audit remain open.
 - **Validation:** Focused renderer assertions and frontend typecheck/build are required; the existing browser source-overlay tests cover pointer behavior, with the keyboard state contract added at the component boundary.
 - **Implementation references:** [renderer](../backend/app/rendering.py), [renderer test](../backend/tests/test_template_logic.py), [review UI](../frontend/src/main.tsx), [source stories](epics.md).
+
+## DD-267: Put image alignment geometry on the replaced image element
+
+- **Date:** 2026-09-27
+- **Status:** Accepted and Implemented; final renderer selection and native-reader acceptance remain pending
+- **Affected stories:** E2-03, E4-11, E4-15, E4-16, E4-17
+- **Context:** Centered images could remain left-aligned in generated PDF output when an engine preserved the figure's `text-align` but laid out the inline replaced image from the figure's start edge. The renderer calculated alignment margins but did not emit them inline on the image.
+- **Choice:** Emit `display:block` and explicit left/right auto margins directly on every rendered image, preserving figure `text-align` and class CSS as fallback. Use the same helper for fixed, bound, uploaded and repeated image blocks.
+- **Alternatives:** Rely on figure `text-align`; rejected because it is engine-sensitive for replaced elements. Apply a post-PDF coordinate rewrite; rejected because it would be engine-specific and unsafe for multi-page content. Add a new renderer dependency; rejected because the defect is in the portable HTML contract.
+- **Consequences:** The generated artifact carries inspectable alignment geometry independent of selector matching. The fix does not establish two-engine parity, native-reader approval, font embedding, image compression, or vertical writing support.
+- **Validation:** Focused renderer and PDF suites pass (`54 passed, 3 warnings`); the fake configured-engine test verifies the staged centered margins, and the real Chromium candidate alignment test covers left/center/right X-position transforms.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [renderer tests](../backend/tests/test_template_logic.py), [PDF tests](../backend/tests/test_pdf_render.py), [defect report](image-centered-pdf.md), [source stories](epics.md).

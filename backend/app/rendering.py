@@ -222,7 +222,10 @@ def _render_image(block: dict[str, Any], data: dict[str, Any], locale: str, poli
         "center": "margin-left:auto;margin-right:auto;",
         "right": "margin-left:auto;margin-right:0;",
     }[align]
-    return f'<figure class="{classes}" style="text-align:{align}"><img src="{html.escape(source, quote=True)}" alt="{html.escape(alt, quote=True)}" style="display:inline-block;{image_size}" /></figure>', alt
+    # Keep the geometry on the replaced element itself.  A few PDF engines
+    # preserve the figure's text alignment but place an inline image at the
+    # figure's start edge; inline margins on a block image avoid that split.
+    return f'<figure class="{classes}" style="text-align:{align}"><img src="{html.escape(source, quote=True)}" alt="{html.escape(alt, quote=True)}" style="display:block;{horizontal_margin}{image_size}" /></figure>', alt
 
 
 def _render_code(block: dict[str, Any], data: dict[str, Any], locale: str, policy: str,
