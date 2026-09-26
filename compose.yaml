@@ -17,6 +17,9 @@ x-app: &app
     DOCPLATFORM_DB_USER: ${DOCPLATFORM_DB_USER:-docplatform}
     DOCPLATFORM_DB_PASSWORD: ${DOCPLATFORM_DB_PASSWORD:-docplatform-local}
     DOCPLATFORM_LOCAL_STORAGE_PATH: /data/objects
+    DOCPLATFORM_JOB_WORKER_ENABLED: ${DOCPLATFORM_JOB_WORKER_ENABLED:-false}
+    DOCPLATFORM_JOB_WORKER_RENDER_COUNT: ${DOCPLATFORM_JOB_WORKER_RENDER_COUNT:-1}
+    DOCPLATFORM_JOB_WORKER_EXTRACTION_COUNT: ${DOCPLATFORM_JOB_WORKER_EXTRACTION_COUNT:-1}
   volumes:
     - objects:/data/objects
     - ${PLATFORM_CONFIG_PATH:-./config.toml}:/app/config.toml:ro
@@ -68,6 +71,32 @@ services:
       timeout: 30s
       retries: 3
       start_period: 15s
+    restart: unless-stopped
+
+  render-worker:
+    <<: *app
+    command: [python, -m, app.worker_service, render]
+    cpus: ${DOCPLATFORM_WORKER_CPU_LIMIT:-2.0}
+    mem_limit: ${DOCPLATFORM_WORKER_MEMORY_LIMIT:-768m}
+    pids_limit: ${DOCPLATFORM_WORKER_PIDS_LIMIT:-256}
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  extraction-worker:
+    <<: *app
+    command: [python, -m, app.worker_service, extraction]
+    cpus: ${DOCPLATFORM_WORKER_CPU_LIMIT:-2.0}
+    mem_limit: ${DOCPLATFORM_WORKER_MEMORY_LIMIT:-768m}
+    pids_limit: ${DOCPLATFORM_WORKER_PIDS_LIMIT:-256}
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:

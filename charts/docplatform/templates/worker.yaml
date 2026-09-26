@@ -1,0 +1,33 @@
+{{- range $kind, $count := .Values.workers }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "docplatform.name" $ }}-{{ $kind }}-worker
+  labels: {{- include "docplatform.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $kind }}-worker
+spec:
+  replicas: {{ $count }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "docplatform.name" $ }}
+      app.kubernetes.io/component: {{ $kind }}-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "docplatform.name" $ }}
+        app.kubernetes.io/component: {{ $kind }}-worker
+    spec:
+      containers:
+        - name: {{ $kind }}-worker
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command: [python, -m, app.worker_service, {{ $kind }}]
+          env:
+            - {name: DOCPLATFORM_DB_HOST, value: {{ $.Values.database.host | quote }}}
+            - {name: DOCPLATFORM_DB_PORT, value: {{ $.Values.database.port | quote }}}
+            - {name: DOCPLATFORM_DB_NAME, value: {{ $.Values.database.name | quote }}}
+            - {name: DOCPLATFORM_DB_USER, value: {{ $.Values.database.user | quote }}}
+            - {name: DOCPLATFORM_DB_PASSWORD, value: {{ $.Values.database.password | quote }}}
+          resources: {{- toYaml $.Values.resources.worker | nindent 12 }}
+---
+{{- end }}

@@ -1,5 +1,6 @@
 import pytest
-from app.config import ConfigurationError, load_settings
+
+from app.config import ConfigurationError, Settings, load_settings
 
 
 def test_environment_overrides_file_and_paths_are_relative(clean_env, monkeypatch):
@@ -51,3 +52,10 @@ def test_explicit_missing_config_fails(clean_env, monkeypatch):
     monkeypatch.setenv("DOCPLATFORM_CONFIG_FILE", str(clean_env.parent / "missing.toml"))
     with pytest.raises(ConfigurationError):
         load_settings()
+
+
+def test_confidence_calibration_path_resolves_beside_config(clean_env):
+    clean_env.write_text('confidence_calibration_path = "profiles/calibration.json"\n', encoding="utf-8")
+    settings = load_settings()
+    assert settings.confidence_calibration_path == clean_env.parent / "profiles" / "calibration.json"
+    assert Settings(confidence_calibration_path="profile.json").confidence_calibration_path.name == "profile.json"

@@ -1,16 +1,16 @@
 # E1 foundation: implementation and verification
 
-Date: 2026-09-22. Scope: the six E1 MVP stories. The six R2 stories retain their original release. Source implementation is present; runtime dependency installation and behavioral testing are pending the licence exception in [DD-022](design-decisions.md). Do not interpret the commands below as evidence that they have run successfully.
+Date: 2026-09-24. Scope: the six E1 MVP stories. The six R2 stories retain their original release. Runtime and browser verification has now been executed; E1-06 remains partial because the actual rendering/OCR engines and measured minimum hardware evidence belong to downstream work.
 
 ## Story status
 
 | Story | Implementation | Acceptance evidence / remaining work |
 | --- | --- | --- |
-| E1-01: one-command start | Compose PostgreSQL + one-shot bootstrap + application; React workspace and persistent sample template | Compose syntax passes; image build, fresh startup and browser verification pending |
-| E1-02: configuration | One TOML file; typed DOCPLATFORM_ overrides; secret fields and sanitized errors | Configuration/redaction tests written, not run yet |
-| E1-03: local/S3 storage | Shared bounded put/get/delete/check interface and both adapters | Same parameterized suite written for local and Moto-emulated S3, not run yet; live-provider conformance not claimed |
-| E1-04: PostgreSQL/migrations | Two Alembic revisions, serialized upgrade, idempotent seed and schema-aware readiness | Fresh/upgrade/data-preservation/concurrency tests written for actual PostgreSQL, not run yet |
-| E1-05: health/readiness | Application liveness/readiness and PostgreSQL native health probe | Outage/redaction tests written, not run yet |
+| E1-01: one-command start | Compose PostgreSQL + one-shot bootstrap + application; React workspace and persistent sample template | Verified with rebuilt Compose service on host port 8001; UI/API/sample HTTP checks passed and both Playwright tests passed |
+| E1-02: configuration | One TOML file; typed DOCPLATFORM_ overrides; secret fields and sanitized errors | Configuration precedence, validation, and redaction tests passed; settings are documented above |
+| E1-03: local/S3 storage | Shared bounded put/get/delete/check interface and both adapters | Same parameterized suite passed for local disk and Moto-emulated S3; live-provider conformance is not claimed |
+| E1-04: PostgreSQL/migrations | Two Alembic revisions, serialized upgrade, idempotent seed and schema-aware readiness | Fresh install, upgrade preservation, repeat upgrade, concurrent migration, seed and readiness tests passed against disposable PostgreSQL |
+| E1-05: health/readiness | Application liveness/readiness and PostgreSQL native health probe | Outage/redaction, liveness, readiness and unmigrated-database tests passed; live readiness is healthy |
 | E1-06: CPU-only | CPU-only service definitions; no GPU runtime/devices; deployment guidance below | Partial: renderer/OCR do not exist yet, so their CPU execution and measured minimum hardware acceptance are pending E4/E8 |
 | E1-07 through E1-12 | Scheduled R2 | No historical-release upgrades, Helm/offline bundle/backup/retention features claimed; contributor commands below are setup aids, not full E1-12 acceptance |
 
@@ -71,6 +71,28 @@ For Compose, copy `.env.example` to `.env` when overrides are needed. `.env` is 
 | `s3_timeout_seconds` | `DOCPLATFORM_S3_TIMEOUT_SECONDS` | 5; connect and read timeout, 1-60 |
 | `s3_max_attempts` | `DOCPLATFORM_S3_MAX_ATTEMPTS` | 2 total attempts, including initial call; 1-5 |
 | `max_object_bytes` | `DOCPLATFORM_MAX_OBJECT_BYTES` | 10485760 (10 MiB); 1 byte to 1 GiB; foundation guard, not the eventual upload policy |
+| `max_image_pixels` | `DOCPLATFORM_MAX_IMAGE_PIXELS` | 100000000; declared raster pixel ceiling before ingestion storage/processing |
+| `max_pages_per_document` | `DOCPLATFORM_MAX_PAGES_PER_DOCUMENT` | 100; 1-10000; ingestion page-limit guard |
+| `job_timeout_seconds` | `DOCPLATFORM_JOB_TIMEOUT_SECONDS` | 30; wall-time limit for isolated document work |
+| `sync_render_max_blocks` | `DOCPLATFORM_SYNC_RENDER_MAX_BLOCKS` | 100; templates above this block count are queued instead of rendered synchronously |
+| `job_cpu_seconds` | `DOCPLATFORM_JOB_CPU_SECONDS` | 20; child CPU limit where the host supports resource limits |
+| `job_memory_bytes` | `DOCPLATFORM_JOB_MEMORY_BYTES` | 805306368 (768 MiB); child address-space limit where the host supports resource limits; sized for the packaged Chromium PDF candidate |
+| `job_max_output_bytes` | `DOCPLATFORM_JOB_MAX_OUTPUT_BYTES` | 5242880; serialized child-result limit |
+| `secure_cookies` | `DOCPLATFORM_SECURE_COOKIES` | false for local HTTP; set true when the external endpoint is HTTPS |
+| `virus_scan_command` | `DOCPLATFORM_VIRUS_SCAN_COMMAND` | JSON array of executable and fixed arguments; empty disables the optional hook |
+| `virus_scan_timeout_seconds` | `DOCPLATFORM_VIRUS_SCAN_TIMEOUT_SECONDS` | 15; scanner wall-time limit, 1-300 |
+| `image_allowed_hosts` | `DOCPLATFORM_IMAGE_ALLOWED_HOSTS` | Empty by default; exact hosts for explicitly enabled external image URLs; renderer never fetches URLs |
+| `confidence_calibration_path` | `DOCPLATFORM_CONFIDENCE_CALIBRATION_PATH` | Optional local JSON `confidence-calibration-v1` profile; relative paths resolve beside the selected TOML file; invalid profiles fail startup |
+| `word_converter_command` | `DOCPLATFORM_WORD_CONVERTER_COMMAND` | JSON array command receiving `input.docx output.pdf`; empty disables Word-to-PDF conversion; executable is operator-provided and runs shell-free with a reduced environment |
+| `word_converter_timeout_seconds` | `DOCPLATFORM_WORD_CONVERTER_TIMEOUT_SECONDS` | 60; Word converter wall-time limit, 1-3600 |
+| `pdf_renderer_command` | `DOCPLATFORM_PDF_RENDERER_COMMAND` | Legacy JSON array command receiving `input.html output.pdf`; empty uses the packaged Chromium adapter when selected, or disables a non-packaged renderer |
+| `pdf_renderer` | `DOCPLATFORM_PDF_RENDERER` | `chromium`; selected designer-PDF adapter (`chromium` or `prince`) |
+| `chromium_renderer_command` | `DOCPLATFORM_CHROMIUM_RENDERER_COMMAND` | Optional JSON array override receiving `input.html output.pdf`; empty uses the packaged pinned Chromium/Playwright script |
+| `prince_renderer_command` | `DOCPLATFORM_PRINCE_RENDERER_COMMAND` | JSON array Prince command; falls back to the legacy `pdf_renderer_command` when the selected renderer is Prince; commercial use requires an appropriate Prince license |
+| `prince_license_file` | `DOCPLATFORM_PRINCE_LICENSE_FILE` | Optional path to a Prince license file; resolved relative to the selected TOML file and passed only to the isolated Prince process |
+| `pdf_renderer_timeout_seconds` | `DOCPLATFORM_PDF_RENDERER_TIMEOUT_SECONDS` | 60; designer PDF renderer wall-time limit, 1-3600 |
+| `ocr_command` | `DOCPLATFORM_OCR_COMMAND` | JSON array command receiving `input.upload language` and writing the versioned OCR JSON envelope to stdout; empty leaves scan OCR unavailable; child receives a reduced environment |
+| `ocr_timeout_seconds` | `DOCPLATFORM_OCR_TIMEOUT_SECONDS` | 120; OCR adapter wall-time limit, 1-3600 |
 | `seed_sample` | `DOCPLATFORM_SEED_SAMPLE` | true; false skips sample creation |
 
 Compose-only variables are `PLATFORM_HTTP_PORT` (8000), `PLATFORM_CONFIG_PATH` (./config.toml), and `PLATFORM_TEST_DB_PORT` (55432 in the test stack). PostgreSQL container initialization uses the same DOCPLATFORM_DB_NAME/USER/PASSWORD values. Changing a password environment value does not rotate the password already stored inside an existing database volume; perform an actual PostgreSQL credential rotation rather than deleting data.
@@ -92,9 +114,23 @@ Storage probes use unique temporary keys and clean up after themselves. They val
 
 The current foundation needs no CUDA, GPU drivers or GPU passthrough. Docker definitions use ordinary CPU images. As an unbenchmarked starting allocation for development, reserve 2 CPU cores and 4 GiB RAM for Docker, with at least 5 GiB free space for images/build cache plus database and documents. This is a planning allocation, **not a measured minimum** and not an OCR sizing promise.
 
-E1-06 remains partial until E4/E8 are implemented and run on CPU. At that point record CPU model, core/thread allocation, RAM limit, model/font versions, document languages, page count/resolution, cold/warm runtime and peak memory. Derive supported minimum hardware and concurrency from those measurements. Do not mark extraction/rendering CPU acceptance from an API smoke test.
+To collect repeatable evidence from the currently available local paths, run:
 
-## Verification commands (not yet executed)
+```powershell
+backend\.venv\Scripts\python.exe scripts\benchmark_cpu_pipeline.py --iterations 3
+```
+
+The Compose queue benchmark was also run on 2026-09-25 against the local stack with four jobs and 20 deterministic HTML-render blocks per template. One render worker completed the sample in a 3.940 second median; two workers completed it in 2.532 seconds (`two_workers_faster: true`). This is observed local throughput for queued HTML renders only; it excludes PDF/OCR workloads, multi-host scaling and autoscaling, and does not establish a minimum hardware recommendation.
+
+The command writes `artifacts/cpu-pipeline-benchmark.json` with elapsed and process-CPU timings for the deterministic HTML candidate and local label extractor, plus the interpreter/host information. It intentionally records excluded Docling, PaddleOCR, Tesseract, PDF-engine and native-reader work, and never turns this small fixture into a hardware minimum or throughput promise.
+
+The standalone Compose workers additionally have an explicit outer boundary: each render and extraction worker defaults to 2 CPU cores, 768 MiB memory and 256 processes. Override `DOCPLATFORM_WORKER_CPU_LIMIT`, `DOCPLATFORM_WORKER_MEMORY_LIMIT` and `DOCPLATFORM_WORKER_PIDS_LIMIT` for a deliberate deployment size. These limits protect the service boundary and complement, but do not replace, the per-job wall-time, CPU, address-space and output limits described in [the jobs contract](jobs-contract.md). They are not a measured minimum or a capacity/SLO guarantee.
+
+E1-06 remains partial until the actual E4/E8 rendering and extraction engines are implemented and run on CPU. At that point record CPU model, core/thread allocation, RAM limit, model/font versions, document languages, page count/resolution, cold/warm runtime and peak memory. Derive supported minimum hardware and concurrency from those measurements. Do not mark extraction/rendering CPU acceptance from this bounded candidate benchmark or an API smoke test.
+
+E1-07 now has a current-chain compatibility regression from both recent pre-head migration boundaries (`0010_review_events` and `0011_correction_snapshots`) through the current head. The isolated PostgreSQL integration run passed all six integration-marked tests, preserving representative template and metadata rows. These checks are not a substitute for running against the previous two released product databases; no release tags or historical database fixtures are present in this repository, so the story remains partial.
+
+## Verification commands
 
 Create a repository-local virtual environment and install the reviewed test lock only after DD-022 is resolved:
 
@@ -141,10 +177,12 @@ Pop-Location
 
 A different application URL can be provided through `PLATFORM_TEST_URL`. Browser tests check real sample retrieval/navigation and narrow-screen overflow. Native-reader rendering review, full WCAG audit, real Safari coverage, hostile document processing and second-engineer sign-off are not claimed by these tests.
 
-## Verification performed so far
+## Verification performed
 
-- `python -m compileall -q backend` passed: Python syntax only.
-- `docker compose config --quiet` passed: Compose model validation only.
-- Registry dependency dry-runs completed; runtime/test locks and frontend package-lock generated.
-- Node, Python and PostgreSQL image manifests were inspected and pinned.
-- No application package installation, container build/start, pytest run, TypeScript build or browser run has been completed. Those require resolving DD-022 first.
+- `docker compose build web` passed; `docker compose up -d web` completed migrations and started `docplatform-web-1` on `127.0.0.1:8001`.
+- `/health/live`, `/health/ready`, `/api/templates`, `/api/templates/sample-welcome`, and `/` returned HTTP 200; readiness reported database, storage and frontend ready.
+- `npm run build` passed (`tsc --noEmit` and Vite); `npm run test:e2e` passed with 2 tests against `http://localhost:8001`.
+- Backend unit/contract suite passed: `102 passed, 5 skipped, 3 warnings` without the integration database.
+- Backend suite passed against the disposable PostgreSQL Compose stack: `79 passed, 1 skipped, 6 warnings`.
+- `backend\\.venv\\Scripts\\python.exe scripts\\benchmark_cpu_pipeline.py --iterations 5` passed on Windows 11 with an Intel64 Family 6 Model 142 CPU and 8 logical CPUs; the report records the deterministic HTML and local-label candidate timings and explicitly excludes OCR/layout/PDF sizing claims.
+- `git diff --check` passed. No accessibility certification, native-reader approval, live S3 vendor conformance, or CPU rendering/OCR benchmark is claimed.

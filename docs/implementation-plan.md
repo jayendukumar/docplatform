@@ -1,6 +1,14 @@
 # Backlog analysis and implementation plan
 
-Date: 2026-09-22. This plan interprets the [218 source stories](epics.md); it does not silently change their priority, release or acceptance criteria. E1 MVP foundation implementation has started; see [E1 status](e1-foundation.md) for prepared code and pending verification. Other epic implementation is unstarted. Proposed choices are in the [decision register](design-decisions.md).
+Date: 2026-09-24. This plan interprets the [218 source stories](epics.md); it does not silently change their priority, release or acceptance criteria. The repository now contains evidence-backed MVP contract slices across E1-E14; the authoritative per-story overlay is [storyStatus.ts](../frontend/src/storyStatus.ts). Stories remain `partial` where their source acceptance still requires native-reader, OCR, licensing, calibration, or deployment evidence. Proposed choices and evidence are in the [decision register](design-decisions.md).
+
+## Current implementation position
+
+The delivered slices cover the local foundation, template/data contracts, bounded editor and preview flows, template governance, extraction schemas and local extraction, review/correction workflows, API/jobs/integration boundaries, security controls, and documentation/status surfaces. The current live Compose topology and full backend regression are maintained as validation evidence, not as proof that every Must story is complete.
+
+Run `python scripts/audit_must_status.py` to verify that every `Must` row in the source backlog has an explicit status in the UI overlay. The command reports the implemented/partial/planned split and fails if a source Must ID is missing from the overlay.
+
+The principal open Must gates are: production PDF/Word rendering and native-reader fidelity; complex-script shaping, font embedding and visual regression; Docling/PaddleOCR or another reviewed local OCR/layout engine; held-out confidence calibration and accuracy evidence; exact PDF page-image review alignment; complete hostile-parser/resource containment across supported deployments; and the selected project licence/contribution agreement. These gates remain visible in the story overlay and relevant decision records.
 
 ## Verified scope
 
@@ -42,7 +50,7 @@ This table adds implementation guidance. The complete original stories and goals
 
 Begin E4-01 and supporting experiments before a full editor build. Create a representative native-reviewed corpus, compare renderer candidates and test Word conversion. Draft the TemplateDefinition, PageModel, ExtractionResult and job contracts. Run a small CPU-only OCR pipeline and inventory dependency/font/model licences. Produce a benchmark methodology and record all results in the decision register.
 
-Exit: evidence-based renderer recommendation, documented coverage gaps, a feasible dependency policy and a demonstrable CPU-only path. M0 is a sequencing aid, not a new source release or a claim that MVP stories are already done.
+Exit: evidence-based renderer recommendation, documented coverage gaps, a feasible dependency policy and a demonstrable CPU-only path. The bounded candidate benchmark is recorded with `scripts/benchmark_cpu_pipeline.py`; it does not substitute for the engine-specific CPU/OCR benchmark. M0 is a sequencing aid, not a new source release or a claim that MVP stories are already done.
 
 ### M1: generation with multilingual proof
 

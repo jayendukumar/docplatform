@@ -1,0 +1,19 @@
+name: dependency licence scan
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check dependency metadata and emit SBOM
+        run: python scripts/check_licenses.py
+      - name: Upload SBOM and licence report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-sbom-and-licence-report
+          path: artifacts/

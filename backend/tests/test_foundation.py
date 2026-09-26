@@ -70,6 +70,25 @@ def test_upgrade_preserves_existing_template(postgres_engine):
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize("source_revision", ["0010_review_events", "0011_correction_snapshots"])
+def test_upgrade_from_recent_pre_head_revisions_preserves_templates(postgres_engine, source_revision):
+    """Exercise the current migration chain from both recent release boundaries."""
+    with postgres_engine.begin() as connection:
+        config = migration_config()
+        config.attributes["connection"] = connection
+        command.upgrade(config, source_revision)
+        connection.execute(text(
+            "INSERT INTO templates (id, name, object_key, schema_version, folder, tags_json) "
+            "VALUES ('compat', 'Compatibility template', 'templates/compat.json', 1, 'legacy', '[\"compat\"]')"
+        ))
+    migrate(postgres_engine)
+    with postgres_engine.connect() as connection:
+        row = connection.execute(text("SELECT name, folder, tags_json FROM templates WHERE id = 'compat'")).one()
+        assert tuple(row) == ("Compatibility template", "legacy", '["compat"]')
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == expected_revision()
+
+
+@pytest.mark.integration
 def test_concurrent_bootstraps_serialize_migrations(postgres_engine):
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = [executor.submit(migrate, postgres_engine) for _ in range(2)]

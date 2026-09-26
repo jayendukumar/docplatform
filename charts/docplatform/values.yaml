@@ -1,0 +1,20 @@
+image:
+  repository: docplatform
+  tag: local
+  pullPolicy: IfNotPresent
+replicaCount: 1
+service:
+  type: ClusterIP
+  port: 8000
+database:
+  host: docplatform-postgres
+  port: 5432
+  name: docplatform
+  user: docplatform
+  password: change-me
+workers:
+  render: 1
+  extraction: 1
+resources:
+  web: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: "2", memory: 1Gi}}
+  worker: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: "2", memory: 768Mi}}

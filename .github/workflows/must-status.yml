@@ -1,0 +1,29 @@
+name: Must story status audit
+
+on:
+  push:
+    paths:
+      - 'docs/epics.md'
+      - 'frontend/src/storyStatus.ts'
+      - 'scripts/audit_must_status.py'
+      - 'docs/design-decisions.md'
+      - '.github/workflows/must-status.yml'
+  pull_request:
+    paths:
+      - 'docs/epics.md'
+      - 'frontend/src/storyStatus.ts'
+      - 'scripts/audit_must_status.py'
+      - 'docs/design-decisions.md'
+      - '.github/workflows/must-status.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Audit source Must stories against the status overlay
+        run: python scripts/audit_must_status.py

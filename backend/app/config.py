@@ -1,7 +1,8 @@
 """One TOML file plus explicit environment overrides; never echo secret inputs."""
-from pathlib import Path
+import json
 import os
 import tomllib
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, model_validator
@@ -38,7 +39,36 @@ class Settings(BaseModel):
     s3_timeout_seconds: int = Field(default=5, ge=1, le=60)
     s3_max_attempts: int = Field(default=2, ge=1, le=5)
     max_object_bytes: int = Field(default=10485760, ge=1, le=1073741824)
+    max_image_pixels: int = Field(default=100_000_000, ge=1, le=10_000_000_000)
+    max_pages_per_document: int = Field(default=100, ge=1, le=10000)
+    job_timeout_seconds: int = Field(default=30, ge=1, le=3600)
+    sync_render_max_blocks: int = Field(default=100, ge=1, le=100000)
+    job_cpu_seconds: int = Field(default=20, ge=1, le=3600)
+    job_memory_bytes: int = Field(default=536870912, ge=16 * 1024 * 1024, le=8 * 1024 * 1024 * 1024)
+    job_max_output_bytes: int = Field(default=5242880, ge=1024, le=1073741824)
+    job_worker_enabled: bool = False
+    job_worker_poll_seconds: float = Field(default=0.5, gt=0.05, le=60)
+    job_worker_render_count: int = Field(default=1, ge=0, le=32)
+    job_worker_extraction_count: int = Field(default=1, ge=0, le=32)
+    secure_cookies: bool = False
+    virus_scan_command: list[str] = Field(default_factory=list)
+    virus_scan_timeout_seconds: int = Field(default=15, ge=1, le=300)
+    webhook_allowed_hosts: list[str] = Field(default_factory=list)
+    image_allowed_hosts: list[str] = Field(default_factory=list)
+    webhook_timeout_seconds: int = Field(default=5, ge=1, le=60)
+    confidence_calibration_path: Path | None = None
+    word_converter_command: list[str] = Field(default_factory=list)
+    word_converter_timeout_seconds: int = Field(default=60, ge=1, le=3600)
+    pdf_renderer_command: list[str] = Field(default_factory=list)
+    pdf_renderer: Literal["chromium", "prince"] = "chromium"
+    chromium_renderer_command: list[str] = Field(default_factory=list)
+    prince_renderer_command: list[str] = Field(default_factory=list)
+    prince_license_file: Path | None = None
+    pdf_renderer_timeout_seconds: int = Field(default=60, ge=1, le=3600)
+    ocr_command: list[str] = Field(default_factory=list)
+    ocr_timeout_seconds: int = Field(default=120, ge=1, le=3600)
     seed_sample: bool = True
+    template_publish_requires_approval: bool = False
 
     @model_validator(mode="after")
     def validate_s3(self):
@@ -72,11 +102,25 @@ def load_settings() -> Settings:
                 field = name.removeprefix("DOCPLATFORM_").lower()
                 if field not in Settings.model_fields:
                     raise ConfigurationError("Unknown DOCPLATFORM setting")
+                if field in {"virus_scan_command", "word_converter_command", "pdf_renderer_command", "chromium_renderer_command", "prince_renderer_command", "ocr_command"}:
+                    try:
+                        value = json.loads(value)
+                    except json.JSONDecodeError:
+                        raise ConfigurationError("Invalid configuration; check the documented settings") from None
                 values[field] = value
         settings = Settings.model_validate(values)
         local = settings.local_storage_path
+        updates = {}
         if not local.is_absolute():
-            settings = settings.model_copy(update={"local_storage_path": (path.parent / local).resolve()})
+            updates["local_storage_path"] = (path.parent / local).resolve()
+        calibration_path = settings.confidence_calibration_path
+        if calibration_path is not None and not calibration_path.is_absolute():
+            updates["confidence_calibration_path"] = (path.parent / calibration_path).resolve()
+        license_path = settings.prince_license_file
+        if license_path is not None and not license_path.is_absolute():
+            updates["prince_license_file"] = (path.parent / license_path).resolve()
+        if updates:
+            settings = settings.model_copy(update=updates)
         return settings
     except ConfigurationError:
         raise

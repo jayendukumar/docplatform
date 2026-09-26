@@ -1,0 +1,34 @@
+name: Feature request
+description: Propose a traceable improvement to the document platform.
+title: "[feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and user
+      description: Who needs this and what outcome is currently missing?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope
+      description: Identify affected source story IDs, contracts, and acceptance evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and consequences
+      description: Describe alternatives, operational/security effects, and licence implications.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I have removed secrets and customer data.
+          required: true
+        - label: I have read the Code of Conduct.
+          required: true

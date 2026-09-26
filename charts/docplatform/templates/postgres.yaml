@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "docplatform.name" . }}-postgres
+  labels: {{- include "docplatform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  serviceName: {{ include "docplatform.name" . }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "docplatform.name" . }}
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "docplatform.name" . }}
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-bookworm
+          ports: [{name: postgres, containerPort: 5432}]
+          env:
+            - {name: POSTGRES_DB, value: {{ .Values.database.name | quote }}}
+            - {name: POSTGRES_USER, value: {{ .Values.database.user | quote }}}
+            - {name: POSTGRES_PASSWORD, value: {{ .Values.database.password | quote }}}
+          volumeMounts:
+            - {name: postgres-data, mountPath: /var/lib/postgresql/data}
+          readinessProbe:
+            exec: {command: [sh, -c, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+  volumeClaimTemplates:
+    - metadata: {name: postgres-data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: {requests: {storage: 10Gi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "docplatform.name" . }}-postgres
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: {{ include "docplatform.name" . }}
+    app.kubernetes.io/component: database
+  ports: [{name: postgres, port: 5432, targetPort: postgres}]

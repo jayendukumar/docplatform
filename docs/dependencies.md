@@ -12,6 +12,8 @@ See [machine-readable inventory](dependency-inventory.json), [DD-013/DD-022](des
 - certifi (MPL-2.0): test-only trust store pulled through HTTP test dependencies; it is not in the application runtime lock. Lightning CSS (MPL-2.0) is a Vite build dependency, including platform-specific optional binaries. Neither is a reason to assume approval for LibreOffice/MPL.
 - Container base operating-system and browser-test binaries: broader transitive licences must be inventoried before distributing images. The application metadata list is not a complete container SBOM.
 - Legacy/empty/compound metadata remains visible below and needs package LICENSE review; it is not silently normalized to an allowed licence.
+- E2-04 adds `qrcode==8.2` (declared BSD) and `python-barcode==0.16.1` (declared MIT) for offline SVG generation. They are recorded as runtime dependencies, but the strict allow-list remains unresolved and no compliance claim is made.
+- E2-15 adds `pypdf==6.1.3`; the wheel contains a BSD-style licence file, but it remains subject to the unresolved strict allow-list and full transitive/container review. It is used only for local PDF page compositing and does not fetch files or execute document content.
 
 ## Resolved packages
 
@@ -167,3 +169,19 @@ The locked frontend and backend test dependencies were installed for validation.
 - Backend test graph: `certifi==2026.7.22` declares MPL-2.0. `httpx` declares BSD-3-Clause, while several installed distributions expose no simple `License` metadata and require upstream LICENSE/classifier review (including `cffi`, `click`, `colorama`, `cryptography`, `greenlet`, `idna`, `MarkupSafe`, `packaging` and `Werkzeug`).
 
 These are review flags, not approval or a claim of compliance. The exact package versions remain pinned in the lockfiles; no dependency was substituted to hide a licence expression.
+
+## OCR/layout candidate feasibility review (2026-09-24)
+
+The candidate distributions were inspected with `pip download --no-deps` only; they were not installed into the application environment and were not added to either lockfile.
+
+| Candidate | Version | Direct metadata | Evidence and remaining gate |
+| --- | --- | --- | --- |
+| `docling` | 2.130.0 | No licence value in wheel metadata; depends on `docling-slim[standard]==2.130.0` | The wrapper is not a self-contained runtime. The slim dependency graph, model files and their licences, CPU compatibility and PageModel coverage still require a controlled spike. |
+| `paddleocr` | 3.7.0 | Apache License 2.0; depends on `paddlex[ocr-core]>=3.7.0,<3.8.0` | The direct declaration does not establish the licence or CPU/runtime suitability of PaddleX, native dependencies, language packs or model weights. No model download or execution was performed. |
+| `pytesseract` | 0.3.13 | Apache License 2.0; depends on `packaging` and `Pillow` | This is a Python adapter, not the Tesseract engine. A separately installed Tesseract binary and language data would need isolation, version and licence review. |
+
+Consequently, E8-03 and E8-04 remain partial and E8-08 remains a capability registry/contract rather than an installed-engine claim. The local deterministic extraction path and explicit unavailable-OCR state remain the supported offline behavior until the dependency, model, sandbox and acceptance evidence is complete. See DD-160.
+
+## Strict scan
+
+Run `python scripts/check_licenses.py` from the repository root to scan the checked-in dependency inventory, emit `artifacts/sbom.cdx.json` and `artifacts/license-report.json`, and fail on unknown, compound or non-MIT/Apache-2.0/OFL metadata. `--allow-findings` is available only to produce evidence while the policy decision is unresolved; it must not be used as a compliance claim. The GitHub Actions workflow runs the strict command and uploads both reports even when the check fails.

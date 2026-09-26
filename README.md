@@ -6,11 +6,25 @@ Planning baseline created on 2026-09-22 from [the supplied backlog](Backlog_DocG
 | --- | --- |
 | [E1 foundation](docs/e1-foundation.md) | Setup, configuration, per-story status and verification commands |
 | [Dependency review](docs/dependencies.md) | Pinned foundation dependencies and outstanding licence exceptions |
+| [Licence scan](docs/dependencies.md#strict-scan) | Strict allow-list scan and generated SBOM workflow |
 | [All epics and stories](docs/epics.md) | All 15 epics and 218 stories, with original acceptance criteria, priority, size and release |
 | [Technology stack](docs/tech-stack.md) | Recommended architecture, alternatives, dependency constraints and research sources |
 | [Implementation plan](docs/implementation-plan.md) | Epic dependencies, milestones, validation gates and unresolved requirements |
 | [Design decisions](docs/design-decisions.md) | Living decision register; proposed choices remain distinct from accepted or implemented choices |
+| [Script test matrix](docs/script-test-matrix.md) | Current offline multilingual contract coverage and explicit review gaps |
+| [Ingestion contract](docs/ingestion-contract.md) | Upload validation, routing, and versioned PageModel contract |
+| [Extraction contract](docs/extraction-contract.md) | Bundled schemas and offline provenance-preserving local extraction |
+| [Review contract](docs/review-contract.md) | Revision-safe corrections, review states, and approved-only binding |
+| [Template contract](docs/template-contract.md) | Versioned text and repeatable-table blocks used by the editor and renderer |
+| [Authentication contract](docs/auth-contract.md) | Local password storage, sessions, CSRF, and review mutation protection |
+| [TLS deployment](docs/tls.md) | Reverse-proxy examples and secure-cookie deployment setting |
+| [Jobs contract](docs/jobs-contract.md) | Durable render/extraction queue state, leases, polling, and known worker gaps |
+| [API reference](docs/api-reference.md) | Generated OpenAPI explorer, render flow and contract verification |
+| [Ten-minute quickstart](docs/quickstart.md) | Compose readiness, API explorer and verified candidate render |
+| [Local development](docs/local-development.md) | Non-Docker contributor setup and its boundaries |
 | [Project instructions](AGENTS.md) | Instructions for future implementation and use of project skills |
+| [Contributing](CONTRIBUTING.md) | Contributor workflow and evidence checklist |
+| [Code of Conduct](CODE_OF_CONDUCT.md) | Community behavior policy and current governance gap |
 
 Recommended direction: React/TypeScript and ProseMirror for the editor, FastAPI/Python for APIs and processing, PostgreSQL for metadata and durable jobs, local/S3-compatible file storage, and isolated document workers. Compare Chromium and WeasyPrint before choosing the PDF renderer. Use Docling, PaddleOCR and a Tesseract adapter for digitization. Word-to-PDF conversion and the broader runtime depend on resolving the backlog's licence-policy conflict.
 

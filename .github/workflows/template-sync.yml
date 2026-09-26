@@ -1,0 +1,30 @@
+name: template repository sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Authenticated Document Platform base URL"
+        required: true
+        type: string
+      template_ids:
+        description: "Comma-separated template IDs to push from templates/sync"
+        required: true
+        type: string
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Push repository template definitions
+        env:
+          DOCPLATFORM_SYNC_API_KEY: ${{ secrets.DOCPLATFORM_SYNC_API_KEY }}
+        run: |
+          set -eu
+          python scripts/sync_templates.py push templates/sync --base-url "${{ inputs.base_url }}" --template-id "${{ inputs.template_ids }}"

@@ -1,0 +1,29 @@
+name: extraction benchmark
+
+on:
+  push:
+    paths:
+      - 'backend/app/extraction.py'
+      - 'backend/tests/fixtures/extraction_benchmark.jsonl'
+      - 'scripts/benchmark_extraction.py'
+      - '.github/workflows/extraction-benchmark.yml'
+  pull_request:
+    paths:
+      - 'backend/app/extraction.py'
+      - 'backend/tests/fixtures/extraction_benchmark.jsonl'
+      - 'scripts/benchmark_extraction.py'
+      - '.github/workflows/extraction-benchmark.yml'
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run labelled extraction benchmark
+        run: python scripts/benchmark_extraction.py --input backend/tests/fixtures/extraction_benchmark.jsonl --output artifacts/extraction-benchmark.json
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: extraction-benchmark-report
+          path: artifacts/extraction-benchmark.json
