@@ -3837,3 +3837,15 @@ Supersedes/superseded by: [Decision ID when applicable]
 - **Consequences:** Timeout and output-limit failures have a stronger descendant-cleanup guarantee on Windows without changing the public job contract. The remaining acceptance gate still requires stable native resource-exhaustion and supported-deployment evidence.
 - **Validation:** Focused worker tests pass, including the Windows termination-path regression; full backend regression remains the required follow-up.
 - **Implementation references:** [worker supervisor](../backend/app/worker.py), [worker tests](../backend/tests/test_jobs.py), [jobs contract](jobs-contract.md), [source stories](epics.md).
+
+## DD-265: Add a held-out confidence-profile evaluation boundary
+
+- **Date:** 2026-09-26
+- **Status:** Accepted and Implemented as an E9-04 evidence tool; production calibration remains partial
+- **Affected stories:** E9-04, E9-10
+- **Context:** The platform could generate and apply isotonic profiles, but there was no dedicated command that compared calibrated confidence on a separate labelled evaluation corpus. Reusing the calibration fixture would leak labels and could be mistaken for acceptance evidence.
+- **Choice:** Add an offline evaluator that reports raw versus calibrated accuracy, Brier score and absolute calibration error by schema and overall. Bind the evaluation artifact to its input SHA-256 and reject an exact hash match with the profile's recorded calibration corpus.
+- **Alternatives:** Treat the calibration-corpus benchmark as held-out evidence; rejected because it leaks labels. Add a model or remote scoring service; rejected because local CPU/offline operation is required. Promote E9-04 to complete from deterministic fixture metrics; rejected because representative held-out accuracy and calibration review remain unavailable.
+- **Consequences:** Operators have a reproducible, provenance-bound path for measuring whether a reviewed profile improves calibration. The checked-in fixture remains contract coverage only, and the application continues to require an explicitly configured profile.
+- **Validation:** The evaluator regression covers raw/calibrated metric output; the full backend suite and script smoke command remain required for release evidence.
+- **Implementation references:** [evaluator](../scripts/evaluate_calibration.py), [evaluator tests](../backend/tests/test_calibration_evaluation.py), [extraction contract](extraction-contract.md), [source stories](epics.md).
