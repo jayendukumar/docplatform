@@ -11,4 +11,6 @@ __pycache__/
 config.local.toml
 data/
 frontend/dist/
+/test-results/
+/frontend/test-results/
 artifacts/
