@@ -14,3 +14,8 @@ frontend/dist/
 /test-results/
 /frontend/test-results/
 artifacts/
+# Local-only fidelity corpus material (DD-417): copyrighted sources and generated comparisons stay out of git.
+/2002-ISDA-Master-Agreement.pdf
+/generated-isda*.pdf
+/fidelity-corpus/local/
+/fidelity-corpus/generated/

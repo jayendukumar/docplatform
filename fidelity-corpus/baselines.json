@@ -1,0 +1,111 @@
+{
+  "contract": "fidelity-baseline-v1",
+  "decision": "DD-448",
+  "updated": "2026-10-02",
+  "metrics": {
+    "text_f1": [
+      "higher",
+      0.01
+    ],
+    "reading_order": [
+      "higher",
+      0.02
+    ],
+    "same_page": [
+      "higher",
+      0.02
+    ],
+    "position_within_3mm": [
+      "higher",
+      0.03
+    ],
+    "size_match": [
+      "higher",
+      0.02
+    ],
+    "visual_f1": [
+      "higher",
+      0.03
+    ],
+    "control_median_dx_mm": [
+      "lower",
+      0.5
+    ],
+    "expected_feature_recall": [
+      "higher",
+      0.0
+    ],
+    "page_count_match": [
+      "higher",
+      0.0
+    ]
+  },
+  "documents": {
+    "contract": {
+      "text_f1": 0.9978,
+      "reading_order": 0.9978,
+      "same_page": 1.0,
+      "position_within_3mm": 0.8266,
+      "size_match": 1.0,
+      "visual_f1": 0.9738,
+      "control_median_dx_mm": 0.0,
+      "expected_feature_recall": 1.0,
+      "page_count_match": 1.0
+    },
+    "form": {
+      "text_f1": 1.0,
+      "reading_order": 1.0,
+      "same_page": 1.0,
+      "position_within_3mm": 1.0,
+      "size_match": 1.0,
+      "visual_f1": 1.0,
+      "control_median_dx_mm": 0.0,
+      "expected_feature_recall": 1.0,
+      "page_count_match": 1.0
+    },
+    "invoice": {
+      "text_f1": 1.0,
+      "reading_order": 1.0,
+      "same_page": 1.0,
+      "position_within_3mm": 1.0,
+      "size_match": 1.0,
+      "visual_f1": 0.9748,
+      "control_median_dx_mm": 0.0,
+      "expected_feature_recall": 1.0,
+      "page_count_match": 1.0
+    },
+    "letter": {
+      "text_f1": 1.0,
+      "reading_order": 1.0,
+      "same_page": 1.0,
+      "position_within_3mm": 1.0,
+      "size_match": 1.0,
+      "visual_f1": 0.9978,
+      "control_median_dx_mm": 0.02,
+      "expected_feature_recall": 1.0,
+      "page_count_match": 1.0
+    },
+    "report": {
+      "text_f1": 1.0,
+      "reading_order": 1.0,
+      "same_page": 1.0,
+      "position_within_3mm": 1.0,
+      "size_match": 1.0,
+      "visual_f1": 1.0,
+      "control_median_dx_mm": 0.01,
+      "expected_feature_recall": 1.0,
+      "page_count_match": 1.0
+    },
+    "statement": {
+      "text_f1": 1.0,
+      "reading_order": 0.9803,
+      "same_page": 1.0,
+      "position_within_3mm": 0.9955,
+      "size_match": 0.9955,
+      "visual_f1": 0.9937,
+      "control_median_dx_mm": 0.05,
+      "expected_feature_recall": 1.0,
+      "page_count_match": 1.0
+    }
+  }
+}

@@ -15,7 +15,7 @@ from app.main import create_app
 from app.models import Base
 from app.pdf_render import PdfRenderError, PdfRenderUnavailable, render_html_to_pdf
 from app.pdf_background import PdfBackgroundError, merge_pdf_background
-from app.pdf_toc import add_toc_page_numbers
+from app.pdf_toc import add_page_numbers, add_toc_page_numbers
 from app.renderer_adapter import default_command
 from app.rendering import render_definition
 from app.storage import LocalStore
@@ -118,9 +118,39 @@ def test_render_pdf_endpoint_runs_renderer_inside_worker_boundary(tmp_path):
         assert response.status_code == 200, response.text
         assert response.json()["report"]["status"] == "candidate"
         assert response.json()["report"]["render_locale"] == "en"
+        assert response.json()["report"]["locked_background"] == "omitted"
         document = response.json()["document_base64"]
         assert document.startswith("JVBER")
         assert response.json()["report"]["output_bytes"] == len(base64.b64decode(document))
+
+
+def test_render_pdf_uses_its_own_bounded_block_limit(tmp_path):
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    settings = Settings(pdf_renderer_command=_command(), sync_pdf_render_max_blocks=2)
+    with TestClient(create_app(settings=settings, engine=engine,
+                               store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
+        created = client.post("/api/templates", json={"name": "PDF limit", "definition": {
+            "name": "PDF limit", "blocks": [{"type": "text", "text": str(index)} for index in range(3)]}}).json()
+        response = client.post(f"/api/templates/{created['id']}/render-pdf", json={})
+        assert response.status_code == 413
+        assert response.json()["detail"] == "template exceeds the synchronous PDF render block limit"
+
+
+def test_render_pdf_editable_only_comparison_omits_locked_background(tmp_path):
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    settings = Settings(pdf_renderer_command=_command())
+    background = "data:application/pdf;base64," + base64.b64encode(_pdf()).decode("ascii")
+    with TestClient(create_app(settings=settings, engine=engine,
+                               store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
+        created = client.post("/api/templates", json={"name": "Editable comparison", "definition": {
+            "name": "Editable comparison", "page": {"background_pdf": background},
+            "blocks": [{"type": "text", "text": "Editable foreground"}],
+        }}).json()
+        response = client.post(f"/api/templates/{created['id']}/render-pdf", json={"comparison_mode": "editable-only"})
+        assert response.status_code == 200, response.text
+        assert response.json()["report"]["locked_background"] == "omitted"
 
 
 def test_render_pdf_endpoint_stages_uploaded_asset_into_network_disabled_input(tmp_path):
@@ -218,3 +248,43 @@ def test_real_chromium_pdf_repeats_table_header_and_keeps_rows_together():
     assert all(page.count("Description") == 1 for page in pages)
     assert "ROW-ONE" in pages[0] and "ROW-ONE" not in pages[1]
     assert "ROW-TWO" not in pages[0] and "ROW-TWO" in pages[1]
+
+
+def test_page_number_overlay_uses_physical_page_index_and_preserves_metadata():
+    from pypdf import PdfWriter
+
+    output = BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    writer.add_blank_page(width=612, height=792)
+    writer.add_metadata({"/Title": "Numbered fixture", "/Author": "DocPlatform"})
+    writer.write(output)
+    numbered = add_page_numbers(output.getvalue(), 20, 20, 1_000_000)
+    reader = PdfReader(BytesIO(numbered))
+    assert reader.metadata["/Title"] == "Numbered fixture"
+    assert "1" in (reader.pages[0].extract_text() or "")
+    assert "2" in (reader.pages[1].extract_text() or "")
+
+
+def test_page_number_overlay_is_isolated_from_a_leaked_content_transform():
+    # DD-429: Chromium leaves a scaling/flipping CTM active; without q/Q isolation the overlay was ~2 pt at top-left.
+    import sys
+    from pathlib import Path
+
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, NameObject
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from fidelity.source_model import analyse_pdf
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    leaked = DecodedStreamObject()
+    leaked.set_data(b"0.24 0 0 -0.24 0 792 cm")  # transform left active, as Chromium does
+    page[NameObject("/Contents")] = writer._add_object(leaked)
+    output = BytesIO()
+    writer.write(output)
+    numbered = analyse_pdf(add_page_numbers(output.getvalue(), 20, 20, 1_000_000))
+    (word,) = numbered["pages"][0]["words"]
+    assert word["text"] == "1" and word["size_pt"] == 9
+    assert word["y_mm"] > 260 and word["x_mm"] > 150

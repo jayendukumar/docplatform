@@ -22,6 +22,8 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest==9.1.1", "httpx==0.28.1", "moto[s3]==5.2.3", "ruff==0.16.8"]
+# E16 fidelity harness only (DD-419); never part of the application image or runtime lock.
+fidelity = ["pypdfium2==5.13.0"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]

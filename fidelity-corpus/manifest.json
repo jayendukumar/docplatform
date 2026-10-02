@@ -1,0 +1,33 @@
+{
+  "contract": "fidelity-corpus-v1",
+  "description": "E16 fidelity corpus (DD-423). Generated documents are project-authored fixtures built by scripts/build_fidelity_corpus.py; local-only documents are git-ignored and skipped when absent.",
+  "generator": "scripts/build_fidelity_corpus.py",
+  "pending_categories": ["rtl-or-cjk", "image-or-chart"],
+  "documents": [
+    {"id": "letter", "category": "letter", "path": "fidelity-corpus/generated/letter.pdf", "origin": "generated",
+     "licence": "project-authored fixture",
+     "expected_features": ["text.align_justify", "text.align_center", "text.align_right", "text.first_line_indent",
+                           "text.decimal_size", "graphic.rule"]},
+    {"id": "invoice", "category": "invoice", "path": "fidelity-corpus/generated/invoice.pdf", "origin": "generated",
+     "licence": "project-authored fixture",
+     "expected_features": ["table.grid", "graphic.box", "graphic.rule", "text.align_right", "text.heading"]},
+    {"id": "form", "category": "form", "path": "fidelity-corpus/generated/form.pdf", "origin": "generated",
+     "licence": "project-authored fixture",
+     "expected_features": ["tab.dot_leader", "graphic.box", "form.signature_block", "text.heading"]},
+    {"id": "report", "category": "multi-column report", "path": "fidelity-corpus/generated/report.pdf",
+     "origin": "generated", "licence": "project-authored fixture",
+     "expected_features": ["layout.columns", "page.running_header", "page.page_number", "text.align_justify",
+                           "text.heading", "graphic.rule"]},
+    {"id": "statement", "category": "table-heavy statement", "path": "fidelity-corpus/generated/statement.pdf",
+     "origin": "generated", "licence": "project-authored fixture",
+     "expected_features": ["table.grid", "page.running_header", "page.page_number", "graphic.box", "graphic.rule"]},
+    {"id": "contract", "category": "clause-numbered contract", "path": "fidelity-corpus/generated/contract.pdf",
+     "origin": "generated", "licence": "project-authored fixture",
+     "expected_features": ["list.numbered_label", "text.hanging_indent", "text.align_justify", "text.align_center"]},
+    {"id": "isda-2002", "category": "clause-numbered contract", "path": "2002-ISDA-Master-Agreement.pdf",
+     "origin": "local", "local_only": true,
+     "licence": "ISDA copyright; local-only comparison input, never redistributed (DD-417)",
+     "expected_features": ["list.numbered_label", "text.align_justify", "tab.dot_leader", "page.running_footer",
+                           "page.page_number", "text.mixed_inline_style"]}
+  ]
+}

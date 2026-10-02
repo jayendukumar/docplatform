@@ -8,6 +8,7 @@ Planning baseline created on 2026-09-22 from [the supplied backlog](Backlog_DocG
 | [Dependency review](docs/dependencies.md) | Pinned foundation dependencies and outstanding licence exceptions |
 | [Licence scan](docs/dependencies.md#strict-scan) | Strict allow-list scan and generated SBOM workflow |
 | [All epics and stories](docs/epics.md) | All 15 epics and 218 stories, with original acceptance criteria, priority, size and release |
+| [E16 template fidelity tuning (proposed)](docs/epic-e16-template-fidelity.md) | Proposed internal epic: rebuild reference PDFs with the editor, compare and rank editor component gaps |
 | [Technology stack](docs/tech-stack.md) | Recommended architecture, alternatives, dependency constraints and research sources |
 | [Implementation plan](docs/implementation-plan.md) | Epic dependencies, milestones, validation gates and unresolved requirements |
 | [Design decisions](docs/design-decisions.md) | Living decision register; proposed choices remain distinct from accepted or implemented choices |
