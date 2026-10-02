@@ -48,6 +48,7 @@ _LEADER_WORD = re.compile(r"^[.\u2026_\-]{3,}[.,;:]?$")
 _NUMERIC = re.compile(r"^[\d.,%$\u20ac\u00a3()+\-]*\d[\d.,%$\u20ac\u00a3()+\-]*$")
 LEADER_KINDS = {".": "dot", "\u2026": "dot", "_": "underscore", "-": "hyphen"}
 MAX_STOPS = 16
+MAX_INDENT_MM = 63.5  # the text left/first-line indent range, 240 px
 MAX_ROW_STYLES = 50  # the table row_styles limit in the capability manifest (DD-447)
 
 
@@ -133,6 +134,20 @@ def row_tabs(page: dict[str, Any], row: list[int], origin_mm: float) -> tuple[st
     if len(stops) > MAX_STOPS or any(not 0 <= p <= 2000 for p in positions) or positions != sorted(set(positions)):
         return plain, [], False
     return "\t".join(segments), [s if s["align"] == "right" or s["leader"] != "none" else s["position"] for s in stops], True
+
+
+def _with_leading_stop(stops: list[Any], leading_px: float) -> list[Any] | None:
+    """Prepend a left stop at ``leading_px`` and shift the row's stops by it, or None if out of bounds (DD-449)."""
+    shifted: list[Any] = [leading_px]
+    for stop in stops:
+        if isinstance(stop, dict):
+            shifted.append({**stop, "position": round(stop["position"] + leading_px, 2)})
+        else:
+            shifted.append(round(stop + leading_px, 2))
+    positions = [s["position"] if isinstance(s, dict) else s for s in shifted]
+    if len(shifted) > MAX_STOPS or positions[-1] > 2000 or positions != sorted(set(positions)):
+        return None
+    return shifted
 
 
 def _px(mm: float) -> float:
@@ -310,8 +325,9 @@ def reconstruct(model: dict[str, Any], features: dict[str, Any]) -> dict[str, An
                 "line_height": line_height,
                 "paragraph_spacing_before": spacing,
                 "paragraph_spacing_after": 0,
-                "left_indent": _px(max(-63.5, min(63.5, paragraph["left_mm"] - col_left))),
-                "first_line_indent": _px(max(-63.5, min(63.5, paragraph["first_left_mm"] - paragraph["left_mm"]))),
+                "left_indent": _px(max(-MAX_INDENT_MM, min(MAX_INDENT_MM, paragraph["left_mm"] - col_left))),
+                "first_line_indent": _px(max(-MAX_INDENT_MM, min(MAX_INDENT_MM,
+                                                                 paragraph["first_left_mm"] - paragraph["left_mm"]))),
                 "page_number": number,
             }
             if absolute_top is not None:
@@ -327,6 +343,19 @@ def reconstruct(model: dict[str, Any], features: dict[str, Any]) -> dict[str, An
             if align in {"center", "right"}:
                 layout["left_indent"] = 0
                 layout["first_line_indent"] = 0
+            # A one-line paragraph starting beyond the indent range (a right-hand election or form cell) starts
+            # with a tab to a left stop at its offset, as a Word user would type it; longer paragraphs keep the
+            # clamped indent and record the gap instead of hiding it (DD-449).
+            leading_px = None
+            if absolute_top is None and align == "left":
+                indent_mm = paragraph["left_mm"] - col_left
+                hanging_mm = paragraph["first_left_mm"] - paragraph["left_mm"]
+                if indent_mm > MAX_INDENT_MM and len(paragraph["rows"]) == 1:
+                    leading_px = _px(indent_mm)
+                    layout["left_indent"] = layout["first_line_indent"] = 0
+                elif abs(indent_mm) > MAX_INDENT_MM or abs(hanging_mm) > MAX_INDENT_MM:
+                    gap("text.paragraph", "value-out-of-range", "text", "left_indent",
+                        f"indent of {max(abs(indent_mm), abs(hanging_mm)):.1f} mm clamped to {MAX_INDENT_MM} mm", None)
             if len(paragraph["rows"]) >= 2 and "text.align_justify" in features_here:
                 layout["right_indent"] = _px(max(0.0, min(63.5, col_right - paragraph["right_mm"])))
                 if align == "left":
@@ -354,6 +383,15 @@ def reconstruct(model: dict[str, Any], features: dict[str, Any]) -> dict[str, An
                                 gap(detection["feature"], "value-out-of-range", "rich_text", "tab_stops",
                                     "stop outside 0-2000 px or more than 16 stops", detection["id"])
                 runs = _runs(page, paragraph, family)
+                if leading_px is not None and runs:
+                    stops = _with_leading_stop(layout.get("tab_stops", []), leading_px)
+                    if stops is not None:
+                        layout["tab_stops"] = stops
+                        runs[0]["text"] = "	" + runs[0]["text"]
+                    else:
+                        layout["left_indent"] = _px(MAX_INDENT_MM)
+                        gap("text.paragraph", "value-out-of-range", "rich_text", "tab_stops",
+                            "leading tab stop outside 0-2000 px or more than 16 stops", None)
                 effort["rich_text_runs"] += len(runs)
                 block = {"type": "rich_text", "paragraphs": [{"align": align, "runs": runs}],
                          **{k: v for k, v in layout.items() if k != "align"}}
@@ -367,6 +405,14 @@ def reconstruct(model: dict[str, Any], features: dict[str, Any]) -> dict[str, An
                 if align in {"left", "justify"}:
                     first_text, stops, expressible = row_tabs(page, paragraph["rows"][0], paragraph["left_mm"])
                     rows_text[0] = first_text
+                    if leading_px is not None:
+                        leading = _with_leading_stop(stops, leading_px)
+                        if leading is not None:
+                            rows_text[0], stops = "	" + rows_text[0], leading
+                        else:
+                            layout["left_indent"] = _px(MAX_INDENT_MM)
+                            gap("text.paragraph", "value-out-of-range", "text", "tab_stops",
+                                "leading tab stop outside 0-2000 px or more than 16 stops", None)
                     if stops:
                         layout["tab_stops"] = stops
                     if not expressible:
@@ -622,11 +668,15 @@ def _table_block(page: dict[str, Any], detection: dict[str, Any], left: float, r
     a filled box behind the first row becomes the header shading; horizontal rules between rows become
     horizontal borders.
     """
-    rows_by_y: dict[float, list[dict[str, Any]]] = defaultdict(list)
-    for _, index in detection["lines"]:
-        line = page["lines"][index]
-        rows_by_y[round(line["y_mm"] * 2) / 2].append(line)
-    rows = [sorted(cells, key=lambda c: c["x_mm"]) for _, cells in sorted(rows_by_y.items())]
+    # Cells share a row when their baselines lie within a third of an em of the row's first baseline. Rounding
+    # to a 0.5 mm grid split a row whose last cell sat 0.4 mm lower into two rows (DD-449).
+    rows: list[list[dict[str, Any]]] = []
+    for line in sorted((page["lines"][index] for _, index in detection["lines"]), key=lambda c: c["y_mm"]):
+        if rows and line["y_mm"] - rows[-1][0]["y_mm"] <= line["size_pt"] * PT_TO_MM / 3:
+            rows[-1].append(line)
+        else:
+            rows.append([line])
+    rows = [sorted(cells, key=lambda c: c["x_mm"]) for cells in rows]
     width = max(1.0, right - left)
     count = max(len(row) for row in rows)
     template = max(rows, key=len)

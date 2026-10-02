@@ -6392,3 +6392,33 @@ Supersedes/superseded by: [Decision ID when applicable]
   - **Ranking:** `table.row_styles` left the ranking; it is now led by the ISDA tab-stop and leader cases and its first-page footer.
 - **Validation:** `test_bold_totals_row_becomes_a_row_style` builds a synthetic table with a bold totals row and checks the style, the absence of the gap and a clean contract validation. All fidelity tests pass. The corpus passes the check, and the baseline is re-approved with `--decision DD-448`.
 - **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [tests](../backend/tests/test_fidelity_phase_b.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-449 - Separate wrapped form-header cells, tab far-right lines, and keep offset table cells in their row
+
+- **Date:** 2026-10-02
+- **Status:** Accepted (project owner selected the next ranked gap, "ISDA tab stops") and Implemented. This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-04, E16-09; E16 gap `text.tab_stops` [value-out-of-range] `tab.positioned_gap` (ISDA, ranked first among positioned gaps after DD-448)
+- **Context:**
+  - **Ranked gap:** a single ISDA paragraph on page 33, the four-column header of the Schedule's "documents to be delivered" form, which wraps over three lines. Segmentation merged its second line with the third ("Representation", 166 mm), because a single line under any segment of the opening row counted as a hanging-indent continuation. The paragraph's left indent became 166 mm, the second line's stops would have been negative, and the line was emitted as plain text about 64 mm off.
+  - **Hidden clamping:** three page-30 Schedule elections ("[will][will not]* apply to Party B") start 85-103 mm from the margin. Their left indent was silently clamped to the 63.5 mm (240 px) range, 22-40 mm too far left, with no gap recorded.
+  - **Exposed defect:** with the header fixed, the form's table started at the right height and exposed a table-row defect. Cells were grouped by rounding baselines to 0.5 mm, so the last row ("[Yes][No]]*" 0.4 mm below its dots) split into two rows and pushed the rest of the page down about 3 mm. Before, the header error had partly hidden this, as in DD-443/DD-444. Page 33 fell from 0.705 to 0.353 visual F1 until this was fixed.
+- **Choice:**
+  - **Segmentation (taxonomy):** segment positions of the opening row are continuation anchors only when that row has at most two segments (label + text). Under a row of three or more segments, a single line is a wrapped cell and starts its own paragraph. In the current corpus every legitimate segment-anchored continuation follows a two-segment row; the only one after a longer row was this header.
+  - **Leading tab (mapper):** a one-line, left-aligned, flow-positioned paragraph whose offset exceeds the indent range starts with a tab to a left stop at that offset. Its indents are 0, and any stops of its own are shifted by the offset. This applies to text and rich text. If the shifted stops are out of bounds (over 16 stops or beyond 2000 px), the clamped indent is kept and a `tab_stops` value-out-of-range gap is recorded. Longer paragraphs that still need an indent or hanging indent beyond 63.5 mm keep the clamp and now record a `text.paragraph` `left_indent` value-out-of-range gap instead of hiding it.
+  - **Table rows (mapper):** a cell joins the current row when its baseline is within a third of an em of the row's first baseline, instead of sharing a 0.5 mm rounding bucket.
+- **Alternatives:**
+  - Widen the `left_indent` range in the renderer and editor; not chosen because the existing tab-stop contract already expresses the layout as a user would type it, and no contract change is needed.
+  - Rebuild the form header as the table's multi-line header row; deferred because table header cells have no explicit line breaks, and wrapping by column width would not reliably reproduce the source breaks.
+  - Absolute positioning for far-right lines; rejected because the mapper prefers flow layout (DD-421).
+- **Consequences:**
+  - "Representation" is detected as right-aligned, so it lands 2.2 mm right of the source. It is not a ranked gap.
+  - Indent clamping is now visible in the gap report when it occurs. No corpus document currently triggers it.
+- **Results (`corpus --check`, 0 regressions):**
+  - **ISDA:** visual F1 0.9786 -> 0.9820. Page 33 0.705 -> 0.965; page 30 0.897 -> 0.932. The header lines are within 0.2 mm of the source, and the page-30 elections within 0.2 mm.
+  - **Others:** unchanged.
+  - **Ranking:** `tab.positioned_gap` left the ranking, which is now led by rich-text dot leaders (`tab.dot_leader` workaround, ISDA) and the different first-page footer.
+- **Validation:**
+  - **Unit test:** `test_wrapped_form_header_far_right_line_and_offset_table_cell` covers the separated header line, the leading tab and its stop position, the offset table cell staying in its row, no positioned-gap entry, and a clean contract validation. Before this change it failed: the wrapped header was merged into rich text, there was no leading tab, and the last table row split.
+  - **Suites:** backend `319 passed, 10 skipped, 2 warnings`; this local run includes the uncommitted ISDA scaffold tests. Ruff is clean for `backend/fidelity` and the test.
+  - **Corpus:** passes the check; the baseline is re-approved with `--decision DD-449`.
+- **Implementation references:** [taxonomy](../backend/fidelity/taxonomy.py), [mapper](../backend/fidelity/reconstruct.py), [tests](../backend/tests/test_fidelity_phase_b.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).

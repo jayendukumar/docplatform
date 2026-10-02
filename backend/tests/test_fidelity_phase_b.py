@@ -183,3 +183,33 @@ def test_bold_totals_row_becomes_a_row_style():
     assert validate_reconstruction(rebuilt, capability_manifest()) == []
     table["row_styles"][0]["underline"] = True
     assert any("unknown item keys ['underline']" in v for v in validate_reconstruction(rebuilt, capability_manifest()))
+
+
+def test_wrapped_form_header_far_right_line_and_offset_table_cell():
+    # DD-449: (1) a line under the last segment of a four-segment header row is a wrapped cell, not a
+    # hanging-indent continuation; (2) a one-line paragraph beyond the 63.5 mm indent range starts with a tab
+    # to a left stop; (3) a table cell 0.35 mm below its row's other cells stays in that row.
+    page = ""
+    for y, cells in ((700, [(72, "Party required to"), (230, "Form/Document/"), (350, "Date by which"), (480, "Covered by")]),
+                     (688, [(72, "deliver document"), (240, "Certificate"), (350, "to be delivered"), (480, "Section 3(d)")])):
+        page += "".join(f"BT /F2 10 Tf {x} {y} Td ({text}) Tj ET " for x, text in cells)
+    page += "BT /F1 10 Tf 473 676 Td (Representation) Tj ET "  # regular weight: a bold short line reads as a heading
+    page += "BT /F1 10 Tf 350 620 Td ([will][will not] apply to Party B) Tj ET "
+    for index, (item, amount) in enumerate([("Design", "100.00"), ("Build", "250.00"), ("Support", "80.00"), ("Total", "430.00")]):
+        y = 560 - 20 * index
+        page += (f"BT /F1 10 Tf 72 {y} Td ({item}) Tj ET BT /F1 10 Tf 480 {y - (1 if index == 3 else 0)} Td ({amount}) Tj ET "
+                 f"72 {y - 6} 468 0.5 re f ")
+    model = analyse_pdf(make_document([page]), label="form-header.pdf")
+    rebuilt = reconstruct(model, detect_features(model))
+    blocks = rebuilt["definition"]["blocks"]
+    second = next(b for b in blocks if b.get("text", "").startswith("deliver document"))
+    assert second["text"] == "deliver document\tCertificate\tto be delivered\tSection 3(d)" and len(second["tab_stops"]) == 3
+    assert any(b.get("text") == "Representation" for b in blocks)
+    election = next(b for b in blocks if "apply to Party B" in b.get("text", ""))
+    assert election["text"].startswith("\t") and election["left_indent"] == 0
+    content_left = rebuilt["definition"]["page"]["margin_left_mm"]
+    assert abs(election["tab_stops"][0] / (96 / 25.4) - (350 * 25.4 / 72 - content_left)) < 0.5
+    (table,) = [b for b in blocks if b["type"] == "table"]
+    assert table["static_rows"][-1] == ["Total", "430.00"] and len(table["static_rows"]) + table["show_header"] == 4
+    assert not [g for g in rebuilt["gaps"] if g["feature"] == "tab.positioned_gap"]
+    assert validate_reconstruction(rebuilt, capability_manifest()) == []

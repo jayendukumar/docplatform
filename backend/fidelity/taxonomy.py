@@ -165,8 +165,10 @@ def segment_paragraphs(page: dict[str, Any], skip: set[tuple[int, int]], body_pt
         # A wrapped continuation starts where the paragraph's text starts: under the first line (allowing a
         # first-line indent of up to 25 mm), at a tab/segment position of the first line (hanging indent),
         # or under the previous continuation line.
+        # Segment anchors apply only to a label + text opening row: under a row of three or more segments
+        # (a tabular or form-header row), a line below one segment is a wrapped cell, not a continuation (DD-449).
         opening = [page["lines"][i] for i in current[0]]
-        anchors = [opening[0]["x_mm"]] + [line["x_mm"] for line in opening[1:]] + list(opening[0].get("tabs_mm", []))
+        anchors = [opening[0]["x_mm"]] + ([line["x_mm"] for line in opening[1:]] if len(opening) <= 2 else [])             + list(opening[0].get("tabs_mm", []))
         if len(current) > 1:
             anchors = [page["lines"][current[-1][0]]["x_mm"]]
         x = first["x_mm"]

@@ -120,6 +120,8 @@ DD-445 added `header_spacing_after` to tables (renderer, manifest and table pane
 
 DD-447 added per-row styles to tables (`row_styles`: bold, italic, shading and text colour by body-row index, with negative indexes counting from the end). DD-448 maps wholly bold body rows to it, so the invoice's "Total due" renders bold and the invoice is at 0.9748. The invoice has no ranked gaps left; the ranking is now ISDA-only (tab stops, leaders and the first-page footer).
 
+DD-449 closed the ISDA positioned-gap case. A wrapped four-column form header on page 33 had been merged into one paragraph with a 166 mm indent. Single lines beyond the 63.5 mm indent range now start with a tab to a left stop rather than a silently clamped indent (three page-30 elections). Table cells within a third of an em share a row. ISDA rose from 0.979 to 0.982 (page 33 0.71 -> 0.97). The ranking is now led by rich-text dot leaders and the different first-page footer.
+
 ## Loop
 
 1. Run the harness on the corpus and produce the gap report.

@@ -1,6 +1,6 @@
 {
   "contract": "fidelity-baseline-v1",
-  "decision": "DD-448",
+  "decision": "DD-449",
   "updated": "2026-10-02",
   "metrics": {
     "text_f1": [
