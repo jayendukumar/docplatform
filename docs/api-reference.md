@@ -17,6 +17,8 @@ The generated specification covers the current template, ingestion, extraction/r
 
 The current synchronous designer render is deterministic HTML. `POST /api/templates/{template_id}/render-pdf` sends that HTML to the packaged pinned Chromium adapter by default, or to an explicitly configured Prince/renderer adapter, inside the credential-free document worker and returns a candidate PDF with metadata. It returns 503 when the selected renderer is unavailable. Python-based configured engines receive a generated network-denial `sitecustomize` guard; arbitrary native executables still require deployment-level network policy. `POST /api/word/merge` accepts a bounded base64 DOCX template plus JSON data and returns a merged base64 DOCX for the supported scalar/table contract. `POST /api/word/convert` accepts that DOCX and invokes the explicitly configured shell-free converter. PDF layout fidelity, native-reader approval and output-format acceptance remain separate stories and are not implied by the OpenAPI explorer.
 
+`GET /api/editor/capabilities` returns the versioned editor capability manifest (`editor-capabilities-v1`, E16-05). It lists every component and page property the renderer applies, its bounds and units, whether the editor exposes it (`control`, `json` or `none`), and known component limitations. The E16 fidelity harness reads it to confine reconstructions to editor-reachable properties. It describes capabilities and grants none.
+
 `GET /api/starters` returns the launchable multilingual starter catalog. Each item includes its available language codes and the bounded definition used by the workspace gallery; clients can create a draft with `POST /api/templates` using the selected definition.
 
 ## Scan submission and extraction flow

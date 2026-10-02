@@ -3873,3 +3873,2522 @@ Supersedes/superseded by: [Decision ID when applicable]
 - **Consequences:** The generated artifact carries inspectable alignment geometry independent of selector matching. The fix does not establish two-engine parity, native-reader approval, font embedding, image compression, or vertical writing support.
 - **Validation:** Focused renderer and PDF suites pass (`54 passed, 3 warnings`); the fake configured-engine test verifies the staged centered margins, and the real Chromium candidate alignment test covers left/center/right X-position transforms.
 - **Implementation references:** [renderer](../backend/app/rendering.py), [renderer tests](../backend/tests/test_template_logic.py), [PDF tests](../backend/tests/test_pdf_render.py), [defect report](image-centered-pdf.md), [source stories](epics.md).
+
+## DD-268: Rebalance workspace overview and selected-template preview space
+
+- **Date:** 2026-09-27
+- **Status:** Accepted and Implemented as a UI implementation enabler; no backlog scope or story status changed
+- **Affected stories:** E2-10, E2-13, E14-01; implementation enabler for workspace information architecture
+- **Context:** The workspace status card was placed beside the template library, reducing the usable width of the selected-template editor and Local Preview. The delivery snapshot occupied a separate row, while the status estate was visually blocked by the editor layout.
+- **Choice:** Place Workspace Status first and Delivery Snapshot second in one responsive two-column overview row. Remove the status rail from the template/editor grid; when a template is selected, let the editor use the full content width and allocate the larger share of its inner grid to Local Preview. Collapse both layouts to one column at narrow widths.
+- **Alternatives:** Keep the status rail beside templates; rejected because it constrains the preview at the point where users need more workspace. Put Delivery Snapshot first; rejected because the requested information hierarchy gives Workspace Status priority. Preserve two columns on small screens; rejected because it would create an unusable preview width.
+- **Consequences:** Status calculations and project-status navigation are unchanged, while the selected template has a wider editor and preview. The layout now has explicit responsive behavior and needs browser validation at desktop and narrow viewport widths.
+- **Validation:** Frontend production build and browser assertions for overview ordering and selected-template full-width layout are required for this change; no visual-regression or accessibility certification is claimed.
+- **Implementation references:** [workspace layout](../frontend/src/main.tsx), [workspace styles](../frontend/src/style.css), [editor styles](../frontend/src/editor.css), [frontend tests](../frontend/tests/foundation.spec.ts), [source stories](epics.md).
+
+## DD-269: Make page settings collapsible with side-specific margins and chrome components
+
+- **Date:** 2026-09-27
+- **Status:** Accepted and Implemented as an E2-06 UI and contract refinement; final PDF engine fidelity remains partial
+- **Affected stories:** E2-06, E2-07; implementation enabler for editor information architecture
+- **Context:** Page settings occupied editor space by default, exposed one shared margin value, and treated header/footer as plain text fields. Title and author metadata were also mixed into page layout controls even though they are document metadata.
+- **Choice:** Hide Page Settings behind an explicit toggle, expose top/right/bottom/left margins, remove title/author controls from that section, and select reusable text-only components for header/footer. Preserve legacy `margin_mm` and plain header/footer values for existing definitions; expand component references at render time.
+- **Alternatives:** Keep one margin value; rejected because users need independent page edges. Remove header/footer output; rejected because it would break existing templates. Allow arbitrary component block types in page chrome; rejected because tables/media need a separate bounded layout contract and could produce invalid fixed chrome.
+- **Consequences:** The editor starts with less visual noise, and side-specific settings now reach the HTML rendering contract. Existing definitions remain readable, while new header/footer references require text-only reusable components. Native-reader and final PDF fidelity remain outside this change.
+- **Validation:** Frontend typecheck/build and focused browser assertions cover collapsed/expanded settings, four margins, metadata removal, and save behavior; backend component and renderer tests cover text-only chrome references and side-specific CSS margins.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [page settings styles](../frontend/src/tableEditor.css), [renderer](../backend/app/rendering.py), [component expansion](../backend/app/components.py), [template contract](template-contract.md), [frontend tests](../frontend/tests/foundation.spec.ts), [backend tests](../backend/tests/test_components.py), [renderer tests](../backend/tests/test_template_logic.py).
+
+## DD-270: Use a workspace editor shell with contextual object actions
+
+- **Date:** 2026-09-27
+- **Status:** Accepted and Implemented as an E2-01/E2-03/E2-10 editor information-architecture slice; composite-child editing remains partial
+- **Affected stories:** E2-01, E2-03, E2-10, E2-13, E14-01; planning refinements for E3-01, E3-02, E3-03, E3-04, E3-06, E9-01, E9-11 and E7-01/E12-04
+- **Context:** The editor presented insertion, formatting, page settings, component actions and diagnostics as one long toolbar, so an image or component did not receive a focused action set. The requested workspace model separates command actions, object insertion/navigation, canvas, selected-object properties and diagnostics.
+- **Choice:** Add a top command bar for undo/redo/save status, a left insertion and structure panel, a central canvas, a right contextual action palette, and full-width lower controls for settings and diagnostics. Keep the existing advanced controls available below the canvas for this migration slice. Contextual alignment and movement actions operate on the selected top-level object; unsupported property actions remain disabled. Canvas clicks select image and text objects.
+- **Alternatives:** Replace all existing controls immediately; rejected because it would remove tested object-specific editors during the shell migration. Show every action enabled for every object; rejected because it invites invalid edits. Add a public batch API now; rejected because the user explicitly kept that story in the backlog.
+- **Consequences:** The editor has a stable information architecture and a reusable contextual-action boundary. Composite components need a follow-up definition-loading and child-editing slice before their child actions can be claimed. Folder ownership, schema-version compatibility and API batch submission are recorded as refinements, not silently promoted into completed stories.
+- **Validation:** Frontend build and browser tests must verify shell landmarks, selection, enabled/disabled contextual actions and the existing save/preview flow. No WCAG 2.2 AA, composite-child completion, folder performance, schema migration or batch API claim is made.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [translations](../frontend/src/i18n.ts), [editor tests](../frontend/tests/foundation.spec.ts), [backlog refinements](backlog-refinements.md), [source stories](epics.md).
+
+## DD-271: Consolidate document structure beside insertion controls
+
+- **Date:** 2026-09-27
+- **Status:** Accepted and Implemented as an editor information-architecture refinement; no backlog scope or story status changed
+- **Affected stories:** E2-01, E2-03, E2-10, E2-13, E14-01
+- **Context:** The selected-template editor rendered a structure tree in the left navigation panel and a second editable block list beside Local Preview. The two lists represented the same document blocks, while the second list reduced the preview canvas width.
+- **Choice:** Make the left panel the single home for document structure and keep its existing block editing, selection, drag ordering and flow controls there. Remove the separate block-list column from the canvas layout so Local Preview occupies the full center area.
+- **Alternatives:** Keep both lists; rejected because they duplicate navigation and consume preview space. Remove block editing entirely; rejected because it would regress existing template editing behavior. Move structure into the right properties panel; rejected because the right panel is reserved for selected-object actions and properties.
+- **Consequences:** The editor has one structure representation, with a wider preview and unchanged block-editing capability in the left panel. The left panel may scroll for documents with many blocks; responsive collapse behavior remains unchanged.
+- **Validation:** Frontend typecheck/build, focused editor browser tests, and deployed preview geometry checks are required; no visual-regression or accessibility certification is claimed.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [frontend tests](../frontend/tests/foundation.spec.ts).
+
+## DD-275: Reflect chart type changes in the local editor preview
+
+- **Date:** 2026-09-28
+- **Status:** Accepted and Implemented as an E2-14 editor feedback correction
+- **Affected stories:** E2-14, E2-10
+- **Context:** Changing a chart type updated the saved/server-rendered chart but left the fast local canvas showing a fixed bar placeholder, making the control appear ineffective.
+- **Choice:** Render bounded local Bar, Line, Pie and Donut preview shapes from the same chart state used by the contextual controls. Keep the server-generated artifact as final preview truth rather than duplicating the full SVG renderer in the browser.
+- **Alternatives:** Keep a fixed placeholder; rejected because it gives incorrect immediate feedback. Duplicate the complete server SVG renderer in React; rejected because it creates preview/PDF divergence. Add a charting library; rejected because it adds dependency and licensing scope.
+- **Consequences:** Type changes are immediately visible in Local Preview, including line points, horizontal bars and donut mode. Exact data labels, pagination and final PDF geometry remain owned by the server renderer.
+- **Validation:** Frontend build passed and the deployed chart browser test verifies Line and Pie local shapes before saving the final Line configuration. No native-reader or visual-regression certification is claimed.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [frontend tests](../frontend/tests/foundation.spec.ts).
+
+## DD-272: Keep object names in structure and move object controls to context
+
+- **Date:** 2026-09-27
+- **Status:** Accepted and Implemented as an editor interaction refinement; broader component-property coverage remains partial
+- **Affected stories:** E2-01, E2-03, E2-10, E2-13, E4-11, E4-15, E4-16, E4-17
+- **Context:** The structure panel still contained editing controls, while contextual actions did not provide a complete object lifecycle or text-specific formatting model. Move left/right also reordered blocks, which made a small visual adjustment impossible.
+- **Choice:** Make Document Structure a name-only selection list. Put Delete in the contextual action palette for every selected object, expose font-family and font-size controls for selected text, and represent Move left/right as an 8px horizontal offset per click bounded to ±160px. Persist the offset as `offset_x` and apply it to the local preview and server-rendered text/image output.
+- **Alternatives:** Keep text editing inside structure; rejected because structure is navigation, not properties. Reorder blocks for movement; rejected because ordering and positioning are separate concepts. Allow unbounded offsets; rejected because they can move content outside the page and create unstable output.
+- **Consequences:** Object actions are discoverable where the object is selected, text formatting is individual rather than theme-only, and movement is incremental. Code/chart/composite child geometry still needs dedicated renderer-specific treatment before full object parity can be claimed.
+- **Validation:** Frontend typecheck/build and focused contextual-action tests are required. Backend renderer/PDF regression execution remains dependent on the project test container because pytest is not installed in the host shell.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [renderer](../backend/app/rendering.py), [template contract](template-contract.md), [frontend tests](../frontend/tests/foundation.spec.ts).
+
+## DD-273: Extend chart blocks with bounded type-specific properties
+
+- **Date:** 2026-09-28
+- **Status:** Accepted and Implemented as an E2-14 chart-authoring slice; final PDF/native-reader chart fidelity remains partial
+- **Affected stories:** E2-14, E2-10, E4-11, E4-15, E4-16, E4-17
+- **Context:** Chart blocks supported bar, line and pie geometry, but the editor exposed only type and data paths. Users could not configure the properties that distinguish those chart types or explain the resulting chart.
+- **Choice:** Keep the data-only SVG renderer and add bounded properties: chart title, orientation for bars, grid visibility for bar/line, point visibility for lines, donut mode for pies, legend visibility, and axis labels. Persist the same properties in the template definition and use the server renderer as preview truth. Limit labels, data points and geometry; do not accept arbitrary SVG or a charting dependency.
+- **Alternatives:** Add a browser chart library; rejected because it would create preview/PDF divergence and a new dependency/licence surface. Support arbitrary chart configuration JSON; rejected because it expands the untrusted template contract. Add many chart families immediately; deferred until the current three types have stronger output evidence.
+- **Consequences:** Bar, line and pie charts now have meaningful type-specific controls and visibly different bounded SVG output. The renderer remains CPU/local and network-free. Advanced accessibility semantics, color palettes, stacking, mixed series and native-reader review remain follow-up work.
+- **Validation:** Frontend production build and focused browser chart test are required. Renderer/PDF tests should cover horizontal bars, hidden line points, donut pies, labels and legend output; native-reader approval and cross-engine parity are not claimed.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [translations](../frontend/src/i18n.ts), [editor styles](../frontend/src/editor.css), [renderer](../backend/app/rendering.py), [template contract](template-contract.md), [frontend tests](../frontend/tests/foundation.spec.ts), [renderer tests](../backend/tests/test_template_logic.py).
+
+## DD-274: Make chart setup a first-class contextual action
+
+- **Date:** 2026-09-28
+- **Status:** Accepted and Implemented as an E2-14 editor usability correction
+- **Affected stories:** E2-14, E2-10, E2-13
+- **Context:** Chart properties were technically available in the lower legacy controls, but a user selecting a chart could not discover those controls in the contextual palette. The local canvas also rendered charts as generic text, so chart selection was unclear.
+- **Choice:** Expose Chart type in the contextual palette for the selected chart, show only the relevant type-specific options there, and make the chart preview card and Document Structure entry selectable. Keep the lower controls during the migration for compatibility with the existing editor surface.
+- **Alternatives:** Require users to find the lower legacy controls; rejected because it violates the contextual editor model. Add a separate chart editor route; rejected because chart properties belong to the selected object. Implement a full client chart renderer; rejected because server-generated SVG remains the preview/PDF truth.
+- **Consequences:** Users can add or select a chart and immediately choose Bar, Line or Pie plus the applicable settings. The local chart card is an interaction proxy rather than final SVG geometry; saved server preview remains authoritative.
+- **Validation:** Frontend build passed; deployed chart and contextual-action browser tests passed; readiness returned HTTP 200. No native-reader or visual-regression certification is claimed.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [frontend tests](../frontend/tests/foundation.spec.ts).
+
+## DD-276: Make charts data-bound, multi-series and colour-configurable without a chart-library dependency
+
+- **Date:** 2026-09-28
+- **Status:** Accepted and Implemented as an E2-14 chart-component depth slice; native-reader, visual-regression and accessibility certification remain open
+- **Affected stories:** E2-14, E2-10, E4-11, E4-15, E4-16, E4-17
+- **Context:** A chart type selector alone does not define a useful chart component. Research into declarative chart systems showed that encodings, scales, legends and transforms are the core concepts needed to map data to visual properties ([Vega-Lite encoding](https://vega.github.io/vega-lite/docs/encoding.html), [scales](https://vega.github.io/vega-lite/docs/scale.html), [transforms](https://vega.github.io/vega-lite/docs/transform.html)). The product also needs to distinguish live render data from authoring samples and let users control the visual palette.
+- **Choice:** Keep the dependency-free bounded SVG renderer and extend the chart contract with `data_mode` (`bound` by default or bounded `static` rows), `series_path`, validated `#RRGGBB` palettes, background/grid/axis colours, value labels, and stacked bars. Bound charts resolve an array from request data at render time; static rows are explicit and capped. Invalid paths produce normal render diagnostics and invalid numeric rows are skipped. The editor exposes the data source, category/value/series paths, three palette slots, structural colours, values and stacking. The renderer emits a bounded semantic fallback table; this follows the WAI guidance that visual cues alone are insufficient for tabular data ([WAI tables tutorial](https://www.w3.org/WAI/tutorials/tables/)), but is not an accessibility certification.
+- **Alternatives:** Adopt Vega-Lite or Apache ECharts directly; rejected for this release because the browser/PDF paths would still need a server renderer and would add a dependency/licence and configuration surface. Persist only static data; rejected because templates must render changing payloads. Accept arbitrary chart JSON or scripts; rejected because templates cannot execute code or access networks.
+- **Consequences:** Charts can be reused against changing payloads, represent multiple series, use intentional colours and expose enough metadata for a robust first component. The supported family remains bar/line/pie, with bounded geometry and no arbitrary chart grammar. Aggregation, sorting, time scales, drill-down, animation, native-reader review and cross-engine fidelity remain future work rather than silently implied support.
+- **Validation:** `npm run build` passed; backend compilation passed; the rebuilt Compose web container passed a direct multi-series colour/static-data renderer smoke test; the deployed Playwright chart persistence test passed (`1 passed`). Host pytest execution remains unavailable because `barcode` is not installed outside the project container; no native-reader or accessibility certification is claimed.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [template contract](template-contract.md), [renderer tests](../backend/tests/test_template_logic.py), [frontend test](../frontend/tests/foundation.spec.ts).
+
+## DD-277: Put the complete chart configuration in the selected-object palette
+
+- **Date:** 2026-09-28
+- **Status:** Accepted and Implemented as an E2-14 editor usability correction
+- **Affected stories:** E2-14, E2-10, E2-13, E4-11, E4-15, E4-16, E4-17
+- **Context:** The chart implementation exposed some type controls in the contextual palette but left data binding and colour selection in a lower editor section. That split made the selected chart’s available actions difficult to discover and contradicted the contextual-editor layout.
+- **Choice:** Add a dedicated chart contextual panel in the right-hand selected-object area. It contains positioning, delete, chart type, orientation, title/axis/legend/grid/value controls, data mode, array/category/value/series paths, static JSON rows, series colours and background/grid/axis colours. The generic palette is hidden while a chart is selected to prevent overlapping controls.
+- **Alternatives:** Keep advanced chart controls below the canvas; rejected because selected-object configuration should remain local to the selected object. Duplicate controls in both locations; rejected because two writable copies invite inconsistent state. Use a modal; rejected because it interrupts rapid chart authoring.
+- **Consequences:** Chart configuration is now discoverable in one contextual surface and can be operated without leaving the selected chart. The panel can become vertically scrollable on smaller screens; responsive visual-regression and accessibility certification remain open.
+- **Validation:** Frontend build passed. The deployed Playwright chart test passed after selecting chart type, title, line points, series colour and static data mode from the right panel. Readiness remained HTTP 200. No native-reader or accessibility certification is claimed.
+- **Implementation references:** [chart contextual panel](../frontend/src/ChartContextualPanel.tsx), [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [frontend test](../frontend/tests/foundation.spec.ts).
+
+## DD-278: Model formatted data-aware text as bounded rich-text runs
+
+- **Date:** 2026-09-29
+- **Status:** Accepted and Implemented as an E2-01/E5 text-authoring slice; multilingual input-method, native-reader and accessibility acceptance remain open
+- **Affected stories:** E2-01, E2-05, E2-08, E2-09, E2-10, E2-13, E4-09, E5-01, E5-03, E5-04
+- **Context:** Plain text blocks could not contain multiple paragraphs or mixed inline styles, and users had no safe way to insert formatted data values or conditional text. Arbitrary HTML or executable expressions would create security and browser/PDF divergence.
+- **Choice:** Add a bounded rich-text document model of paragraphs and typed runs: literal text, schema-path bindings, and explicit condition runs with then/else content. Binding formats are text, number, currency, date and percent; styles are limited to font family, size, colour, bold, italic and underline. Conditions reuse the existing comparison engine and are configured through a field/operator/value builder. The editor stores the structured model and the renderer escapes all resolved content before emitting semantic paragraphs.
+- **Alternatives:** Store arbitrary HTML; rejected because it expands the untrusted template surface and makes server rendering unsafe. Allow JavaScript-like expressions; rejected because templates cannot execute arbitrary code and output would vary by engine. Keep one plain string with markup tokens; rejected because mixed run styling, conditions and future DOCX mapping become ambiguous.
+- **Consequences:** Users can author multi-paragraph text with mixed styles, dynamic values and bounded conditional output. Existing plain `text` blocks remain supported; newly added text blocks carry the rich-text model while retaining flattened text for compatibility. Full selection-based WYSIWYG editing, richer condition composition (`and`/`or` in the editor), IME review and engine-specific pagination remain follow-up work.
+- **Validation:** Frontend TypeScript/build passed; backend compilation passed; the container renderer smoke test passed for styled CNY binding and conditional output; deployed Playwright coverage passed for authoring, saving and server preview (`2 passed`, including chart regression). No native-reader, accessibility or multilingual input-method certification is claimed.
+- **Implementation references:** [rich-text types](../frontend/src/richText.ts), [rich-text contextual editor](../frontend/src/RichTextContextualPanel.tsx), [editor](../frontend/src/main.tsx), [renderer](../backend/app/rendering.py), [template contract](template-contract.md), [renderer tests](../backend/tests/test_template_logic.py).
+
+## DD-279: Expose and explicitly reset locked PDF page backgrounds
+
+- **Date:** 2026-09-29
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-06, E2-15, E4-15, E4-16
+- **Context:** Locked PDF page backgrounds were already supported by the editor and renderer through a lower file input, but the capability was absent from the Insert Objects palette. The UI also had no explicit reset action, making it unclear how to remove a previously selected background and risking stale `page.background_pdf` persistence.
+- **Choice:** Treat the locked PDF page background as a first-class Insert Objects action. The action opens the existing PDF-only input, shows whether a background is set, and provides reset and replace actions. During save, the editor first removes `page.background_pdf` from the newly built page definition and then adds it only when the current state contains a PDF data URI.
+- **Alternatives:** Keep only the lower file input; rejected because the feature is undiscoverable in the object palette. Reset only the file input; rejected because browser file inputs do not represent persisted template state. Persist an empty string; rejected because the renderer treats absence as the unambiguous no-background state and an empty property adds contract ambiguity.
+- **Consequences:** Users can discover, replace and clear locked PDF backgrounds from the editor. Reset takes effect on the next saved version and the renderer receives no background source thereafter. The PDF remains validated and bounded by the existing server-side merge path; arbitrary files, scripts and network sources remain unsupported.
+- **Validation:** `npm run build` passed; backend rendering compilation passed; the rebuilt Compose deployment completed; readiness returned HTTP 200; and the deployed Playwright background test passed (`1 passed`), covering palette visibility, replacement state, saved PDF output, generated PDF response, reset state and absence of `background_pdf` in the reset version payload. No native-reader or cross-engine visual certification is claimed.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [translations](../frontend/src/i18n.ts), [frontend tests](../frontend/tests/foundation.spec.ts), [renderer](../backend/app/rendering.py).
+
+## DD-280: Keep locked PDF background insertion singular and contextualize lifecycle actions
+
+- **Date:** 2026-09-29
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-06, E2-15, E4-15, E4-16
+- **Context:** The first background interaction exposed add, replace and reset controls together in Insert Objects, which duplicated lifecycle actions and did not follow the selected-object contextual palette model.
+- **Choice:** Keep exactly one Insert Objects action, “Add locked PDF background”, for choosing the initial PDF. Once a background exists, expose Replace and Reset in the contextual actions palette; keep only state feedback beside the underlying PDF input.
+- **Alternatives:** Keep all three actions in Insert Objects; rejected because insertion and lifecycle management are different scopes. Add a separate background object to the document structure; rejected because the locked page background is page metadata, not a document-flow block.
+- **Consequences:** The left palette remains concise, while replacement and reset are grouped with other contextual properties. The same bounded PDF input and explicit save-clearing behavior remain in use.
+- **Validation:** `npm run build` passed; the rebuilt Compose deployment completed; readiness returned HTTP 200; and the deployed focused background Playwright test passed (`1 passed`), covering the singular Insert Objects action plus contextual replacement/reset and persistence behavior. No native-reader or cross-engine visual certification is claimed.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [frontend tests](../frontend/tests/foundation.spec.ts).
+
+## DD-281: Reset legacy image page backgrounds independently from locked PDFs
+
+- **Date:** 2026-09-29
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-06, E2-15
+- **Context:** The persisted Certificate (en) definition contains `page.background` as a PNG data URI and does not contain `page.background_pdf`. The contextual locked-PDF reset therefore stayed disabled even though the rendered page visibly had a background.
+- **Choice:** Keep the two storage contracts distinct and add a contextual “Reset page background” action gated by `page.background`. Locked PDF replacement/reset remains gated by `page.background_pdf`. Saving continues to omit both properties when their corresponding editor state is empty.
+- **Alternatives:** Treat every background as a PDF; rejected because the stored image and PDF representations have different renderer paths and validation rules. Clear both fields from either reset action; rejected because it would unexpectedly remove an unrelated background type.
+- **Consequences:** Legacy image-backed templates such as Certificate (en) can now be cleared without changing their locked-PDF state. The UI accurately reflects which background type is present.
+- **Validation:** `npm run build` passed; the rebuilt Compose deployment completed; readiness returned HTTP 200; and the deployed background regression suite passed (`3 passed`), including the existing Certificate (en) image-background reset path and the locked-PDF set/reset path. No native-reader or cross-engine visual certification is claimed.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [translations](../frontend/src/i18n.ts), [frontend tests](../frontend/tests/foundation.spec.ts).
+
+## DD-282: Represent locked backgrounds as metadata components in document structure
+
+- **Date:** 2026-09-29
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-06, E2-15
+- **Context:** The Add locked PDF background action previously opened a file input without creating a document-structure item. That differed from other insertable objects and left the contextual Replace/Reset actions unrelated to a selected object.
+- **Choice:** Add a non-flow `pdf_background` editor node when the user chooses Add locked PDF background. Reconstruct that node for opened templates containing `page.background_pdf`; reconstruct a separate `page_background` node for legacy image backgrounds. These metadata nodes are selectable in Document Structure and are excluded from serialized document-flow blocks. Replace and Reset PDF actions are enabled only for a selected `pdf_background` node.
+- **Alternatives:** Serialize the background as an ordinary text/image block; rejected because page backgrounds are page metadata and must not participate in document flow. Keep actions globally enabled; rejected because contextual controls must be scoped to the selected object.
+- **Consequences:** Background ownership is visible in Document Structure, contextual lifecycle actions follow the same selection model as other components, and the renderer contract remains `page.background_pdf`/`page.background` rather than a synthetic content block.
+- **Validation:** Frontend build passed; rebuilt Compose deployment completed; readiness returned HTTP 200; and deployed background browser coverage passed for the existing background controls and the new component/contextual lifecycle flow (`3 passed`). No native-reader or cross-engine visual certification is claimed.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [frontend tests](../frontend/tests/foundation.spec.ts).
+
+## DD-283: Scope locked PDF lifecycle actions to the selected background component
+
+- **Date:** 2026-09-29
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-06, E2-15
+- **Context:** The locked PDF action group was present in the contextual palette for every selected object, with buttons disabled when the selection was unrelated. This left page-background lifecycle controls visually associated with ordinary text, image and chart components.
+- **Choice:** Render Replace and Reset locked PDF actions only when `activeKind` is `pdf_background`. Selecting another object removes the group; selecting the locked PDF structure node restores it. Replace always opens the PDF input for that component, including after Reset; only Reset is disabled when no current PDF is stored.
+- **Alternatives:** Keep the group globally visible but disabled; rejected because contextual actions should describe the selected object. Put replacement in Page Settings; rejected because the background now has an explicit document-structure component.
+- **Consequences:** The locked PDF component owns its lifecycle actions and the palette no longer mixes unrelated page metadata with ordinary object properties. Legacy image backgrounds retain their separate page-background reset group.
+- **Validation:** `npm run build` passed; rebuilt Compose deployment completed; readiness returned HTTP 200; and deployed background coverage passed (`3 passed`), including selection scoping, Replace enablement before a PDF is set, replacement, reset, and Replace remaining enabled after reset.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [frontend tests](../frontend/tests/foundation.spec.ts).
+
+## DD-284: Add bounded image positioning and template/schema workspace controls
+
+- **Date:** 2026-09-29
+- **Status:** Accepted and Implemented as an editor workflow slice; native-reader and cross-engine rendering approval remain open
+- **Affected stories:** E2-01, E2-02, E2-03, E2-06, E2-10, E3-01, E3-02, E3-03, E3-06, E4-11, E5-05
+- **Context:** Image blocks exposed width only in a legacy lower editor, could move horizontally but not vertically, and new rich-text paragraphs could lose the selected context. Template schema authoring was available only for extraction schemas, while template save-as, folder placement and recent-template navigation were missing from the editor workflow. Several legacy controls also remained visible after the contextual editor migration.
+- **Choice:** Store image vertical movement as bounded `offset_y` alongside `offset_x`, expose resize and move-up/down actions in the selected image palette, and apply the offset to local and server rendering. Give every newly added text block an explicit `text` kind and selected ID so rich-text contextual editing remains mounted when Add paragraph mutates the document. Accept a bounded standard JSON Schema upload with object-root/type/property validation, persist it as `data_schema` plus schema ID/version on each saved template version, and add Save template as with a user-entered name and contextual folder. Track the latest ten opened templates locally for the My templates section. Keep command actions (undo, redo, copy, paste, save draft, page settings) together and hide superseded legacy controls.
+- **Alternatives:** Use unrestricted CSS transforms; rejected because document geometry must remain bounded and render-safe. Keep image width only in the lower editor; rejected because selected-object actions should be contextual. Validate uploaded JSON as extraction-schema format; rejected because template data contracts use JSON Schema. Add a new persistence table for recent templates; deferred because the requirement is a local workspace convenience and no account/session contract was requested. Remove all legacy object editing immediately; rejected where it would remove still-supported code/table/logic authoring without a replacement palette.
+- **Consequences:** Image logo placement can be adjusted in small horizontal and vertical increments and resize is persisted through template versions. Rich-text paragraph insertion retains the selected palette. Template versions can carry an explicit compatible data schema, and users can create named foldered copies. The standard JSON Schema subset is deliberately bounded; full JSON Schema vocabulary and server-side schema diagnostics remain follow-up work. Existing backend tests that require pytest cannot be run in the host shell because pytest is not installed.
+- **Validation:** Frontend TypeScript/build passed; the rebuilt Compose deployment completed and readiness was checked; deployed Playwright coverage passed for image resize and horizontal/vertical movement (`1 passed`) and for rich-text authoring plus image upload/server preview (`2 passed`). Schema upload and Save template as still need dedicated browser assertions. Backend renderer pytest could not run in the host shell because pytest is not installed; native-reader, accessibility and cross-engine visual certification are not claimed.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [rendering](../backend/app/rendering.py), [editor styles](../frontend/src/editor.css), [translations](../frontend/src/i18n.ts), [frontend tests](../frontend/tests/foundation.spec.ts).
+
+## DD-285: Put collapsible Page Settings in the command row above editor palettes
+
+- **Date:** 2026-09-29
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-06, E2-10, E2-13
+- **Context:** Page Settings was visually separated from Undo/Redo and the selected-object palettes, making the editor command hierarchy unclear.
+- **Choice:** Use one settings row immediately above the command/palette row. Place Page Settings and Template Settings beside each other there, each with the same collapsible button treatment and `aria-expanded`/`+/−` state feedback. Keep Undo, Redo, Copy, Paste, Save Draft and Save Template in the row below, and render each settings panel directly beneath its settings row.
+- **Alternatives:** Leave Page Settings in the lower legacy controls; rejected because it was below unrelated editor sections. Add a second independent settings panel; rejected because two sources of page state invite divergence.
+- **Consequences:** Page Settings and Template Settings remain in a stable location while the command/palette row stays below them. Both panels collapse without losing state. The panels contain the existing side-specific page settings and schema binding controls.
+- **Validation:** Frontend build passed; Compose deployment completed; and a deployed Playwright smoke check verified one settings row, both buttons, Page Settings fields rendered inside that row, and Template Settings schema controls rendered inside that row. The older page-settings test still targets removed legacy shared-margin/title fields and requires test migration.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css).
+
+## DD-286: Stabilize PDF page numbering and ordinary text pagination from source comparison evidence
+
+- **Date:** 2026-09-29
+- **Status:** Accepted and Implemented as a bounded E6 rendering correction; native-reader, second-engine and embedded-font fidelity remain open
+- **Affected stories:** E2-05, E4-01, E6-01, E6-04, E6-05
+- **Context:** The 36-page `2002-ISDA-Master-Agreement.pdf` comparison exposed two renderer defects. Chromium emitted `Page 0` for the existing CSS `counter(page)` implementation, and ordinary text paragraphs were globally marked `break-inside: avoid`, which can overflow rather than flow when a block is longer than one page. The source also demonstrated that text reconstruction cannot preserve all legacy positioned whitespace or typography without source layout/Font evidence.
+- **Choice:** Replace CSS page-counter output with a bounded PDF post-processing overlay that numbers physical pages and preserves existing PDF metadata. Change ordinary paragraphs to `break-inside: auto`; retain `break-inside: avoid` for explicit `keep_together`, tables, figures and navigation structures. Keep source-to-template comparison as an evidence fixture, not as a claim of arbitrary PDF round-trip fidelity.
+- **Alternatives:** Trust Chromium's `counter(page)`; rejected because the deployed output was observably `Page 0`. Mark every paragraph keep-together; rejected because long blocks can overflow or fragment unpredictably. Use the source PDF as a locked background; rejected because it would hide the editor and renderer's ability to reproduce the document. Adopt a full PDF layout reconstruction engine; deferred pending E4-01 engine comparison, font licensing and native-reader review.
+- **Consequences:** Page numbering is stable for the deployed Chromium path, metadata survives the overlay, and long ordinary text can paginate. The platform still does not promise pixel-identical reconstruction of arbitrary PDFs, source font embedding, positioned form fields, or native-reader approval. The ISDA template fixture remains a draft comparison artifact.
+- **Validation:** `python -m compileall -q backend/app` and `git diff --check` passed; frontend build remained green; Compose rebuilt and deployed; the generated ISDA fixture is 36 pages at 612x792 points, with normalized text similarity 0.9505 against the source, stable physical page numbers, preserved title/author metadata after the final overlay, and no missing generated pages. The container image lacks pytest, so the added pytest regression was not executed here; native-reader and second-engine review remain pending.
+- **Implementation references:** [PDF post-processing](../backend/app/pdf_toc.py), [render endpoint](../backend/app/main.py), [HTML renderer](../backend/app/rendering.py), [regression tests](../backend/tests/test_pdf_render.py), [comparison report](isda-template-comparison.md), [source fixture](../2002-ISDA-Master-Agreement.pdf), [generated fixture](../generated-isda.pdf).
+
+## DD-287: Keep the editor preview at document size inside an accessible scroll viewport
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as an editor usability refinement; native-reader and cross-engine rendering approval remain open
+- **Affected stories:** E2-01, E2-06, E2-07, E2-08, E2-10, E4-01, E6-01
+- **Context:** The ISDA template is a multi-page legal document, and a flexible preview surface makes users choose between seeing the whole canvas and reading text at a useful size. Shrinking the preview to fit the editor column makes authoring and visual comparison harder, especially for long clauses and page-specific layout.
+- **Choice:** Render the local preview on a page-sized surface derived from the selected paper size and orientation. Place it inside a bounded, keyboard-focusable viewport with native horizontal and vertical scrolling. Preserve the block font sizes and show the active page size/orientation beside the preview so the interaction model is understandable.
+- **Alternatives:** Continue fitting the page to the available column; rejected because it reduces text legibility and hides page geometry. Scale the page with a browser zoom transform; rejected because pointer selection and drop coordinates become harder to reason about and the preview no longer represents working document size. Use a full-screen modal; deferred because it interrupts the edit-and-preview workflow.
+- **Consequences:** Users can inspect a legal template at working size without changing document typography, and narrow screens retain access through scrolling. The local canvas remains an approximation; the server-rendered preview remains the final pagination and output truth. A later refinement may add explicit zoom controls if user testing shows a need beyond scrolling.
+- **Validation:** `npm run build` passed; `git diff --check` passed; the focused Playwright contract includes assertions for a focusable scroll viewport, horizontal overflow for an A4 page in the editor column, and unchanged 16px local text sizing. The rebuilt Compose web container started successfully. The focused browser run is currently blocked before those assertions by an existing duplicate Page Settings interaction: the test clicks a hidden/duplicate `#page-settings-panel` path and fails at its pre-existing line 78. Native-reader and cross-engine review remain open.
+- **Implementation references:** [editor preview](../frontend/src/main.tsx), [preview styles](../frontend/src/editor.css), [editor browser tests](../frontend/tests/foundation.spec.ts), [template contract](template-contract.md).
+
+## DD-288: Keep one visible settings control for the editor workflow
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a UI cleanup supporting E2-06 and E2-10
+- **Affected stories:** E2-06, E2-10, E2-13
+- **Context:** The editor migration left an older settings drawer in the DOM alongside the current command-bar/Page Settings control. Users and automated keyboard flows could encounter duplicate controls with different panel IDs, making it unclear which settings action was authoritative.
+- **Choice:** Hide the superseded settings drawer from the active editor presentation and keep the command-bar Page Settings control as the visible entry point. The current page-settings panel remains the single visible page-layout editor; the separate Template Settings panel remains available for schema binding.
+- **Alternatives:** Keep both controls visible; rejected because duplicate settings entry points create contradictory interaction paths. Remove all legacy markup in the same change; deferred because the remaining panel content still supports migration compatibility and can be removed in a dedicated cleanup.
+- **Consequences:** Users see one page-settings action in the active command flow, and the panel ID referenced by that control is stable. The hidden legacy markup should be deleted in a later refactor once older browser coverage is migrated.
+- **Validation:** `npm run build` passed after the preview change; the rebuilt Compose browser run passed the Page Settings visibility checks and the new preview assertions, then stopped at the pre-existing stale `Bold` toolbar locator on line 97 of the broader test. The preview-specific behavior therefore has browser evidence; the full editor scenario remains blocked by unrelated test migration. Native-reader and accessibility certification remain open.
+- **Implementation references:** [editor styles](../frontend/src/editor.css), [editor](../frontend/src/main.tsx), [editor browser tests](../frontend/tests/foundation.spec.ts).
+
+## DD-289: Use locked source-page backgrounds for high-fidelity legacy-form templates
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented for the ISDA fixture; general PDF import and editable overlay positioning remain open
+- **Affected stories:** E2-06, E2-15, E4-01, E6-01, E6-04, E6-05; implementation refinement for legacy-form fidelity
+- **Context:** The first ISDA fixture converted each extracted page into a normal flowing text block. Coordinate inspection showed the source uses positioned legal-form typography, intentional whitespace, dotted fill lines and page-specific composition; the generated output reflowed the content from the top-left and was not visually aligned despite high text similarity.
+- **Choice:** Store the original ISDA PDF as a validated locked page background for this legacy-form fixture and use a background-only foreground definition for the current reproduction. This preserves the source’s exact page geometry and legal-form composition. Keep the existing bounded PDF-background path and editor metadata model; future editable values will be implemented as explicit, coordinate-bound overlay fields rather than attempting to infer arbitrary PDF layout from plain text.
+- **Alternatives:** Continue tuning paragraph margins and font sizes; rejected because it cannot recover source coordinates, dotted rules, positioned whitespace or page-specific line boxes. Use extracted text over the background; rejected for this fixture because it duplicates the source content. Rasterize pages as images; rejected because it loses selectable PDF text and increases artifact size. Treat the PDF as an arbitrary importable editable template immediately; deferred until provenance, coordinate editing, review and overlay contracts exist.
+- **Consequences:** The ISDA generated PDF now matches the supplied sample’s page composition and text-layer geometry through the source PDF itself. The current fixture is a fidelity baseline, not proof of editable arbitrary-PDF reconstruction; overlay fields and native-reader/legal review remain explicit follow-up work. The prior DD-286 rejection of a source background is superseded for this user-requested fidelity objective, while the default editor behavior remains unchanged.
+- **Validation:** Source and generated PDFs both have 36 Letter pages. The revised render is validated through the deployed PDF background merge path and must be compared for page count, media boxes, text extraction and byte/resource evidence; native-reader and second-engine approval remain pending.
+- **Implementation references:** [PDF background merge](../backend/app/pdf_background.py), [background validation](../backend/app/main.py), [ISDA comparison](isda-template-comparison.md), [source fixture](../2002-ISDA-Master-Agreement.pdf), [aligned generated fixture](../generated-isda-aligned.pdf).
+
+## DD-290: Make locked-source previews and document-structure nodes explicit
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-01, E2-06, E2-10, E2-15, E4-01
+- **Context:** The ISDA definition contains blank zero-width foreground placeholders because its visible composition is supplied by `page.background_pdf`. The editor previously rendered only the foreground canvas locally, so the preview appeared blank and the Document Structure list showed dozens of meaningless text nodes. Other object kinds also used terse or empty labels, making selected component content difficult to identify.
+- **Choice:** Embed the locked source PDF in the local preview as a scrollable page-sized iframe and load locked-source templates with one selectable `pdf_background` node. Filter zero-width and serialized `u{200B}` placeholders from the visible structure. Give structure nodes a type chip and semantic label, including component name, repeat/conditional metadata, image alternative text, chart title/type and bound code value where available.
+- **Alternatives:** Render blank placeholders over the source page; rejected because they obscure the source-backed preview and do not communicate ownership. Keep one structure row per placeholder; rejected because it creates false editable content. Use raw object kind only; rejected because users need to understand what the selected object represents.
+- **Consequences:** Opening the ISDA fixture now shows the actual source pages in the editor and exposes a single understandable source-background object. Ordinary templates retain their editable foreground blocks, while their structure tree is more scannable and useful for selection. The source PDF remains locked; editable coordinate-bound overlays remain future work.
+- **Validation:** Frontend TypeScript/build passed; the rebuilt Compose web container started successfully; the focused Playwright regression passed (`1 passed`) and verified the visible locked-source preview, the `pdf_background` type chip, the semantic label and exactly one structure node. Native-reader, accessibility and cross-engine visual certification remain open.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [frontend regression](../frontend/tests/foundation.spec.ts), [template contract](template-contract.md).
+
+## DD-291: Treat ISDA reproduction as an editable authoring acceptance target
+
+- **Date:** 2026-09-30
+- **Status:** Accepted requirement; implementation not yet complete
+- **Affected stories:** E2-01, E2-02, E2-05, E2-06, E2-10, E2-11, E2-15, E3-06, E4-01, E4-02, E4-04, E4-05, E5-01, E5-03, E5-04, E6-01, E6-04, E6-05
+- **Context:** The current ISDA fixture achieves visual fidelity by embedding `2002-ISDA-Master-Agreement.pdf` as a locked page background and exposing no meaningful editable foreground content. That is useful comparison evidence but does not satisfy the product objective: users must create the agreement with this tool's components and generate the supplied ISDA PDF as the output.
+- **Choice:** Make the supplied ISDA PDF an editable authoring acceptance target. The final workflow must represent clauses, fields, sections, tables and signatures with meaningful structure nodes, support approachable schema binding, and reproduce the source's page geometry, typography, spacing and composition through the platform renderer. Extend text boxes with bounded Word-like layout controls, starting with line spacing and paragraph spacing, and apply those controls consistently to local preview and generated PDF. Retain the locked-PDF fixture only as a temporary visual comparison baseline; it is not an acceptable final implementation for the ISDA requirement.
+- **Alternatives:** Keep the locked PDF as the product solution; rejected because it prevents editing and bypasses the template editor. Reconstruct the agreement as plain flowing text only; rejected because it cannot represent positioned legal-form layout, spacing, tables and signatures. Add unrestricted CSS or arbitrary document code; rejected because templates remain declarative, bounded and isolated.
+- **Consequences:** Future implementation work must close editor and renderer gaps rather than hide them behind a source background. Text-box schema changes, binding UX, component-content inspection, coordinate/layout primitives and source-comparison evidence become explicit work items. The requirement remains incomplete until a user-authored version passes the comparison gates; no completion claim is made by this entry.
+- **Validation:** Requirement recorded in [backlog refinements](backlog-refinements.md) and [template contract](template-contract.md). No implementation validation is claimed for the new line-spacing, paragraph-spacing, editable-ISDA or full source-reproduction requirements.
+- **Implementation references:** [ISDA source comparison](isda-template-comparison.md), [template contract](template-contract.md), [editor](../frontend/src/main.tsx), [renderer](../backend/app/rendering.py).
+
+## DD-292: Add bounded Word-like text layout controls to text blocks
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as the first editable-authoring slice; full ISDA reproduction remains incomplete
+- **Affected stories:** E2-01, E2-05, E2-06, E2-10, E4-01, E6-01
+- **Context:** The editable ISDA requirement needs text boxes that can reproduce legal-form typography and spacing. The prior editor exposed font and alignment only, so users could not control line spacing, paragraph spacing, indentation, tabs or adjacent-page flow behavior.
+- **Choice:** Add bounded text layout fields to editor blocks: `line_height`, paragraph spacing before/after, first-line/left/right indentation, tab stops, `keep_with_next` and `break_after`. Expose them in a selected-text layout palette, persist them in template save and reusable-component payloads, apply them to the local preview, and emit the same validated CSS in the server renderer. Out-of-range values are ignored by the renderer and clamped by the UI.
+- **Alternatives:** Use unrestricted CSS; rejected because templates remain declarative and renderer-safe. Add only a global theme spacing value; rejected because legal documents require paragraph-level control. Implement UI without server support; rejected because the server-generated PDF is the authoritative output.
+- **Consequences:** Users can author more of the ISDA layout using editable text components, and local/server previews share the same bounded layout vocabulary. Tab stops currently use the renderer's bounded CSS `tab-size` approximation; exact positioned tab-stop layout and full source reproduction remain follow-up work.
+- **Validation:** Frontend TypeScript/build passed; Python compilation passed; the rebuilt Compose web container started successfully; the container-side renderer contract passed for line spacing, paragraph spacing, indentation, tabs and page-break styles; and focused Playwright coverage passed (`2 passed`) for the new text-layout controls/server preview and the existing ISDA preview/structure path. The pytest suite remains unavailable in the host shell because pytest is not installed.
+- **Implementation references:** [editor model and controls](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [renderer](../backend/app/rendering.py), [renderer tests](../backend/tests/test_template_logic.py), [template contract](template-contract.md).
+
+## DD-293: Insert schema-bound fields through a guided editor control
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as the first data-binding UX slice; full ISDA field mapping remains incomplete
+- **Affected stories:** E2-01, E2-06, E2-10, E3-06, E5-01, E5-03, E5-04, E9-01
+- **Context:** Rich-text blocks already supported binding runs, but users had to add a generic run and type a data path manually. That is error-prone for legal templates and did not make the field's role obvious in Document Structure.
+- **Choice:** Add a Data binding palette that accepts a bounded template JSON Schema upload, enumerates nested leaf paths, and inserts the selected path as a rich-text binding object. Keep the existing run editor for formatting and conditions. The inserted object is persisted through the existing `rich_text` contract and displays its `{{path}}` content in Document Structure.
+- **Alternatives:** Require users to type paths manually; rejected because it increases binding errors. Infer fields from arbitrary sample data; rejected because schema is the authoritative contract. Add a new executable field language; rejected because the existing bounded binding evaluator already enforces safe paths and formats.
+- **Consequences:** Users can bind fields without memorizing expression syntax and can immediately see which field was inserted. The schema upload is currently a local authoring action and does not yet provide drag-and-drop field placement, field-level labels or coordinate-aware positioning.
+- **Validation:** Frontend TypeScript/build passed; rebuilt Compose web container started; focused Playwright coverage passed (`1 passed`) for schema upload, field enumeration and insertion as a meaningful structure node. Full template-save and ISDA coordinate mapping remain open.
+- **Implementation references:** [editor binding palette](../frontend/src/main.tsx), [rich-text contract](template-contract.md), [rich-text renderer](../backend/app/rendering.py), [frontend regression](../frontend/tests/foundation.spec.ts).
+
+## DD-294: Support bounded coordinate-aware editable text fields
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as an authoring enabler; complete ISDA reconstruction remains incomplete
+- **Affected stories:** E2-01, E2-06, E2-10, E4-01, E6-01, E6-04
+- **Context:** Flow-only text and bound fields cannot reproduce the positioned legal-form layout in the ISDA source. Users need to place editable fields on a page while retaining the safe declarative renderer contract.
+- **Choice:** Add an optional `position_mode: absolute` with bounded `position_x` and `position_y` coordinates to text/rich-text fields. Expose a selected-text position palette, persist the coordinates through template saves, apply them to the local preview, and emit bounded `position:absolute`, `left` and `top` styles in server HTML/PDF rendering. Flow remains the default.
+- **Alternatives:** Continue using transform nudges only; rejected because transforms do not establish a stable page coordinate system. Permit arbitrary CSS; rejected because templates must remain data-only and isolated. Make every block absolute; rejected because ordinary authoring needs natural document flow and pagination.
+- **Consequences:** Users can begin composing editable ISDA fields at stable page coordinates, while ordinary text retains flow behavior. Coordinates are content-origin pixels bounded to 0–1200 horizontally and 0–2000 vertically; page-size-aware units, collision tools, resize handles, and full section/signature composition remain follow-up work.
+- **Validation:** Frontend TypeScript/build passed; Python compilation passed; the rebuilt Compose web container started successfully; the container-side renderer contract passed for bounded absolute positioning; and focused Playwright coverage passed (`2 passed`) for coordinate persistence in the server preview and schema-bound field insertion. Full ISDA layout comparison remains open.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [editor styles](../frontend/src/editor.css), [renderer](../backend/app/rendering.py), [renderer tests](../backend/tests/test_template_logic.py), [browser tests](../frontend/tests/foundation.spec.ts).
+
+## DD-295: Prefer millimetre units for coordinate-aware page composition
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a rendering/editor enabler
+- **Affected stories:** E2-01, E2-06, E2-10, E4-01, E6-01, E6-04
+- **Context:** Pixel-only coordinates are tied to a display scale and are difficult to compare with Letter/A4 source-page geometry. Editable ISDA fields need stable document coordinates that survive local preview and PDF generation.
+- **Choice:** Add `position_unit` with `mm` as the page-aware authoring option and retain `px` for legacy compatibility. Bound millimetre coordinates to 320 by 450 and emit CSS millimetres in both local preview and server rendering. Keep flow layout as the default.
+- **Alternatives:** Convert pixels at runtime; rejected because the authoring value would remain display-dependent. Use PDF points only; deferred because the editor currently expresses page settings and layout controls in millimetres. Make all blocks coordinate-based; rejected because ordinary prose needs natural flow and pagination.
+- **Consequences:** Users can place fields against physical page dimensions and the same values are visible in the browser and generated PDF. Exact source-box calibration, drag handles, collision detection and page-specific block ownership remain follow-up work.
+- **Validation:** Frontend build passed; rebuilt Compose deployment completed; the container renderer contract passed for millimetre coordinates; and focused Playwright positioning coverage passed (`1 passed`).
+- **Implementation references:** [editor](../frontend/src/main.tsx), [renderer](../backend/app/rendering.py), [contract](template-contract.md), [browser regression](../frontend/tests/foundation.spec.ts).
+
+## DD-297: Add explicit page ownership to editable agreement objects
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a multi-page authoring enabler
+- **Affected stories:** E2-01, E2-06, E2-10, E4-01, E6-01, E6-04
+- **Context:** Coordinate-aware fields still lacked page ownership, so a user could position a field but could not state that it belonged to page 3 or page 20 of a multi-page agreement. This is required for incremental construction of the 36-page ISDA form.
+- **Choice:** Add bounded `page_number` metadata to editable text/rich-text objects. Expose Page placement in the selected-object UI and make the renderer insert a page break when the page number advances. Keep omitted page numbers as ordinary flow content and do not fabricate skipped blank pages.
+- **Alternatives:** Infer pages from coordinates; rejected because page boundaries and intentional blank pages are document semantics. Duplicate every page as a separate template; rejected because it makes shared structure and data binding harder to author. Add page numbers only at render time; rejected because users need page ownership visible while editing.
+- **Consequences:** Users can construct a multi-page document incrementally with page-owned fields and page-aware coordinates. The local canvas now provides bounded previous/next/page selection and hides foreground objects assigned to other pages; omitted-page synthesis, drag handles, collision detection and full ISDA source calibration remain open.
+- **Validation:** Frontend build passed; rebuilt Compose deployment completed; the container page-ownership renderer contract passed; and focused Playwright text-layout/positioning plus page-navigation coverage passed (`1 passed`).
+- **Implementation references:** [editor](../frontend/src/main.tsx), [renderer](../backend/app/rendering.py), [contract](template-contract.md), [browser regression](../frontend/tests/foundation.spec.ts).
+
+## DD-296: Show semantic child labels when inspecting reusable components
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-10, E2-11
+- **Context:** Selecting a reusable component loaded its child objects, but the child list often showed only a raw value or generic type. That made component content difficult to inspect before editing.
+- **Choice:** Derive a read-only semantic label for each component child, including rich-text content and binding paths, table data paths, image alternatives, nested component IDs and configured object values. Preserve the original child payload separately when saving component changes so labels never overwrite authored content.
+- **Alternatives:** Display raw JSON; rejected because it is difficult to scan during authoring. Replace child content with labels; rejected because inspection metadata must not mutate the component contract.
+- **Consequences:** Component inspection now communicates what each child does while preserving its source content for updates. Deep nested component inspection and full child-level formatting controls remain follow-up work.
+- **Validation:** Frontend TypeScript/build passed. The focused ISDA, text-layout and binding browser regressions passed (`3 passed`). The broader pre-existing component suite remains red because of stale/ambiguous selectors and missing mocked component availability; no completion claim is made for full component editing.
+- **Implementation references:** [component inspection](../frontend/src/main.tsx), [component styles](../frontend/src/editor.css), [component tests](../frontend/tests/foundation.spec.ts).
+
+## DD-299: Model the ISDA Schedule document list as a repeatable table
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-02, E2-10, E5-01, E5-03, E6-01, E6-04
+- **Context:** The editable ISDA scaffold had a plain-text “documents to be delivered” section. That made row editing, data binding and generated table layout unavailable to users even though the platform already supports repeatable tables.
+- **Choice:** Make page 33 a bound `table` block over `schedule_documents`, with editable Document, Delivery date and Section 3(d) columns. Seed two sample rows while preserving the rest of the page-owned scaffold.
+- **Alternatives:** Keep the list as multiline text; rejected because it cannot express repeated rows or column semantics. Hard-code rows in the renderer; rejected because users need to edit and bind them through the template editor. Use an opaque PDF table; rejected because it violates the editable-authoring requirement.
+- **Consequences:** Schedule documents now appear as a meaningful table structure node and can use the existing table editor/rendering path. Full Schedule tables, row-level conditions, column-width controls and exact source geometry remain open.
+- **Validation:** ISDA unit tests passed (`2 passed`); frontend build passed; Compose rebuild/bootstrap completed; the running API reports page 33 as a `table` bound to `schedule_documents` with two sample rows; and the focused ISDA browser regression passed (`1 passed`).
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [bootstrap upgrade](../backend/app/bootstrap.py), [table contract](template-contract.md), [browser regression](../frontend/tests/foundation.spec.ts).
+
+## DD-300: Add bounded percentage widths to editable table columns
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-02, E2-10, E4-01, E6-01, E6-04
+- **Context:** The Schedule table rendered with automatic browser widths, making legal-form columns difficult to align with the source layout and forcing users to edit raw JSON to express a preferred geometry.
+- **Choice:** Add optional column `width` values from 5 to 100 percent. Expose per-column width inputs in the selected table's contextual palette, persist them through the existing table contract, and emit bounded `<col>` styles in server output.
+- **Alternatives:** Allow arbitrary CSS; rejected because it weakens the safe declarative contract. Use pixel widths; rejected because page-relative percentages survive page-size changes better. Keep raw JSON only; rejected because it is not approachable for ordinary template authors.
+- **Consequences:** Users can tune Schedule table proportions in the editor and receive the same widths in server preview/PDF input. Sum validation, drag-resize handles, row heights and exact source calibration remain open.
+- **Validation:** Focused table renderer tests passed (`3 passed`); frontend build passed; Compose rebuild/bootstrap completed; the running API reports 45/25/30% widths on the ISDA Schedule table; and the focused Playwright ISDA regression passed (`1 passed`).
+- **Implementation references:** [table editor](../frontend/src/main.tsx), [renderer](../backend/app/rendering.py), [ISDA scaffold](../backend/app/isda_template.py), [contract](template-contract.md), [browser regression](../frontend/tests/foundation.spec.ts).
+
+## DD-301: Render bound tables directly in the local editor canvas
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-01, E2-02, E2-10, E5-01, E6-01
+- **Context:** Table blocks were represented as ordinary paragraphs in the local canvas even though server preview produced semantic tables. Authors could not assess row density, headers or column proportions without saving.
+- **Choice:** Render table blocks as bounded semantic-looking local tables using the selected template's sample data, the configured row path, columns and optional widths. Show an explicit binding path and a no-sample-rows state.
+- **Alternatives:** Continue relying on server preview; rejected because it slows authoring and hides local/server differences. Render arbitrary HTML from the table definition; rejected because the local preview should remain a safe, limited representation. Show only a table icon; rejected because it does not communicate layout or content.
+- **Consequences:** Authors can inspect the ISDA Schedule table directly in the scrollable canvas before saving. The local preview remains sample-data-only and does not claim full pagination or final PDF fidelity.
+- **Validation:** Frontend build passed; Compose rebuild completed; and the focused ISDA Playwright regression passed (`1 passed`), including visible sample rows and binding-path text in the local table preview.
+- **Implementation references:** [local table preview](../frontend/src/main.tsx), [preview styles](../frontend/src/editor.css), [browser regression](../frontend/tests/foundation.spec.ts).
+
+## DD-302: Add guided table-column editing alongside the advanced JSON editor
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-02, E2-10, E5-01, E5-03
+- **Context:** Table columns were editable only through a raw JSON textarea, which made common Schedule changes error-prone and obscured the relationship between a visible header and its bound data path.
+- **Choice:** Add a guided Table columns palette with add, remove, header, path and format controls. Keep the JSON textarea as an advanced escape hatch and prevent removal of the final column.
+- **Alternatives:** Remove JSON editing entirely; rejected because advanced authors still need portability and unsupported future fields. Infer paths from headers; rejected because legal data keys are not reliably derivable from display labels. Add unrestricted scripting; rejected by the declarative template safety boundary.
+- **Consequences:** Ordinary authors can shape Schedule tables without JSON knowledge while advanced users retain direct access. Column validation, drag-reordering and row-level conditions remain open.
+- **Validation:** Frontend build passed; Compose rebuild completed; and the focused ISDA Playwright regression passed (`1 passed`), including editing the first column label and observing the local preview update.
+- **Implementation references:** [guided table editor](../frontend/src/main.tsx), [table editor styles](../frontend/src/editor.css), [browser regression](../frontend/tests/foundation.spec.ts).
+
+## DD-303: Provide explicit table-column ordering controls
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-02, E2-10, E6-01, E6-04
+- **Context:** Schedule authors need to match legal-form column order, but the prior guided editor could only edit column content and widths. Reordering required raw JSON edits.
+- **Choice:** Add bounded move-up and move-down controls for each table column, disabling movement at the first/last positions. Reordering updates the same local preview and persisted column array used by server rendering.
+- **Alternatives:** Use drag-and-drop only; rejected because keyboard and touch users need a deterministic alternative. Infer order from widths or field names; rejected because legal document order is intentional. Add arbitrary CSS ordering; rejected because it would split structure from the template contract.
+- **Consequences:** Authors can align Schedule tables to the source form without JSON manipulation. Drag handles and keyboard drag semantics remain a future polish layer.
+- **Validation:** Frontend build passed; Compose rebuild completed; and the focused ISDA Playwright regression passed (`1 passed`), including moving the second column before the first and verifying the local preview header order.
+- **Implementation references:** [guided table editor](../frontend/src/main.tsx), [table editor styles](../frontend/src/editor.css), [browser regression](../frontend/tests/foundation.spec.ts).
+
+## DD-298: Replace the ISDA zero-width fixture with editable page-owned sections
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as the next editable-authoring slice
+- **Affected stories:** E2-01, E2-03, E2-10, E2-15, E5-01, E6-01, E6-04
+- **Context:** The persisted ISDA template contained 36 zero-width text placeholders and a locked source PDF. The editor therefore showed only the PDF node in document structure and did not give users editable agreement content to compose from.
+- **Choice:** Replace placeholder blocks with 36 ordinary editable text blocks owned by pages 1–36. Include recognizable Master Agreement, Schedule, execution, party/date binding and signature content, plus TOC anchors. Keep the source PDF in `page.background_pdf` as an explicitly separate visual comparison layer.
+- **Alternatives:** Keep the PDF as the template body; rejected because it cannot be edited or data-bound. Generate a full legal transcription in a new opaque asset; rejected because it would reproduce the locked-output problem and bypass the editor's component model. Seed only a one-page sample; rejected because it would not exercise page ownership or the multi-page structure panel.
+- **Consequences:** The ISDA structure panel now exposes meaningful editable content and the renderer receives real page-owned objects. The scaffold is not yet a complete clause-for-clause reconstruction; tables, advanced Schedule controls, exact geometry calibration and native-reader PDF comparison remain open.
+- **Validation:** The editable scaffold unit test passed; frontend build passed; Compose rebuild and bootstrap completed; the running API reports 36 editable blocks with page numbers 1–36; and the focused Playwright ISDA structure regression passed (`1 passed`). The broader backend template suite still has four unrelated pre-existing assertion failures in page-number/image/style expectations.
+- **Implementation references:** [editable scaffold](../backend/app/isda_template.py), [bootstrap upgrade](../backend/app/bootstrap.py), [editor regression](../frontend/tests/foundation.spec.ts), [authoring contract](template-contract.md), [ISDA requirement](backlog-refinements.md).
+
+## DD-305: Make rendered table previews directly selectable
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-01, E2-02, E2-10, E5-01
+- **Context:** The local canvas displayed meaningful table content, but clicking that content did not select its block; authors had to return to the document structure list to edit it.
+- **Choice:** Handle clicks on `.editor-table-preview` using its block identifier, apply the existing active styling, and retain the table palettes. This follows the existing image and chart canvas-selection behavior.
+- **Alternatives considered:** Make the table read-only in the canvas; rejected because the canvas is an authoring surface. Add a separate selection overlay; rejected because it would duplicate existing block selection behavior. Require structure-panel selection; rejected because it interrupts inspection-to-edit flow.
+- **Consequences:** Table inspection and editing are now a single interaction. The table remains a safe preview rather than a full cell editor; table values are still edited through the configured data source and table controls.
+- **Validation:** Frontend production build and focused ISDA Playwright regression passed after adding the direct-selection assertion.
+- **Implementation references:** [canvas selection](../frontend/src/main.tsx), [browser regression](../frontend/tests/foundation.spec.ts), [table preview styles](../frontend/src/editor.css).
+
+## DD-306: Expose schema field meaning during binding
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E3-06, E5-01, E5-03, E9-01
+- **Context:** Field insertion already enumerated schema paths, but raw paths do not tell authors what a field means or how representative data will appear. This is especially risky in a legal template with many similarly shaped fields.
+- **Choice:** Derive bounded leaf-field metadata from the selected JSON Schema (human title, path, type and optional format) and show it beside the binding picker, together with the current sample-data value. Preserve the path-based declarative binding contract.
+- **Alternatives considered:** Require authors to inspect raw schema JSON; rejected because it defeats approachable field insertion. Infer labels from paths only; rejected because schema titles are the authoritative human labels. Add free-form template expressions; rejected because bindings remain constrained to schema-compatible paths.
+- **Consequences:** Authors can make an informed field choice and see the representative result before inserting it. This does not yet provide schema version history or an interactive schema designer; those remain governance slices.
+- **Validation:** Frontend TypeScript/build and the focused schema-binding Playwright regression passed after the metadata assertions were added.
+- **Implementation references:** [schema metadata and binding palette](../frontend/src/main.tsx), [binding styles](../frontend/src/editor.css), [binding regression](../frontend/tests/foundation.spec.ts).
+
+## DD-307: Keep template version history inside the editor
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E3-01, E3-02, E3-03, E3-04, E3-11
+- **Context:** The backend already stored immutable template versions and supported restoring a prior version, but the editor did not expose that history. Authors working on a long legal document had no in-context recovery path.
+- **Choice:** Load the selected template's version list into the editor, show status and change summary, and make each version restorable as a new draft. Keep restoration non-destructive by using the existing restore endpoint rather than overwriting a version.
+- **Alternatives considered:** Hide version history behind API tools; rejected because iterative authoring needs visible recovery. Overwrite the selected version; rejected because versions are immutable. Add a filesystem backup; rejected because template governance is application-owned.
+- **Consequences:** Authors can inspect and recover prior document states without leaving the workspace. Approval/publish controls, folder hierarchy and schema-version compatibility remain separate governance work.
+- **Validation:** Frontend TypeScript/build passed; the focused ISDA browser regression includes the version-history panel assertion and will be rerun against the rebuilt service.
+- **Implementation references:** [version state and restore action](../frontend/src/main.tsx), [version history styles](../frontend/src/editor.css), [browser regression](../frontend/tests/foundation.spec.ts), [version API](../backend/app/main.py).
+
+## DD-308: Bind the ISDA scaffold to an explicit schema
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E3-06, E5-01, E5-03, E6-01, E6-04
+- **Context:** The editable ISDA scaffold contained bound party/date text and sample Schedule rows, but did not declare a schema. That prevented the field picker and renderer contract from treating those values as a governed document input.
+- **Choice:** Add a bounded version-one `isda-master-agreement` JSON Schema with human titles and formats for agreement parties, agreement date and Schedule document rows. Bootstrap persists the schema, ID and version alongside the editable definition.
+- **Alternatives considered:** Keep sample data without a schema; rejected because paths remain implicit and cannot be safely selected. Use the extraction schema directly; rejected because template input compatibility needs its own explicit contract. Add arbitrary field expressions; rejected by the declarative binding boundary.
+- **Consequences:** ISDA authors can select its fields through the binding palette and generated output has an explicit schema identity. Schema migration/history and complete Schedule field coverage remain future governance work.
+- **Validation:** Focused ISDA schema unit coverage added; frontend build and focused browser regressions remain the required service-level validation after Compose rebuild.
+- **Implementation references:** [ISDA schema](../backend/app/isda_template.py), [bootstrap persistence](../backend/app/bootstrap.py), [unit regression](../backend/tests/test_template_logic.py), [binding UI](../frontend/src/main.tsx).
+
+## DD-309: Replace opening ISDA placeholders with editable source-aligned clauses
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as an incremental fidelity slice
+- **Affected stories:** E2-01, E2-05, E2-10, E4-01, E6-01, E6-04
+- **Context:** The page-owned scaffold exposed meaningful headings but used generic summaries for the opening agreement and core Sections 2–5. That could not produce an output close to the supplied source even though the objects were editable.
+- **Choice:** Add editable source-aligned clause text for pages 1–8 covering Interpretation, Obligations, tax/netting, Representations, Agreements, Events of Default, Cross-Default and Bankruptcy/Merger Without Assumption. Keep each page as an ordinary text block with existing bindings, page ownership and safe rendering controls.
+- **Alternatives considered:** Keep generic summaries; rejected because they are not a credible source comparison. Reuse the locked PDF as content; rejected because it violates the editable-authoring requirement. Import arbitrary PDF text at runtime; rejected because source content must remain represented by platform template objects.
+- **Consequences:** The opening portion now contains materially more of the source agreement's legal structure and editable clauses. Pages 9–36 still require the same source-aligned treatment, and exact typography/geometry calibration remains an evidence-gated follow-up.
+- **Validation:** ISDA scaffold tests passed (`3 passed`); frontend build passed; Compose rebuild/bootstrap updated the live draft; the live API exposes the source-aligned opening clauses; and the focused ISDA browser regression passed (`1 passed`).
+- **Implementation references:** [ISDA source-aligned clauses](../backend/app/isda_template.py), [ISDA tests](../backend/tests/test_template_logic.py), [comparison evidence](isda-template-comparison.md).
+
+## DD-310: Extend source-aligned editable ISDA clauses through Section 9
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as an incremental fidelity slice
+- **Affected stories:** E2-01, E2-05, E2-10, E4-01, E6-01, E6-04
+- **Context:** After the opening-page pass, pages 9–16 still contained generic summaries even though the supplied source contains the substantive Termination Events, Early Termination, Close-Out Netting, Transfer, Contractual Currency and Miscellaneous provisions.
+- **Choice:** Replace those summaries with editable, page-owned clause text covering the source's Sections 5(b)–9(e), while retaining the existing declarative binding and rendering controls.
+- **Alternatives considered:** Preserve generic summaries; rejected because they prevent meaningful source comparison. Use the source PDF as the body; rejected because it removes editability. Collapse all clauses into one large text block; rejected because page-owned structure and selectable sections are required for authoring.
+- **Consequences:** Pages 1–16 now expose materially source-aligned legal content as editable blocks. Later Definitions, Schedule and execution pages still require source reconstruction and exact layout calibration.
+- **Validation:** ISDA scaffold tests passed (`3 passed`); frontend build passed. Compose rebuild/bootstrap and live API verification are required after deployment of this slice.
+- **Implementation references:** [ISDA clause overrides](../backend/app/isda_template.py), [bootstrap upgrade](../backend/app/bootstrap.py), [ISDA tests](../backend/tests/test_template_logic.py).
+
+## DD-311: Add source-aligned editable clauses for Sections 9–14
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as an incremental fidelity slice
+- **Affected stories:** E2-01, E2-05, E2-10, E4-01, E6-01, E6-04
+- **Context:** Pages 17–24 still used generic text while the source contains interest and compensation, multibranch offices, expenses, notices, jurisdiction and the opening Definitions glossary.
+- **Choice:** Add bounded editable clause text for those source sections to the corresponding page-owned blocks, preserving the existing safe text renderer and bindings.
+- **Alternatives considered:** Keep generic summaries; rejected for source comparison. Use the locked source PDF; rejected because it is not editable. Create a single opaque glossary asset; rejected because definitions must remain visible structure nodes and editable text.
+- **Consequences:** Pages 1–24 now contain source-aligned legal structure. Remaining Definitions pages, Schedule pages and execution pages still need reconstruction; exact source geometry remains a separate calibration gate.
+- **Validation:** ISDA scaffold tests passed (`3 passed`); frontend build passed. Compose/live API and browser regression are run after deployment of this slice.
+- **Implementation references:** [ISDA clause overrides](../backend/app/isda_template.py), [bootstrap upgrade](../backend/app/bootstrap.py), [ISDA tests](../backend/tests/test_template_logic.py).
+
+## DD-304: Provide bounded declarative table-row filtering
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-02, E2-10, E5-01, E5-03, E6-01
+- **Context:** Repeatable tables need a practical way to show only applicable records, such as Schedule entries relevant to a selected section. Requiring users to write code would undermine the ease-of-authoring goal and introduce execution risk.
+- **Choice:** Support an optional `row_condition` containing a relative field `path` and scalar `equals` value. Apply the same bounded equality rule in the editor's local table preview and the server renderer. The feature is data-only and does not evaluate expressions or arbitrary code.
+- **Alternatives considered:** Arbitrary expressions were rejected because they create security and authoring complexity. Embedded JavaScript was rejected because templates cannot execute arbitrary code. Server-only filtering was rejected because preview would diverge from generated output.
+- **Consequences:** Authors can filter repeatable rows with a simple path/value UI and preview the result immediately. The first version intentionally supports scalar equality only; compound predicates, ordering and richer operators remain separate future decisions.
+- **Validation:** Frontend production build passed; focused backend tests passed (`3 passed, 47 deselected`); Compose image rebuild and service startup passed; focused Playwright ISDA editor test passed (`1 passed`).
+- **Implementation references:** [renderer](../backend/app/rendering.py), [renderer tests](../backend/tests/test_template_logic.py), [table editor](../frontend/src/main.tsx), [table styles](../frontend/src/editor.css), [browser regression](../frontend/tests/foundation.spec.ts), [template contract](template-contract.md).
+
+## DD-312: Extend source-aligned editable ISDA content through execution pages
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as an incremental fidelity slice
+- **Affected stories:** E2-01, E2-02, E2-05, E2-06, E2-10, E3-06, E4-01, E6-01, E6-04
+- **Context:** Pages 25-32 and 34-36 still used generic summaries after the source-aligned pass through page 24. The remaining Definitions, Schedule and execution content therefore could not be meaningfully inspected or edited as part of the ISDA scaffold.
+- **Choice:** Replace those fallback summaries with bounded, editable, page-owned clause text covering the remaining Definitions terms, Schedule elections, tax representations, agreements, process-agent/offices, payment netting and execution signatures. Keep page 33 as the existing bound repeatable Schedule table and preserve the locked source PDF only as a comparison layer.
+- **Alternatives considered:** Keep generic summaries; rejected because they are not useful source-comparison content. Use the locked PDF as the body; rejected because it bypasses authoring. Add arbitrary imported PDF markup; rejected because the template contract remains declarative and renderer-safe.
+- **Consequences:** All 36 pages now expose source-aligned editable content or a meaningful editable table node. Exact clause segmentation, complete Schedule field schema, source geometry calibration, font evidence and native-reader review remain open.
+- **Validation:** Focused ISDA scaffold assertions passed after implementation; full frontend build, Compose/live bootstrap and focused browser regression remain required for deployment evidence. No native-reader, second-engine or legal approval is claimed.
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [ISDA tests](../backend/tests/test_template_logic.py), [comparison baseline](isda-template-comparison.md).
+
+## DD-313: Maintain a durable ISDA session handoff
+
+- **Date:** 2026-09-30
+- **Status:** Superseded by DD-416 (handoff file removed 2026-10-01); historical record retained
+- **Affected stories:** E2-01, E2-02, E2-05, E2-06, E2-10, E3-06, E4-01, E6-01, E6-04
+- **Context:** ISDA work is being continued across sessions and depends on preserving exact implementation boundaries, validation gaps and the next safe slice.
+- **Choice:** Maintain `docs/isda-work-handoff.md` as the durable restart record, link it from `README.md`, and include a copy-paste prompt that directs the next session to the source stories, decisions, contracts, implementation and evidence limits.
+- **Alternatives considered:** Rely on conversation history; rejected because it is not a repository source of truth. Add informal notes only to the decision log; rejected because the next-session action sequence and prompt need a dedicated handoff surface.
+- **Consequences:** Future sessions can resume from a stable repository document. The handoff is operational guidance, not evidence that the remaining ISDA fidelity, native-reader, second-engine, licensing or legal gates are complete.
+- **Validation:** Handoff links and referenced paths were added to the repository documentation; the latest implementation evidence and pytest environment limitation are recorded in the handoff note.
+- **Implementation references:** [ISDA handoff](isda-work-handoff.md), [README index](../README.md).
+
+## DD-314: Decompose ISDA Schedule and execution pages into semantic editable objects
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a bounded authoring slice; full ISDA reconstruction remains incomplete
+- **Affected stories:** E2-01, E2-02, E2-05, E2-06, E2-10, E3-06, E4-01, E5-01, E5-03, E5-04, E6-01, E6-04, E6-15
+- **Context:** Pages 29–36 were still represented mostly by one page-owned text block, which made Schedule elections, process agents, Offices, notices, payment netting and signatures difficult to inspect or bind individually. Page 33 already had a repeatable document table, but the surrounding Schedule and execution content did not have semantic editor identity.
+- **Choice:** Keep the existing renderer block types and page ownership, and add bounded metadata (`semantic_kind`, `semantic_id`, `field_path`, and `field_role`) to separate clause, field, Schedule, signature and table objects on pages 29–36. Expand the version-two ISDA schema and local sample data for those paths. The metadata is declarative authoring information; it does not add executable template instructions or permit network access. Keep the supplied PDF in `page.background_pdf` only as a locked comparison layer.
+- **Alternatives:** Add new executable renderer block types; rejected because the safe renderer contract should remain unchanged. Keep one large text block per page; rejected because it prevents object-level inspection and guided binding. Use the locked PDF as the Schedule/signature body; rejected because it is not editable authoring content.
+- **Consequences:** Schedule and execution objects now have stable IDs, page ownership and schema-compatible binding paths, while the renderer continues to process ordinary text and table blocks. The slice does not provide source-box calibration, complete legal clause transcription, signature execution, exact PDF fidelity or final field geometry.
+- **Validation:** `python -m compileall -q backend/app` passed; direct semantic ISDA assertions passed for 63 objects and the expanded schema/sample; a container-side semantic render assertion passed; frontend production build passed; rebuilt Compose services passed the focused Playwright regression (`1 passed`). Pytest was unavailable in both host and container environments. Native-reader, second-engine, font/licence, accessibility, legal and exact-fidelity review remain pending.
+- **Implementation references:** [ISDA semantic scaffold](../backend/app/isda_template.py), [bootstrap upgrade](../backend/app/bootstrap.py), [ISDA tests](../backend/tests/test_template_logic.py), [template contract](template-contract.md), [ISDA comparison](isda-template-comparison.md).
+
+## DD-315: Decompose remaining ISDA Definitions and execution-introduction pages
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a bounded continuation; full ISDA reconstruction remains incomplete
+- **Affected stories:** E2-01, E2-05, E2-06, E2-10, E3-06, E4-01, E5-01, E5-04, E6-01, E6-04
+- **Context:** Pages 25–28 still used one page-owned text block each while the Schedule/execution slice had begun using semantic objects. This left Definitions, Market Quotation, Offices, Proceedings, Termination Event, Transaction and the execution introduction without object-level structure.
+- **Choice:** Split pages 25–28 into declarative clause and field objects with stable semantic IDs and page ownership. Extend the governed ISDA schema/sample data to version 3 for the bounded Definitions paths, while keeping the ordinary `text` block renderer and locked source PDF comparison boundary unchanged.
+- **Alternatives:** Leave Definitions as page summaries; rejected because the editor could not inspect or bind individual defined terms. Add a new executable block type; rejected because semantic metadata is sufficient and preserves renderer safety. Import source PDF text dynamically; rejected because source content must remain application-owned template data.
+- **Consequences:** Pages 25–28 now participate in the same semantic structure model as Schedule and execution pages. Complete definition coverage, legal transcription, source geometry and exact output fidelity remain open.
+- **Validation:** Direct semantic assertions, compile, frontend build, rebuilt Compose render and focused Playwright validation are required for this slice; pytest remains unavailable unless the project test environment is installed. Native-reader, second-engine, accessibility, licence and legal review remain pending.
+- **Implementation references:** [ISDA semantic scaffold](../backend/app/isda_template.py), [bootstrap upgrade](../backend/app/bootstrap.py), [ISDA tests](../backend/tests/test_template_logic.py), [ISDA browser regression](../frontend/tests/foundation.spec.ts).
+
+## DD-316: Give every ISDA page an explicit semantic clause owner
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a structural enabler; full clause decomposition remains incomplete
+- **Affected stories:** E2-01, E2-06, E2-10, E3-06, E4-01, E6-01, E6-04
+- **Context:** The Schedule, execution and Definitions slices had semantic identities, but the earlier page-owned blocks did not declare whether they represented a clause. This made the structure model inconsistent across the 36-page template.
+- **Choice:** Add a stable `clause` semantic ID to each existing page-owned agreement block on pages 1–24, retaining the existing text block, page number, anchor and renderer behavior. This identifies ownership without pretending that each page is already split into every legal subclause.
+- **Alternatives:** Leave earlier pages untyped; rejected because editor structure would be inconsistent. Split all earlier legal text in this slice; rejected because source segmentation and field semantics require separate comparison work and should not be invented from summaries.
+- **Consequences:** All 36 pages now have at least one semantic owner, while pages 25–36 have the richer bounded decomposition. Earlier pages still need clause-by-clause reconstruction, field mapping and geometry calibration.
+- **Validation:** Direct page-owner assertions, compile, frontend build, Compose rendering and the focused Playwright regression are the validation evidence for this structural change. Exact fidelity and review gates remain pending.
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [ISDA tests](../backend/tests/test_template_logic.py), [template contract](template-contract.md).
+
+## DD-317: Represent measured Schedule form elections as governed fields
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a bounded source-alignment slice; complete Schedule reconstruction remains incomplete
+- **Affected stories:** E2-01, E2-02, E2-10, E3-06, E4-01, E5-01, E5-04, E6-01, E6-04
+- **Context:** Source PDF inspection identified concrete Schedule regions for counterparty details, termination elections, tax representations, document delivery, notices, Offices, Calculation Agent and payment netting. The prior model represented only a small subset of these fields.
+- **Choice:** Add separate declarative field objects for the measured Schedule regions on pages 29–35, give them stable semantic IDs and schema paths, and seed representative local values so the authoritative renderer reports no missing bindings. Keep election values as editable strings until bounded enum/boolean semantics are validated against the full source form.
+- **Alternatives:** Keep summary clauses only; rejected because they cannot be mapped to the observed form regions. Use arbitrary form controls or scripts; rejected because the safe renderer contract is declarative. Claim source-box coordinates from text extraction alone; rejected because text extraction does not prove geometry.
+- **Consequences:** The Schedule structure is substantially more inspectable and data-bound, while exact coordinates, option controls, full tables and legal interpretation remain open. Sample values are fixtures, not legal defaults.
+- **Validation:** Container-side render of all 105 objects reported zero missing field bindings; focused backend coverage was added; the rebuilt Compose service exposed 105 persisted objects and the focused Playwright regression passed (`1 passed`). Native-reader, second-engine and legal review remain pending.
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [ISDA tests](../backend/tests/test_template_logic.py), [template contract](template-contract.md).
+
+## DD-318: Add provisional millimetre positions to measured ISDA fields
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as provisional calibration data; exact geometry remains unapproved
+- **Affected stories:** E2-01, E2-06, E2-10, E4-01, E6-01, E6-04
+- **Context:** Local PDF text extraction supplied page coordinates for representative Schedule, notice, process-agent, netting and signature regions. Flow-only fields could not be compared against those measured source locations.
+- **Choice:** Store bounded `position_mode: "absolute"`, `position_unit: "mm"`, `position_x` and `position_y` on the measured fields using conversions from the source Letter-point coordinate system. Preserve page ownership and the existing renderer position bounds. Mark these values provisional until image-level comparison and typography calibration are complete.
+- **Alternatives:** Guess CSS pixels; rejected because they are not page-size-aware. Treat extracted text coordinates as final geometry; rejected because text extraction does not prove glyph boxes or visual alignment. Use the locked PDF as the field body; rejected because it bypasses editability.
+- **Consequences:** The renderer and local editor have a concrete calibration starting point for representative fields. Text wrapping, line rules, font metrics, collision detection and full-page geometry remain open.
+- **Validation:** Focused bounded-position assertions were added; compile/build and container render validation are required after deployment. No exact-fidelity or native-reader claim is made.
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [renderer](../backend/app/rendering.py), [ISDA tests](../backend/tests/test_template_logic.py), [comparison report](isda-template-comparison.md).
+
+## DD-319: Raise the bounded synchronous render block threshold for the semantic ISDA draft
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as an operational default adjustment
+- **Affected stories:** E1-02, E1-06, E2-01, E6-01, E6-04
+- **Context:** The semantic ISDA draft now contains 105 bounded declarative objects. The existing 100-block synchronous PDF threshold rejected the candidate before rendering, despite the existing isolated worker CPU, memory, timeout and output limits remaining applicable.
+- **Choice:** Raise `sync_render_max_blocks` from 100 to 128 in the typed default and local `config.toml`. Definitions above the threshold still use the durable asynchronous render path; no unbounded rendering or renderer bypass is introduced.
+- **Alternatives:** Remove the threshold; rejected because resource containment remains required. Reduce semantic objects to fit 100; rejected because it would weaken the requested editable object model. Special-case only the ISDA template; rejected because the routing setting should remain predictable and documented.
+- **Consequences:** The current 105-object ISDA candidate can exercise the synchronous PDF route under the existing isolated resource limits. This is a routing default, not a performance benchmark or fidelity claim.
+- **Validation:** Configuration/build validation and the live candidate PDF request are required after Compose restart; PDF page geometry, native-reader and exact-fidelity evidence remain separate.
+- **Implementation references:** [config](../backend/app/config.py), [local config](../config.toml), [foundation settings](e1-foundation.md), [jobs contract](jobs-contract.md), [PDF route](../backend/app/main.py).
+
+## DD-320: Measure the editable ISDA candidate independently from the locked comparison background
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as comparison evidence; fidelity approval remains pending
+- **Affected stories:** E4-01, E4-02, E6-01, E6-04, E6-05
+- **Context:** The locked-background artifact preserved the source PDF but could not prove that the editable semantic definition itself rendered as a comparable document. The 105-object definition also initially exceeded the synchronous PDF routing threshold.
+- **Choice:** Render the editable definition through the local Chromium candidate route without source-PDF content, retain the candidate artifact/report, and compare page count, page geometry, normalized extracted text and candidate font-resource inventory against the supplied source. Keep the locked background available only for visual comparison in the editor.
+- **Alternatives:** Treat the locked-background similarity as editable fidelity; rejected because it measures copied source content. Compare only screenshots; rejected because page/text/resource diagnostics are also needed. Automatically approve the candidate from similarity; rejected because native-reader, glyph, font/licence and visual review are separate gates.
+- **Consequences:** The current candidate has measured evidence: 36 pages, Letter `612 × 792 pt` geometry and normalized text similarity `0.9537`. The result is materially weaker than the source-preserving locked artifact and therefore identifies remaining reconstruction work rather than completion.
+- **Validation:** API PDF render succeeded with the local candidate route; artifact/report are recorded in [ISDA comparison](isda-template-comparison.md). Native-reader, second-engine, exact visual, accessibility, font/licence and legal review remain pending.
+- **Implementation references:** [ISDA candidate artifact](../artifacts/isda-editable-candidate.pdf), [candidate report](../artifacts/isda-editable-candidate-response.json), [comparison report](isda-template-comparison.md), [PDF route](../backend/app/main.py).
+
+## DD-321: Restore bounded renderer and PDF-overlay contract evidence during ISDA validation
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-01, E2-06, E4-01, E6-01, E6-04
+- **Context:** Running the project test environment exposed six existing renderer/PDF regressions while validating the ISDA work: page counter CSS was not emitted, negative paragraph spacing was accepted, image figure markup drifted from the contract, and blank PDF pages could produce invalid content arrays.
+- **Choice:** Emit the candidate page counter instruction, reject negative paragraph spacing while retaining bounded indentation ranges, preserve the established figure style shape, and omit null PDF content references when creating overlay arrays. Keep the existing isolated renderer and PDF overlay boundaries.
+- **Alternatives:** Ignore unrelated failures; rejected because they weaken the same renderer/PDF contracts used by the ISDA candidate. Broaden style acceptance; rejected because negative spacing is unsafe. Special-case ISDA output; rejected because the fixes belong to shared renderer behavior.
+- **Consequences:** The focused template/PDF suite and full backend suite pass again, and the editable ISDA candidate can be regenerated through the same route. Native-reader, second-engine, visual and accessibility approval remain separate.
+- **Validation:** Focused template/PDF tests passed (`74 passed`); full backend suite passed (`251 passed, 9 skipped, 3 warnings`); frontend build passed; Compose rebuilt; Playwright ISDA regression passed (`1 passed`); editable candidate PDF render and comparison passed.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [PDF overlay](../backend/app/pdf_toc.py), [template tests](../backend/tests/test_template_logic.py), [PDF tests](../backend/tests/test_pdf_render.py), [ISDA comparison](isda-template-comparison.md).
+
+## DD-322: Record reproducible offline candidate-render evidence without treating it as approval
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as evidence capture; native-reader and fidelity gates remain open
+- **Affected stories:** E4-01, E4-02, E4-06, E6-01, E6-04, E6-05
+- **Context:** The ISDA candidate had a successful API render, but the fixed-corpus comparison harness had not yet been run after the semantic and shared-renderer changes. Available local tooling includes the deterministic HTML renderer and pinned Playwright Chromium, but no approved second engine or native-reader automation.
+- **Choice:** Run `scripts/compare_render_candidates.py` in the project virtual environment and retain its JSON report plus per-fixture HTML, PDF, manifest and PNG hash artifacts. Treat the results as reproducibility, metadata and object-inventory evidence only. Keep `visual_comparison` and `native_reader_scores` unset until an actual reviewed comparison and reader evidence exist.
+- **Alternatives:** Claim visual equivalence from matching hashes; rejected because the hashes cover separate outputs and do not establish similarity. Infer glyph correctness from `/Font` and `/ToUnicode` object counts; rejected because those inventories do not prove coverage or shaping. Install or select an unapproved second engine; rejected because engine selection and licensing require separate evidence.
+- **Consequences:** The local CPU/offline rendering candidates now have a repeatable fixed-corpus baseline: Python `3.13.7`, Node `22.23.1`, Playwright `1.63.0`, Chromium `153.0.8010.12`, disabled browser network, and per-fixture SHA-256 values. E4-01/E6-01 comparison, native-reader, second-engine, accessibility, font/licence and legal gates remain open.
+- **Validation:** `backend\\.venv\\Scripts\\python.exe scripts/compare_render_candidates.py --output artifacts/render-candidate-comparison.json` exited successfully and produced two fixture reports. The report status is `pending-native-review`; both `visual_comparison` and `native_reader_scores` are `null`.
+- **Implementation references:** [comparison harness](../scripts/compare_render_candidates.py), [Chromium harness](../scripts/render_chromium_candidate.mjs), [comparison report](../artifacts/render-candidate-comparison.json), [candidate guidance](rendering-candidates.md), [ISDA comparison](isda-template-comparison.md).
+
+## DD-323: Split later agreement and Definitions pages into clause-owned objects
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a bounded semantic slice; full clause reconstruction remains incomplete
+- **Affected stories:** E2-01, E2-05, E2-06, E2-10, E4-01, E6-01, E6-04
+- **Context:** Pages 17–24 still used one coarse page-owned text block each, even though their source-aligned content covered distinct Interest, Offices, Notices, Jurisdiction and Definitions clauses. That limited object-level authoring and made the semantic structure inconsistent with the later Schedule pages.
+- **Choice:** Replace those eight coarse blocks with 13 stable, page-owned clause objects covering the existing source-aligned text. Keep the objects as ordinary declarative text blocks, do not add speculative field bindings for legal prose, and retain the locked source PDF only as a comparison background.
+- **Alternatives:** Leave the summaries intact; rejected because they remain difficult to inspect and edit. Invent Schedule fields for every legal phrase; rejected because field semantics require source-form evidence and governed schema decisions. Add executable block types; rejected because metadata plus existing text blocks satisfy this bounded slice without weakening the safe renderer.
+- **Consequences:** The editable ISDA scaffold now has 110 objects, with finer clause ownership on pages 17–24 and the existing field/Schedule/signature decomposition on pages 25–36. Pages 1–16, complete definition transcription, field semantics, geometry, typography and exact fidelity remain open.
+- **Validation:** Focused template tests passed (`58 passed, 3 warnings`). Frontend build, live API refresh and focused Playwright validation remain required after the object-count change. No exact-fidelity, native-reader, second-engine, accessibility, font/licence or legal approval is claimed.
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [ISDA tests](../backend/tests/test_template_logic.py), [browser regression](../frontend/tests/foundation.spec.ts), [template contract](template-contract.md).
+
+## DD-324: Refresh editable ISDA candidate evidence after semantic object expansion
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as updated comparison evidence; fidelity approval remains pending
+- **Affected stories:** E4-01, E4-02, E6-01, E6-04, E6-05
+- **Context:** The 110-object semantic definition superseded the earlier 105-object candidate, so the prior PDF measurement was no longer current evidence for the live template.
+- **Choice:** Regenerate the candidate through the live local Chromium API route after Compose/bootstrap refresh and compare the resulting PDF independently against the locked source. Record the new page count, Letter geometry, font inventory and normalized text similarity; do not transfer the prior similarity score to the new definition.
+- **Alternatives:** Keep the prior candidate report; rejected because it describes a different object set. Treat the lower similarity as a reason to remove the semantic split; rejected because semantic authoring and fidelity calibration are separate workstreams. Approve from page count alone; rejected because page count and geometry do not prove visual or legal fidelity.
+- **Consequences:** The current 110-object candidate is evidenced at 36 pages, Letter `612 × 792 pt` geometry and normalized extracted-text similarity `0.8294`. Candidate font resources include Liberation Serif and Times variants. The lower score identifies the next calibration/reconstruction work; native-reader, visual, second-engine, glyph, accessibility, font/licence and legal gates remain open.
+- **Validation:** Compose rebuild and migration completed; live API reported 110 blocks and schema version 3; candidate PDF render succeeded with `972058` bytes; independent `pypdf` comparison reported 36 source/candidate pages, Letter geometry and similarity `0.8294`; focused Playwright passed (`1 passed`); full backend suite passed (`252 passed, 9 skipped, 3 warnings`).
+- **Implementation references:** [candidate artifact](../artifacts/isda-editable-candidate.pdf), [candidate report](../artifacts/isda-editable-candidate-response.json), [ISDA comparison](isda-template-comparison.md), [bootstrap migration](../backend/app/bootstrap.py).
+
+## DD-325: Split opening ISDA pages into clause-owned objects
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a bounded semantic slice; complete clause reconstruction remains incomplete
+- **Affected stories:** E2-01, E2-05, E2-06, E2-10, E4-01, E6-01, E6-04
+- **Context:** Pages 1–8 still grouped opening Agreement, Obligations, Representations, Agreements and Events of Default content into one block per page. That made the earliest legal structure less inspectable than the later semantic pages.
+- **Choice:** Split the existing source-aligned text on pages 1–8 into 16 stable clause objects, preserving the same words, page numbers, declarative text renderer and locked-PDF comparison boundary. Keep legal prose as clause objects rather than inventing unverified field bindings.
+- **Alternatives:** Leave the opening blocks coarse; rejected because page-level ownership alone is insufficient for object-level authoring. Add guessed schema fields for legal statements; rejected because the source form and governed semantics do not establish those bindings. Use PDF text as runtime content; rejected because the template remains application-owned editable data.
+- **Consequences:** The scaffold now contains 118 editable objects before the locked comparison node, with semantic clause identity across all pages and richer Schedule/field/signature objects on pages 25–36. Source transcription, complete field semantics, geometry, typography and exact fidelity remain open.
+- **Validation:** Focused template tests passed (`59 passed, 3 warnings`); compile and frontend build passed. Compose migration/live Playwright and full backend rerun are required for this object-count change. No native-reader, second-engine, accessibility, font/licence or legal approval is claimed.
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [ISDA tests](../backend/tests/test_template_logic.py), [browser regression](../frontend/tests/foundation.spec.ts), [bootstrap migration](../backend/app/bootstrap.py).
+
+## DD-326: Refresh candidate evidence after opening-page decomposition
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as updated comparison evidence; fidelity approval remains pending
+- **Affected stories:** E4-01, E4-02, E6-01, E6-04, E6-05
+- **Context:** The 118-object opening-page definition superseded the 110-object candidate measured by DD-324. Candidate evidence must match the current persisted definition.
+- **Choice:** Regenerate the editable candidate through the live local Chromium route after Compose migration and measure it independently against the locked source. Keep the locked PDF out of the editable candidate content and record the new result separately from prior snapshots.
+- **Alternatives:** Reuse the 110-object score; rejected because it measures a different definition. Treat unchanged page count as fidelity approval; rejected because it does not establish clause geometry or visual equivalence. Restore coarse blocks to preserve similarity; rejected because that would reverse the requested semantic authoring progress.
+- **Consequences:** The current 118-object candidate is evidenced at 36 pages, Letter `612 × 792 pt`, `975672` bytes and normalized extracted-text similarity `0.8277`. Its font inventory remains candidate-only (`LiberationSerif` and Times variants); visual, glyph, native-reader, second-engine, accessibility, font/licence and legal gates remain open.
+- **Validation:** Live API reported 118 blocks and schema version 3; candidate rendering succeeded; independent `pypdf` comparison reported 36 source/candidate pages, Letter geometry and similarity `0.8277`; focused Playwright passed (`1 passed`); full backend suite passed (`253 passed, 9 skipped, 3 warnings`); compile and frontend build passed.
+- **Implementation references:** [candidate artifact](../artifacts/isda-editable-candidate.pdf), [candidate report](../artifacts/isda-editable-candidate-response.json), [ISDA comparison](isda-template-comparison.md), [comparison boundary](template-contract.md).
+
+## DD-327: Split termination, transfer and currency pages into clause-owned objects
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a bounded semantic slice; rendering calibration remains incomplete
+- **Affected stories:** E2-01, E2-05, E2-06, E2-10, E4-01, E6-01, E6-04
+- **Context:** Pages 9–16 still grouped Termination Events, Early Termination, Calculations, Set-Off, Transfer, Contractual Currency and Miscellaneous content into one block per page.
+- **Choice:** Split the existing source-aligned text into 16 stable page-owned clause objects, preserving wording, the declarative text renderer, local CPU path and locked-PDF comparison boundary. Do not introduce speculative field bindings for agreement prose.
+- **Alternatives:** Keep the coarse blocks; rejected because the agreement body would remain inconsistently structured. Add guessed elections or executable controls; rejected because those require governed schema and source-form evidence. Use the source PDF as body content; rejected because authoring must remain editable and application-owned.
+- **Consequences:** The complete 36-page scaffold now has 126 editable objects before the locked comparison node, with clause identity across the agreement body and semantic field/Schedule/signature objects in the later pages. Source-calibrated geometry, typography, complete field semantics and exact fidelity remain open.
+- **Validation:** Focused template tests passed (`60 passed, 3 warnings`). Compose/live refresh, frontend build, Playwright and full backend rerun remain required after this object-count change. No native-reader, second-engine, accessibility, font/licence or legal approval is claimed.
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [ISDA tests](../backend/tests/test_template_logic.py), [browser regression](../frontend/tests/foundation.spec.ts), [bootstrap migration](../backend/app/bootstrap.py).
+
+## DD-328: Refresh candidate evidence after completing agreement-body clause decomposition
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as updated comparison evidence; fidelity approval remains pending
+- **Affected stories:** E4-01, E4-02, E6-01, E6-04, E6-05
+- **Context:** The 126-object definition superseded the 118-object candidate measured before pages 9–16 were split. Current candidate evidence must match the current persisted object set.
+- **Choice:** Regenerate the editable candidate through the live local Chromium route after Compose migration and compare it independently with the locked source for pages, geometry, extracted text and candidate font resources. Continue to exclude the locked PDF from editable candidate content.
+- **Alternatives:** Reuse the prior 118-object score; rejected because it measures a different definition. Approve based on stable 36-page geometry; rejected because geometry does not prove visual fidelity. Collapse semantic clauses to preserve similarity; rejected because it reverses the requested authoring model.
+- **Consequences:** The current 126-object candidate is evidenced at 36 pages, Letter `612 × 792 pt`, `980614` bytes and normalized extracted-text similarity `0.8255`. Font inventory remains candidate-only (`LiberationSerif` and Times variants). Native-reader, visual, second-engine, glyph, accessibility, font/licence and legal gates remain open.
+- **Validation:** Live API reported 126 blocks and schema version 3; candidate rendering succeeded; independent `pypdf` comparison reported 36 source/candidate pages, Letter geometry and similarity `0.8255`; focused Playwright passed (`1 passed`); full backend suite passed (`254 passed, 9 skipped, 3 warnings`); compile and frontend build passed.
+- **Implementation references:** [candidate artifact](../artifacts/isda-editable-candidate.pdf), [candidate report](../artifacts/isda-editable-candidate-response.json), [ISDA comparison](isda-template-comparison.md), [template contract](template-contract.md).
+
+## DD-329: Make editable ISDA comparison evidence reproducible by repository command
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as diagnostic tooling; visual and reader review remain pending
+- **Affected stories:** E4-01, E4-02, E4-06, E6-01, E6-04, E6-05
+- **Context:** Current ISDA page, geometry, text and font-resource measurements were repeatable in principle but relied on an ad hoc local snippet rather than a named repository command.
+- **Choice:** Add `scripts/compare_isda_candidate.py` to compare the locked source and editable candidate offline, recording SHA-256 values, page counts, Letter page boxes, normalized text similarity, candidate font names and explicit review limitations. Keep visual comparison, native-reader review and second-engine review null/pending.
+- **Alternatives:** Compare PDF bytes only; rejected because valid PDFs may differ while rendering similarly. Use source-background similarity as editable fidelity; rejected because the source remains locked comparison input only. Infer visual or reader approval from text extraction and font names; rejected because those measurements do not prove coordinates, shaping or reader behavior.
+- **Consequences:** The current comparison can be regenerated with one CPU/offline command and ties its result to exact source/candidate hashes. It remains diagnostic evidence, not approval or a completion gate.
+- **Validation:** `backend\\.venv\\Scripts\\python.exe scripts/compare_isda_candidate.py --output artifacts/isda-editable-comparison.json` passed for the current candidate: 36 pages each, Letter `612 × 792 pt`, normalized text similarity `0.8255`, candidate SHA-256 `34ac7566d83b9194630f61e4bef80aff47703e729076e3ede502808a49555354`, `visual_comparison: null`, `native_reader_review: pending`, and `second_engine_review: pending`. Script compilation passed.
+- **Implementation references:** [comparison command](../scripts/compare_isda_candidate.py), [comparison report](../artifacts/isda-editable-comparison.json), [ISDA comparison](isda-template-comparison.md), [rendering candidate contract](rendering-candidates.md).
+
+## DD-330: Make the locked-background comparison boundary explicit in PDF rendering
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented; exact fidelity and review gates remain open
+- **Affected stories:** E4-01, E4-02, E6-01, E6-04, E6-05
+- **Context:** The ISDA definition legitimately retains `page.background_pdf` for editor comparison, but the PDF endpoint previously merged that background for every request. That made it impossible to prove that a candidate artifact contained only editable foreground content.
+- **Choice:** Preserve the existing default behavior for ordinary preview/render requests, and add an explicit `comparison_mode: "editable-only"` request mode that skips background merging and reports `locked_background: "omitted"`. Use that mode for candidate comparison; the source PDF remains comparison input only.
+- **Alternatives:** Remove the background from the template; rejected because the editor's locked comparison layer remains required. Infer background absence from extracted text or fonts; rejected because those are indirect. Make all renders editable-only; rejected because it would change the existing preview contract.
+- **Consequences:** Candidate evidence can now be generated from the authoritative renderer without source-PDF page content, while ordinary preview behavior remains compatible. The explicit mode is diagnostic comparison behavior, not a fidelity or legal approval.
+- **Validation:** Focused PDF tests passed (`18 passed, 3 warnings`), including a background-bearing definition rendered with `comparison_mode: "editable-only"` and response evidence `locked_background: "omitted"`. Live Compose regeneration and candidate comparison are required after deployment of this change.
+- **Implementation references:** [PDF endpoint](../backend/app/main.py), [PDF tests](../backend/tests/test_pdf_render.py), [ISDA candidate comparison](../scripts/compare_isda_candidate.py), [template contract](template-contract.md).
+
+## DD-331: Regenerate the ISDA candidate with the locked background omitted
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as true editable-only baseline; fidelity work remains substantial
+- **Affected stories:** E4-01, E4-02, E4-06, E6-01, E6-04, E6-05
+- **Context:** The previous candidate artifacts were generated before the explicit boundary mode and their high text similarity was materially influenced by merged locked source pages. They were not valid evidence of editable foreground fidelity.
+- **Choice:** Generate the current candidate with `comparison_mode: "editable-only"`, verify the API reports `locked_background: "omitted"`, and run the repository comparison command against that artifact. Treat the result as the authoritative editable-only baseline; retain background-backed artifacts only as separate comparison evidence.
+- **Alternatives:** Continue reporting the background-backed similarity; rejected because it violates the comparison boundary. Copy source text into foreground blocks to improve the number; rejected because the content must remain editable and application-owned. Declare failure from low similarity alone; rejected because it measures the incomplete scaffold and identifies calibration/reconstruction work rather than a renderer defect.
+- **Consequences:** The true editable-only candidate is 36 pages at Letter geometry, `75048` bytes, with normalized extracted-text similarity `0.0057` and only Liberation Serif font objects. The large gap is now visible and correctly directs work toward source-backed clause transcription, layout and typography; native-reader, visual, second-engine, glyph, accessibility, font/licence and legal gates remain open.
+- **Validation:** Live API render succeeded with `comparison_mode: "editable-only"` and `locked_background: "omitted"`; `scripts/compare_isda_candidate.py` passed and wrote the current report with candidate SHA-256 `da269014c034499ce9e57e8492196fe2d564dbad0d71da18e514cc9b14913940`, 36 pages each, Letter geometry and similarity `0.0057`. Full backend suite then passed (`255 passed, 9 skipped, 3 warnings`); focused PDF coverage passed (`18 passed, 3 warnings`).
+- **Implementation references:** [editable-only candidate](../artifacts/isda-editable-candidate.pdf), [comparison report](../artifacts/isda-editable-comparison.json), [PDF endpoint](../backend/app/main.py), [comparison command](../scripts/compare_isda_candidate.py).
+
+## DD-332: Capture reproducible source-page measurements for geometry calibration
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as provisional measurement evidence; calibration remains incomplete
+- **Affected stories:** E4-01, E4-02, E4-06, E6-01, E6-04, E6-05
+- **Context:** The editable-only candidate is now correctly isolated, but its low text similarity shows that source geometry and content density remain uncalibrated. A repeatable source measurement is needed before assigning more coordinates.
+- **Choice:** Add `scripts/measure_isda_source.py` to record the supplied PDF's SHA-256, page sizes, extracted text character counts and first text origins from pypdf's visitor API. Store the output as measurement evidence only; do not feed the PDF or extracted text into runtime rendering.
+- **Alternatives:** Treat text extraction as final glyph geometry; rejected because origins do not prove glyph boxes, ordering, wrapping or visual equivalence. Copy the source PDF into the candidate; rejected because the locked comparison boundary and editability would be bypassed. Guess coordinates; rejected because a reproducible source measurement is available.
+- **Consequences:** All 36 source pages now have a repeatable measurement record; the report identifies dense pages and representative source origins for future application-owned clause/field calibration. It does not itself improve candidate fidelity or establish native-reader approval.
+- **Validation:** `backend\\.venv\\Scripts\\python.exe scripts/measure_isda_source.py --output artifacts/isda-source-measurements.json` completed for the 36-page source and recorded source SHA-256 `19b1443c9a46d213df12461548d49bbd457f5bafeee6df3cdc6605285b22d925`; script compilation passed.
+- **Implementation references:** [measurement command](../scripts/measure_isda_source.py), [measurement report](../artifacts/isda-source-measurements.json), [ISDA comparison](isda-template-comparison.md).
+
+## DD-333: Scope absolute block coordinates to page-owned renderer surfaces
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as renderer contract correction; exact fidelity remains pending
+- **Affected stories:** E2-01, E2-06, E4-01, E6-01, E6-04
+- **Context:** The foreground page-image baseline showed that declarative `position_mode: "absolute"` styles were relative to the document body. Measured Schedule fields could therefore overlay content from another page instead of using their owned page coordinates.
+- **Choice:** Preserve the existing bounded coordinate values and wrap definitions whose blocks are page-owned in relative `.page-surface` sections. Keep page breaks and absolute coordinates declarative; no arbitrary code or source-PDF content is introduced.
+- **Alternatives:** Remove absolute positioning; rejected because measured Schedule/signature calibration needs it. Adjust coordinates to compensate for body-relative behavior; rejected because that would be unstable and violate page ownership. Use the locked background to hide overlays; rejected because editable-only output must stand alone.
+- **Consequences:** Absolute fields are now scoped to their page surface in deterministic HTML and Chromium output. The renderer has a stronger page-ownership invariant, while text density, typography, source transcription and visual calibration remain open.
+- **Validation:** New page-surface regression passed; focused template logic passed (`61 passed, 3 warnings`); full backend suite passed (`256 passed, 9 skipped, 3 warnings`); foreground baseline regenerated at 36 pages with zero missing fields and deterministic HTML/PDF/PNG hashes. Native-reader, second-engine, visual and legal approval remain unclaimed.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [renderer regression](../backend/tests/test_template_logic.py), [foreground baseline command](../scripts/render_isda_foreground_baseline.py), [foreground baseline](../artifacts/isda-foreground-baseline/isda-foreground.json).
+
+## DD-334: Refresh editable-only candidate evidence after page-surface scoping
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as current diagnostic evidence; fidelity approval remains pending
+- **Affected stories:** E4-01, E4-02, E4-06, E6-01, E6-04, E6-05
+- **Context:** The renderer correction changed the HTML/PDF structure of the 126-object foreground, so the previous editable-only artifact no longer represented the current candidate.
+- **Choice:** Rebuild Compose, render the candidate with `comparison_mode: "editable-only"`, verify `locked_background: "omitted"`, and rerun the reproducible comparison command. Supersede the prior candidate hash and similarity without interpreting the metric as approval.
+- **Alternatives:** Keep the previous artifact; rejected because it predates page-surface containment. Compare with the locked background; rejected because it violates the foreground-only boundary. Treat the similarity change as a legal or visual conclusion; rejected because extracted text remains diagnostic only.
+- **Consequences:** The current editable-only candidate is 36 pages at Letter geometry, `75050` bytes, SHA-256 `6e09ece6719d87656fee36485b87a8341aee451f9f0eebd6d8c23a6d7645ba95`, and normalized extracted-text similarity `0.0022`. The result remains an incomplete source reconstruction; native-reader, visual, second-engine, glyph, accessibility, font/licence and legal gates remain open.
+- **Validation:** Compose rebuild/migration completed; live API reported 126 blocks and schema version 3; editable-only API render reported `locked_background: "omitted"`; focused Playwright passed (`1 passed`); full backend suite passed (`256 passed, 9 skipped, 3 warnings`); comparison command passed.
+- **Implementation references:** [candidate artifact](../artifacts/isda-editable-candidate.pdf), [comparison report](../artifacts/isda-editable-comparison.json), [PDF endpoint](../backend/app/main.py), [renderer](../backend/app/rendering.py).
+
+## DD-335: Align Master Agreement and Schedule execution objects to measured source pages
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as a bounded source-ownership correction; complete execution reconstruction remains incomplete
+- **Affected stories:** E2-01, E2-05, E2-06, E2-10, E3-06, E4-01, E5-01, E5-04, E6-01, E6-04
+- **Context:** Local source extraction showed Master Agreement execution lines on source page 28 and Schedule Part 5/other provisions plus Schedule execution lines on source page 36. The scaffold previously exposed the signature fields only on page 36 and labeled that page only as execution signatures.
+- **Choice:** Add separate governed `master_signatures` paths and semantic signature/name/title/date objects to page 28, and add a Schedule `schedule-other-provisions` object to page 36 while retaining the existing Schedule signature paths there. Keep all content application-owned and renderer-native; use the source PDF only as a comparison/measurement input.
+- **Alternatives:** Reuse one signature path on both pages; rejected because it conflates two source execution regions. Move all signatures to page 28; rejected because source page 36 has Schedule execution lines. Treat page labels as sufficient; rejected because object-level page ownership is part of the authoring contract.
+- **Consequences:** The scaffold now contains 135 editable objects and distinguishes Master Agreement execution from Schedule execution. The schema/sample data cover both signature groups. Legal execution semantics, exact signature geometry, font behavior and approval remain open.
+- **Validation:** Direct render of all 135 objects reported zero missing fields; rebuilt Compose/live API reported 135 blocks and schema version 3; focused semantic tests passed (`64 passed, 3 warnings`); focused Playwright passed (`1 passed`); full backend suite passed (`259 passed, 9 skipped, 3 warnings`); compile and frontend build passed. The live PDF route correctly retained its 128-block synchronous guard, so the current 135-object comparison uses the local CPU Chromium foreground baseline recorded in DD-336.
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [schema/sample](../backend/app/isda_template.py), [ISDA tests](../backend/tests/test_template_logic.py), [source measurements](../artifacts/isda-source-measurements.json).
+
+## DD-336: Preserve the synchronous render guard and correct the 135-object page-36 break
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as diagnostic evidence; pagination and fidelity gates remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E2-10, E3-06, E4-01, E4-02, E4-06, E6-01, E6-04, E6-05
+- **Context:** The source-ownership correction increased the ISDA scaffold to 135 objects, above the configured 128-block synchronous PDF threshold. The live endpoint rejected the request as designed, while the local CPU Chromium foreground harness showed that two sequential page breaks placed the page-36 execution clause on an unintended page 37.
+- **Choice:** Preserve the 128-block synchronous guard, keep the page-36 Schedule and execution objects in one page-owned surface, and use the local network-disabled Chromium foreground baseline for diagnostic comparison. Do not raise the threshold or merge the locked source PDF into the candidate merely to produce a 36-page artifact.
+- **Alternatives:** Raise the synchronous limit; rejected because larger documents already have an asynchronous job contract and the operational guard is intentional. Reuse the stale 126-object candidate; rejected because it does not represent the current schema. Merge the locked PDF; rejected because it violates the editable comparison boundary.
+- **Consequences:** The corrected foreground artifact has 135 objects, zero missing bindings, 36 pages, `143773` bytes and normalized extracted-text similarity `0.003` against the 36-page source. The metric does not establish visual fidelity, native-reader behavior, second-engine agreement, font licensing, accessibility or legal approval.
+- **Validation:** Live Compose API reported 135 blocks and schema version 3; focused semantic tests passed (`64 passed, 3 warnings`); focused Playwright passed (`1 passed`); the full backend suite passed (`259 passed, 9 skipped, 3 warnings`); local foreground baseline and comparison command passed with source SHA `19b1443c9a46d213df12461548d49bbd457f5bafeee6df3cdc6605285b22d925` and candidate SHA `a87b926b4421616d4107a2f4fc043dbefd7b86e886be81f857adae6551bd40c8`.
+- **Implementation references:** [ISDA scaffold](../backend/app/isda_template.py), [render route](../backend/app/main.py), [foreground baseline](../scripts/render_isda_foreground_baseline.py), [comparison report](../artifacts/isda-editable-comparison.json), [handoff](isda-work-handoff.md), [comparison note](isda-template-comparison.md).
+
+## DD-337: Require schema projection for every bound ISDA object
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded schema coverage; legal field semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E2-10, E3-06, E4-01, E6-01, E6-04
+- **Context:** The renderer resolved all sample bindings, but that check alone did not prove that every measured Schedule field was exposed in the governed JSON Schema. Office and Notice measurement paths were present in blocks/sample data but incomplete in the schema projection.
+- **Choice:** Add explicit schema properties for measured Office, Notice address/attention, and Calculation Agent paths, and add a focused invariant that every semantic `field_path` is present in the schema and has a non-empty local sample value. Keep the schema data-only and the renderer unchanged.
+- **Alternatives:** Treat sample render success as schema coverage; rejected because undeclared paths can still render in the permissive evaluator. Add generic `additionalProperties`; rejected because it would hide missing governed field definitions. Infer schema properties dynamically from block text at runtime; rejected because schema ownership must remain explicit and reviewable.
+- **Consequences:** The current 135-object scaffold has an explicit schema path for each bound field and a regression against future omissions. This improves authoring contract coverage but does not establish legal interpretation, complete source transcription, geometry or PDF fidelity.
+- **Validation:** Focused template logic suite passed (`64 passed, 3 warnings`); the sample render still reports zero missing fields; the full backend suite passed (`259 passed, 9 skipped, 3 warnings` in 48.29s); compile/build and diff checks passed.
+- **Implementation references:** [ISDA schema](../backend/app/isda_template.py), [schema coverage test](../backend/tests/test_template_logic.py), [template contract](template-contract.md), [handoff](isda-work-handoff.md).
+
+## DD-338: Make ISDA page-surface ownership executable in renderer tests
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as renderer containment evidence; visual fidelity remains pending
+- **Affected stories:** E2-01, E2-06, E4-01, E4-02, E6-01, E6-04
+- **Context:** The corrected Chromium baseline showed that page-36 execution placement depends on the interaction between declarative `page_number`, `break_before`, and page-surface grouping. Block-level ownership assertions alone did not prove the rendered HTML contained exactly one surface for each ISDA page.
+- **Choice:** Add a focused renderer regression over the complete ISDA definition. It requires 36 page surfaces, one surface for every page number 1–36, both page-36 Schedule/execution anchors in the same surface, and no page 37. Keep the renderer declarative and use the local sample only.
+- **Alternatives:** Rely on PDF page counts only; rejected because the test would not identify ownership in the HTML contract. Assert only the block metadata; rejected because a later renderer change could still split a page. Use the locked PDF as a layout oracle; rejected because it would cross the comparison boundary.
+- **Consequences:** Page-surface grouping is now directly regression-tested for the current ISDA definition. This proves containment and grouping, not pixel fidelity, typography, native-reader behavior or legal approval.
+- **Validation:** Focused template logic suite passed (`65 passed, 3 warnings`); the regenerated local foreground artifact remains 36 pages with zero missing fields; full backend suite passed (`260 passed, 9 skipped, 3 warnings` in 46.73s); compile/build and diff evidence are refreshed in the handoff.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [renderer regression](../backend/tests/test_template_logic.py), [ISDA foreground baseline](../scripts/render_isda_foreground_baseline.py), [comparison report](../artifacts/isda-editable-comparison.json).
+
+## DD-339: Enforce unique semantic IDs across the ISDA object inventory
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as semantic identity correction; source/legal completeness remains open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** The new semantic inventory invariant found that page-35 notice fields reused the IDs of page-33 measured notice fields, even though their field paths represented different source regions.
+- **Choice:** Rename the page-35 bindings to `schedule-notice-party-x` and `schedule-notice-party-y`, retain the measured page-33 IDs, and require every ISDA object to have a unique stable `semantic_id` with an allowed kind and page in the bounded range.
+- **Alternatives:** Keep duplicate IDs because the field paths differ; rejected because editor selection, persistence and future patching need stable identity. Rename the measured fields instead; rejected because their IDs already identify source-measured regions. Generate IDs at runtime; rejected because semantic identity must be declarative and reviewable.
+- **Consequences:** The 135-object inventory now has 135 unique IDs; page ownership remains unchanged and both notice representations remain editable. The correction changes candidate anchors and therefore requires fresh local foreground/comparison artifacts; it does not establish visual or legal fidelity.
+- **Validation:** Focused template logic passed (`66 passed, 3 warnings`); regenerated foreground baseline passed with 135 objects and zero missing fields; comparison passed at 36 pages, `143764` bytes and similarity `0.003`, candidate SHA `812c3894683d730a77d461f4f7b4af521b5d137a9b6b3fd84f302c8e62ab5713`; full backend suite passed (`261 passed, 9 skipped, 3 warnings` in 50.94s).
+- **Implementation references:** [ISDA inventory](../backend/app/isda_template.py), [identity regression](../backend/tests/test_template_logic.py), [foreground baseline](../scripts/render_isda_foreground_baseline.py), [comparison report](../artifacts/isda-editable-comparison.json).
+
+## DD-340: Align generic Notice fields with source page 33
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded source-page ownership correction; complete Notice reconstruction remains open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source extraction places the Schedule’s “Addresses for Notices” region on page 33, after the document-delivery table. The scaffold had generic `schedule.notices.party_x/party_y` fields on page 35 alongside Payment Netting, while page 33 held only the measured address/attention paths.
+- **Choice:** Move the generic Notice fields to page 33 and keep page 35 limited to Payment Netting and its additional provisions. Preserve distinct IDs and field paths for generic and measured Notice values; do not infer unmodeled Telex, Answerback, Facsimile or Telephone fields in this slice.
+- **Alternatives:** Keep fields on page 35 because the Schedule schema groups them; rejected because page ownership is source-region evidence. Merge generic and measured paths; rejected because they represent different authoring values. Add every extracted Notice line immediately; rejected because it would invent incomplete schema semantics without governed sample data.
+- **Consequences:** Notice ownership now matches the measured source region and the 135-object count remains stable. Complete Notice subfield coverage and source-calibrated coordinates remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); local foreground baseline passed with 135 objects and zero missing fields; comparison passed at 36 pages, `143718` bytes, similarity `0.003`, candidate SHA `efcdd36c73f39f2c92f069ed37525edad5a0829bc430ea6a02b264f793d6a18b`; full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 50.00s).
+- **Implementation references:** [Schedule blocks](../backend/app/isda_template.py), [ownership regression](../backend/tests/test_template_logic.py), [foreground baseline](../scripts/render_isda_foreground_baseline.py), [comparison report](../artifacts/isda-editable-comparison.json).
+
+## DD-341: Add source-observed Notice contact subfields on page 33
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded Notice decomposition; complete Notice semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 33 explicitly contains Telex, Answerback, Facsimile and Telephone lines for the Notice region. The prior scaffold represented only address and attention values.
+- **Choice:** Add Party A and Party B Telex, Answerback, Facsimile and Telephone field objects on page 33, with explicit schema properties and deterministic sample values. Keep them as ordinary bounded strings and do not infer validation or legal defaults for contact formats.
+- **Alternatives:** Leave the lines in a clause summary; rejected because they are independently editable contact fields. Use a single free-form Notice blob; rejected because it loses party-level editability and provenance. Add format-specific validation; deferred because no governed jurisdiction/format contract exists in this slice.
+- **Consequences:** The scaffold now contains 143 objects and models the source-observed Notice contact lines while preserving CPU/offline rendering. Coordinates and complete Notice continuation semantics remain provisional/open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); local foreground baseline passed with 143 objects and zero missing fields; comparison passed at 36 pages, `144166` bytes, similarity `0.003`, candidate SHA `ab54a04a05988b5b62f0411c72297b956ef7b927c770d96de1cca686e5647694`; full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 47.45s); rebuilt live API served 143 blocks/schema 3 with a Notice field on page 33; focused Playwright passed (`1 passed`) with 144 structure nodes including the locked background.
+- **Implementation references:** [Notice objects/schema/sample](../backend/app/isda_template.py), [schema/ownership tests](../backend/tests/test_template_logic.py), [foreground baseline](../scripts/render_isda_foreground_baseline.py), [comparison report](../artifacts/isda-editable-comparison.json).
+
+## DD-342: Expand the Schedule delivery table to source-observed columns
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded table decomposition; complete Schedule table calibration remains open
+- **Affected stories:** E2-02, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 33 labels the delivery table columns Party required to deliver, Form/Document/Certificate, Date by which to be delivered, and Covered by Section 3(d) Representation. The editable table previously exposed only Document, Delivery date, and Section 3(d).
+- **Choice:** Add governed `party_required` and `form_document` row paths, retain the existing date and Section 3(d) paths, and provide explicit Party A/Party B sample rows. Update the editor regression to exercise the four-column contract while keeping the repeatable table declarative.
+- **Alternatives:** Keep a three-column simplification; rejected because two source-observed editable columns were lost. Use a free-form document description; rejected because it weakens row-level schema and filtering. Add legal/format validation for each document type; deferred because it is outside this bounded table contract.
+- **Consequences:** The page-33 table now exposes the source-observed row structure and remains CPU/offline-renderable. Exact source widths, row count, continuation behavior and visual fidelity remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); local foreground baseline passed with 143 objects and zero missing fields; comparison passed at 36 pages, `146919` bytes, similarity `0.0031`, candidate SHA `46e54866b2e4364bf46508b8aa8a0a73d77000a167401f002caef78634f8db0b`; full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 47.88s); rebuilt live API served the four-column table and updated row keys; focused Playwright passed (`1 passed`).
+- **Implementation references:** [Schedule table](../backend/app/isda_template.py), [table tests](../backend/tests/test_template_logic.py), [browser regression](../frontend/tests/foundation.spec.ts), [foreground baseline](../scripts/render_isda_foreground_baseline.py), [comparison report](../artifacts/isda-editable-comparison.json).
+
+## DD-343: Migrate persisted Schedule table definitions and sample rows together
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bootstrap migration hardening; broader versioned migration tooling remains separate
+- **Affected stories:** E2-02, E2-05, E2-06, E7-04, E12-01
+- **Context:** Rebuilding the application refreshed the persisted Schedule table columns, but a shallow sample-data merge could retain old rows without the new `party_required` and `form_document` values. The browser preview then rendered blank cells despite the current table schema.
+- **Choice:** Extend the existing ISDA bootstrap refresh guard to detect both the expected table path list and required nested sample-row keys, and replace `schedule_documents` with the current governed sample rows when either is stale. Keep the migration local, deterministic, and tied to the existing schema/object refresh condition.
+- **Alternatives:** Merge nested rows field-by-field; rejected because stale rows may have different counts and semantics. Ignore sample data because runtime callers can provide data; rejected because the editor’s authoritative preview and browser contract use the persisted sample. Add a general migration framework; deferred because this correction is specific to the bounded ISDA bootstrap path.
+- **Consequences:** Existing persisted ISDA drafts converge to the 143-object/four-column table contract during startup without weakening renderer safety. This is not a general schema migration/versioning guarantee for arbitrary templates.
+- **Validation:** Rebuilt Compose migration completed; live API reported 143 blocks/schema 3, four table columns and sample rows containing `party_required`/`form_document`; focused Playwright passed (`1 passed`); full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 47.88s).
+- **Implementation references:** [bootstrap refresh](../backend/app/bootstrap.py), [ISDA table/sample](../backend/app/isda_template.py), [browser regression](../frontend/tests/foundation.spec.ts), [jobs/validation contract](../docs/jobs-contract.md).
+
+## DD-344: Add source-observed Part-1 Schedule election fields
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded Part-1 decomposition; complete termination-election semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 30 explicitly contains Specified Indebtedness, Threshold Amount, Credit Event Upon Merger, Automatic Early Termination, Termination Currency, and Additional Termination Event regions. The scaffold already represented the latter four/threshold paths but omitted Specified Indebtedness and Additional Termination Event.
+- **Choice:** Add governed `schedule.elections.specified_indebtedness` and `schedule.elections.additional_termination_event` fields on page 30 with explicit schema titles and deterministic sample values. Keep grace-period and other unverified subregions out of this slice.
+- **Alternatives:** Leave them inside the Part-1 clause summary; rejected because they are independently editable election values. Invent grace-period paths from surrounding prose; rejected because the extracted source does not establish a governed field shape. Add unchecked arbitrary Schedule properties; rejected because the schema must remain explicit.
+- **Consequences:** The scaffold now contains 145 objects and exposes two additional source-observed Part-1 elections. Exact option semantics, coordinates and complete termination-event coverage remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); foreground baseline passed with 145 objects and zero missing fields; comparison passed at 36 pages, `146985` bytes, similarity `0.0031`, candidate SHA `b20b4606339fdd19f402371e74e5d0605d7443316859ce4869ef47267ed0c1ec`; rebuilt live API served 145 blocks/schema 3 with both new fields; focused Playwright passed (`1 passed`); full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 55.25s). The live PDF route correctly retains its 128-block guard. Visual, native-reader, second-engine, accessibility, font/licence and legal review remain pending.
+- **Implementation references:** [Part-1 fields/schema/sample](../backend/app/isda_template.py), [semantic/schema tests](../backend/tests/test_template_logic.py), [bootstrap refresh](../backend/app/bootstrap.py), [foreground baseline](../scripts/render_isda_foreground_baseline.py), [comparison report](../artifacts/isda-editable-comparison.json).
+
+## DD-345: Add source-observed Part-4 and Part-5 Schedule fields
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded Schedule decomposition; complete Part-4/Part-5 semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source pages 33–35 contain Notice E-mail, Electronic Messaging System Details, Specific Instructions, Offices applicability, Credit Support Provider, Governing Law and Additional Representation regions that were not independently editable in the scaffold. The prior Notice model stopped at telephone fields and the prior Part-4/Part-5 model retained summary text for several elections.
+- **Choice:** Add ten explicit page-owned field objects under governed `schedule.notices`, `schedule.offices`, `schedule.agreements` and `schedule.additional_provisions` paths, with deterministic local sample values and schema titles. Extend bootstrap refresh detection to migrate persisted definitions containing the previous 145-object inventory, and recursively merge defaults into nested sample data so newly governed paths render without discarding existing preview values.
+- **Alternatives:** Keep the regions in summary clauses; rejected because each is an independently editable source-observed value. Invent detailed tax-option or continuation structures; deferred because this slice does not establish their complete legal field grammar. Replace all existing sample data on refresh; rejected because it would discard existing preview values unnecessarily.
+- **Consequences:** The semantic inventory increases to 155 objects while preserving declarative rendering, page ownership, local CPU execution and the locked-PDF comparison boundary. Coordinates, option semantics, complete tax representations, recording-of-conversations provisions and source-calibrated typography remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); compile and frontend build passed; rebuilt Compose migration completed; live API served 155 blocks/schema 3 with the new sample values; the foreground baseline passed with 155 objects and zero missing bindings; comparison passed at 36 pages, `147995` bytes and similarity `0.0029`, candidate SHA `e593e337508c32d871efa1cda0f47a99e6a6e919ca589944b16f7198711460bf`; focused Playwright passed (`1 passed`); full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 64.48s). No visual, native-reader, second-engine, accessibility, font/licence or legal approval is claimed.
+- **Implementation references:** [Schedule objects/schema/sample](../backend/app/isda_template.py), [bootstrap migration](../backend/app/bootstrap.py), [semantic/schema tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-347: Preserve the separate Part-3 tax-document table
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded repeatable-table decomposition; continuation and exact row-layout calibration remain open
+- **Affected stories:** E2-01, E2-02, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 32 contains a tax-form/document/certificate delivery table separate from the page-33 Other documents table. The scaffold previously represented only the latter table and left the page-32 region in a summary clause.
+- **Choice:** Add a second declarative `schedule-tax-documents` table on page 32 bound to `schedule_tax_documents`, with Party required, Form/Document/Certificate and Delivery date columns. Project the row contract into the governed schema and deterministic sample data, and make bootstrap validation/migration identify both tables by semantic ID rather than treating the first table as authoritative.
+- **Alternatives:** Merge tax and other documents into one array; rejected because it loses source page/table ownership and the Section 3(d) distinction. Use an unbound page-32 text block; rejected because the source region is explicitly repeatable data. Invent continuation-page behavior; deferred until source-calibrated pagination evidence exists.
+- **Consequences:** The semantic inventory increases to 165 objects and two page-owned repeatable tables remain independently editable and locally renderable. Exact row counts, widths, continuation behavior and visual fidelity remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); compile and frontend build passed; rebuilt Compose migration completed; live API served 165 blocks/schema 3 with both table contracts and two tax-document rows; the foreground baseline passed with 165 objects and zero missing bindings; comparison passed at 36 pages, `148477` bytes and similarity `0.0031`, candidate SHA `52e3c6b0171b0207cea1176dd54bce68fa452270ebbfc5a969a488a08e06522d`; focused Playwright passed (`1 passed`) after selecting the delivery table by semantic ID; full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 47.72s). Visual, native-reader, second-engine, accessibility, font/licence and legal review remain pending.
+- **Implementation references:** [Schedule tables/schema/sample](../backend/app/isda_template.py), [bootstrap migration](../backend/app/bootstrap.py), [table tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-348: Add bounded Part-5 representation and recording fields
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded Part-5 decomposition; complete legal prose and option semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 35 explicitly includes an Additional Representation election with an associated detail region and a Recording of Conversations election. The scaffold exposed only a summary Part-5 clause and the Additional Representation election.
+- **Choice:** Add `schedule.additional_provisions.additional_representation_detail` and `schedule.additional_provisions.recording_conversations` as independent governed fields with deterministic sample values and schema titles, while preserving the standard long-form representation text as non-executable clause content.
+- **Alternatives:** Parse the standard representation paragraphs into many legal subclauses; deferred because this bounded slice does not establish a complete governed legal grammar. Leave Recording of Conversations in the summary; rejected because it is an explicit source election.
+- **Consequences:** The semantic inventory increases to 167 objects without introducing arbitrary template expressions or network access. Legal interpretation, detailed option semantics, coordinates and source-calibrated typography remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); compile and frontend build passed; rebuilt Compose migration completed; live API served 167 blocks/schema 3 with the new Part-5 fields; the foreground baseline passed with 167 objects and zero missing bindings; comparison passed at 36 pages, `148540` bytes and similarity `0.003`, candidate SHA `e2b3ac34bbc2f611847eb97159f87c7fb77e80954611aa42cc47fe79e698feb2`; focused Playwright passed (`1 passed`); full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 51.70s). Visual, native-reader, second-engine, accessibility, font/licence and legal review remain pending.
+- **Implementation references:** [Part-5 objects/schema/sample](../backend/app/isda_template.py), [bootstrap migration](../backend/app/bootstrap.py), [semantic/schema tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-349: Add source-observed specified treaty and jurisdiction fields
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded Part-2 decomposition; complete tax-option grammar remains open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 31 explicitly provides Specified Treaty and Specified Jurisdiction values for both parties within the Payee Representations region. The scaffold had only generic tax-jurisdiction fields and summary representation objects.
+- **Choice:** Add four explicit governed fields under `schedule.tax` for the specified treaty and specified jurisdiction of Party A and Party B, with local sample values and schema titles. Keep the surrounding selectable tax representation paragraphs as clause text until their complete option grammar is established.
+- **Alternatives:** Reuse the generic jurisdiction paths; rejected because it conflates counterparty jurisdiction with the source’s specified-tax jurisdiction. Parse all seven tax representation alternatives immediately; deferred because the source evidence does not yet define safe option/value semantics for each choice.
+- **Consequences:** The semantic inventory increases to 171 objects and improves page-31 source coverage while preserving declarative safe rendering and local CPU execution. Tax legal semantics, option validation, coordinates and typography remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); compile and frontend build passed; rebuilt Compose migration completed; live API served 171 blocks/schema 3 with the specified treaty/jurisdiction sample values; the foreground baseline passed with 171 objects and zero missing bindings; comparison passed at 36 pages, `149311` bytes and similarity `0.003`, candidate SHA `b03c06e58a2335ec0c888c69dd94d3b4614dbcab3ab23f5ad77b5e0166c8e9cc`; focused Playwright passed (`1 passed`); full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 52.38s). Visual, native-reader, second-engine, accessibility, font/licence and legal review remain pending.
+- **Implementation references:** [Tax fields/schema/sample](../backend/app/isda_template.py), [bootstrap migration](../backend/app/bootstrap.py), [semantic/schema tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-350: Add party-specific Part-1 termination elections
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded Part-1 decomposition; complete option semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 30 exposes Cross-Default grace-period values and separate Automatic Early Termination applicability for Party A and Party B. The scaffold had threshold and summary election objects but did not expose these party-specific values independently.
+- **Choice:** Add four explicit governed fields for the two grace periods and two Automatic Early Termination elections, with nested schema paths and deterministic local sample values. Preserve the existing generic summary field for backward compatibility while making the source-observed party choices editable.
+- **Alternatives:** Treat the values as one shared election; rejected because the source presents separate party choices. Invent validation for grace-period units or legal effect; deferred because this slice establishes field ownership, not legal interpretation.
+- **Consequences:** The semantic inventory increases to 175 objects while preserving safe declarative rendering and page ownership. Exact option validation, coordinates, typography and remaining termination prose remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); compile and frontend build passed; rebuilt Compose migration completed; live API served 175 blocks/schema 3 with the party-specific Part-1 sample values; the foreground baseline passed with 175 objects and zero missing bindings; comparison passed at 36 pages, `149396` bytes and similarity `0.0038`, candidate SHA `102445ea22a9528eb3fe0ac5d6049c21ecc4b83d864c6e5344f49e7b7bc9034f`; focused Playwright passed (`1 passed`); full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 52.81s). Visual, native-reader, second-engine, accessibility, font/licence and legal review remain pending.
+- **Implementation references:** [Part-1 fields/schema/sample](../backend/app/isda_template.py), [bootstrap migration](../backend/app/bootstrap.py), [semantic/schema tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-351: Add explicit Payer and Payee Representation choices
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded Part-2 decomposition; legal option semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 31 labels distinct Payer Representations and Payee Representations, with party-specific selectable alternatives. The scaffold exposed generic representation values but not the choice made for each party.
+- **Choice:** Add four explicit `schedule.tax` choice fields for Payer and Payee Representation for Party A and Party B. Store deterministic local `Option (i)` sample values and schema titles, but do not impose legal validation or infer the meaning of any option.
+- **Alternatives:** Reuse generic payer/payee values; rejected because it loses the source-observed choice layer. Encode the alternatives as an enum immediately; deferred because the legal meaning and permitted combinations require reviewed domain evidence.
+- **Consequences:** The semantic inventory increases to 179 objects and the page-31 choices are independently editable while preserving safe declarative rendering. Legal semantics, option validation, complete tax continuation coverage, coordinates and typography remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); compile and frontend build passed; rebuilt Compose migration completed; live API served 179 blocks/schema 3 with the explicit Payer/Payee choice sample values; the foreground baseline passed with 179 objects and zero missing bindings; comparison passed at 36 pages, `149484` bytes and similarity `0.0038`, candidate SHA `d1547b85bc7b81e36ce980cd9d006809f4ed370a20c160cd803b4fb555848d52`; focused Playwright passed (`1 passed`); full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 52.12s). Visual, native-reader, second-engine, accessibility, font/licence and legal review remain pending.
+- **Implementation references:** [Tax choice fields/schema/sample](../backend/app/isda_template.py), [bootstrap migration](../backend/app/bootstrap.py), [semantic/schema tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-352: Align Credit Support field ownership to source page 34
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as page-ownership correction; source-calibrated coordinates remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 34 contains the Credit Support Document and Credit Support Provider lines. The editable objects for Party A were previously attached to page 32 because the Part-3 summary mentioned those concepts, while the Party B provider and generic document fields were already on page 34.
+- **Choice:** Move `credit-support-provider-party-x` and `credit-support-document-party-x` to page 34, preserve their governed paths and sample data, and extend bootstrap refresh detection to repair stale persisted page ownership.
+- **Alternatives:** Keep the fields on page 32 beside the summary; rejected because semantic page ownership must follow the source region. Duplicate the fields on both pages; rejected because duplicate IDs/paths would make editing ambiguous.
+- **Consequences:** Object count and schema version remain unchanged, while page ownership now reflects the source for the Credit Support fields. Coordinates and exact page-34 typography remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); compile and frontend build passed; rebuilt Compose migration repaired the persisted ownership; live API served both Credit Support Party A fields on page 34; the foreground baseline passed with 179 objects and zero missing bindings; comparison passed at 36 pages, `149459` bytes and similarity `0.0037`, candidate SHA `bc9e5d856eadf7e30e4d56246e29fc715ec2e8c2067b3a912e016909fb93afdf`; focused Playwright passed (`1 passed`); full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 51.44s). Visual, native-reader, second-engine, accessibility, font/licence and legal review remain pending.
+- **Implementation references:** [page-owned Schedule objects](../backend/app/isda_template.py), [bootstrap ownership repair](../backend/app/bootstrap.py), [ownership tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-353: Add page-level locked-source text diagnostics
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded comparison instrumentation; visual and independent-reader review remain open
+- **Affected stories:** E4-01, E6-01, E6-04
+- **Context:** The existing offline comparison reported only one global extracted-text similarity value. That value could not show whether page ownership and page count remained aligned, or where extracted text was absent, while no approved local rasterizer or second rendering engine was available.
+- **Choice:** Extend the existing offline comparison script with page-aligned extracted-text metrics, page-count matching, and minimum/maximum/mean summaries. Treat missing pages as empty text for the diagnostic and preserve `visual_comparison: null`, `native_reader_review: pending` and `second_engine_review: pending`.
+- **Alternatives:** Convert PDFs to images with an unapproved or unavailable tool; rejected because it would create unsupported visual evidence. Treat extracted-text similarity as fidelity approval; rejected because extraction does not establish glyph geometry, wrapping, accessibility or native-reader behavior.
+- **Consequences:** The comparison report now makes page-level text coverage and alignment inspectable without changing candidate rendering or the locked-PDF boundary. The metrics remain diagnostic and do not close visual, native-reader, second-engine, font/licence or legal gates.
+- **Validation:** `backend\.venv\Scripts\python.exe scripts/compare_isda_candidate.py` passed for 36 source/candidate pages with page-count match, mean page similarity `0.0233`, minimum `0.0009`, maximum `0.0856`, global similarity `0.0037`, and unchanged candidate SHA `bc9e5d856eadf7e30e4d56246e29fc715ec2e8c2067b3a912e016909fb93afdf`; focused comparison tests passed. Visual, native-reader and second-engine review remain pending.
+- **Implementation references:** [comparison script](../scripts/compare_isda_candidate.py), [comparison regression](../backend/tests/test_isda_comparison.py), [comparison artifact](../artifacts/isda-editable-comparison.json), [comparison notes](isda-template-comparison.md).
+
+## DD-354: Refine page-35 Absence of Litigation ownership labels
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded semantic-label refinement; complete Part-5 legal option grammar remains open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 35 labels the two Absence of Litigation entries as Specified Entity values for Party A and Party B. The existing objects used generic absence-of-litigation IDs, which obscured the source-owned field meaning even though their governed paths and page were already correct.
+- **Choice:** Rename the two semantic IDs and field roles to `absence-litigation-specified-entity-party-x` and `absence-litigation-specified-entity-party-y`, retain their existing governed paths and sample values, and keep the inventory at 179 objects.
+- **Alternatives:** Add duplicate fields; rejected because it would create ambiguous editing for one source value. Leave the generic labels; rejected because the source field meaning would remain under-specified. Invent a complete Part-5 representation grammar; deferred because this slice only establishes source-observed ownership and labels.
+- **Consequences:** Page 35 now exposes the source-observed Specified Entity meaning without changing the declarative renderer, schema shape, sample data, page ownership or count. Existing persisted definitions are refreshed through the required semantic-ID check.
+- **Validation:** Focused template/comparison tests passed (`68 passed, 3 warnings`); rebuilt Compose migration repaired the live definition, which served 179 blocks/schema 3 with both renamed page-35 fields on page 35; the foreground baseline passed with 179 objects and zero missing bindings (`html 0bb5d4c7...`, `pdf 932c75d0...`, `png ca988d60...`); comparison passed at 36 pages, `149469` bytes, global similarity `0.0037`, page mean `0.0228`, minimum `0.0009`, maximum `0.0856`, candidate SHA `932c75d034bd47da6661154767e9a0ac4093a2445d94ed1edb548e8c32ee6c62`; exact semantic Playwright passed (`1 passed`); full backend passed (`263 passed, 9 skipped, 3 warnings` in 51.56s). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [page-35 semantic objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [ownership tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-355: Add distinct execution-party name fields
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded execution-page decomposition; signature layout calibration remains open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source pages 28 and 36 contain a separate “Name of Party” line before each signature’s By, Name, Title and Date lines. The scaffold represented signer names but not the legal party names in those execution rows.
+- **Choice:** Add four governed string fields for master and Schedule execution party names, retaining the existing signer-name fields and their paths. Add the fields to the schema and deterministic sample data, and require their semantic IDs during bootstrap refresh.
+- **Alternatives:** Reuse the signer `name` field; rejected because it conflates the legal party and individual signatory. Reuse the Schedule party fields from page 29; rejected because execution rows are independently editable and page-owned. Add a generic unbound execution text block; rejected because it would not be editable data.
+- **Consequences:** The semantic inventory increases from 179 to 183 objects, with four additional execution fields on source pages 28 and 36. Declarative rendering, local CPU execution and the locked-PDF comparison boundary remain unchanged; exact signature coordinates and legal execution semantics remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); rebuilt Compose migration served 183 blocks/schema 3 with the four execution party-name fields on pages 28 and 36; the foreground baseline passed with 183 objects and zero missing bindings (`html b4d3da29...`, `pdf 083e44fa...`, `png 28981daa...`); comparison passed at 36 pages, `149587` bytes, global similarity `0.0037`, page mean `0.0230`, minimum `0.0009`, maximum `0.0856`, candidate SHA `083e44fa53af7792903a29c1fb7fe66fdb2900ce45a258c50ef480171df3272c`; exact semantic Playwright passed (`1 passed`); full backend passed (`263 passed, 9 skipped, 3 warnings` in 52.55s). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [execution objects and schema](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [browser regression](../frontend/tests/foundation.spec.ts), [handoff](isda-work-handoff.md).
+
+## DD-356: Split Section 5 termination-event clause ownership on pages 9–10
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded clause decomposition; legal effect and election semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** The page-owned scaffold grouped several distinct Section 5 concepts into broad text blocks on pages 9 and 10. The source has independently named Illegality, Force Majeure Event, Tax Event, Tax Event Upon Merger, Credit Event Upon Merger and Additional Termination Event clauses.
+- **Choice:** Split the existing page-9/page-10 summaries into six declarative clause objects with explicit semantic IDs while retaining source-aligned summary wording. Keep them non-executable: no enum, legal consequence, notice rule or Schedule option is inferred from the split.
+- **Alternatives:** Keep one broad summary per page; rejected because clause ownership remains ambiguous. Encode legal election behavior in this slice; deferred because the source text alone does not establish a safe governed grammar. Copy full source prose into the renderer; deferred because exact transcription and typography are separate evidence-gated work.
+- **Consequences:** The inventory increases from 183 to 186 objects and pages 9–10 now expose distinct clause ownership without changing renderer safety, schema version or the locked-PDF boundary. Complete Section 5 decomposition, legal semantics and source calibration remain open.
+- **Validation:** Focused template/comparison tests passed (`68 passed, 3 warnings`); rebuilt Compose migration served 186 blocks/schema 3 with the split Section 5 clauses on pages 9 and 10; the foreground baseline passed with 186 objects and zero missing bindings (`html b9c0769b...`, `pdf 37951ce1...`, `png 9b65b5af...`); comparison passed at 36 pages, `149658` bytes, global similarity `0.0037`, page mean `0.0239`, minimum `0.0009`, maximum `0.0856`, candidate SHA `37951ce1c7eed94affd5a0b5deb5cb9e813bad47af5f60ffe593e21e6de446eb`; exact semantic Playwright passed (`1 passed`); full backend passed (`263 passed, 9 skipped, 3 warnings` in 57.06s). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [Section 5 clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-357: Split Section 6 termination-mechanics clause ownership on pages 11–12
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded clause decomposition; complete Section 6 legal grammar remains open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source pages 11–12 separately identify Termination Event notice, transfer to avoid a Termination Event, the right to terminate and the effect of designation. The scaffold bundled those concepts into broad Section 6 summaries.
+- **Choice:** Add four declarative clause objects with explicit page-owned semantic IDs and source-aligned summaries. Keep them non-executable and preserve the existing rendering vocabulary and page ownership.
+- **Alternatives:** Keep the broad summaries; rejected because the Section 6 clause boundaries remain ambiguous. Encode notice deadlines, affected-transaction selection or legal consequences; deferred because this slice does not establish a reviewed governed legal grammar.
+- **Consequences:** The inventory increases from 186 to 190 objects and improves clause ownership on pages 11–12 without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary. Exact transcription, legal semantics and typography remain open.
+- **Validation:** Focused template/comparison tests passed (`68 passed, 3 warnings`); rebuilt Compose migration served 190 blocks/schema 3 with the four Section 6 clause IDs on pages 11–12; the foreground baseline passed with 190 objects and zero missing bindings (`html b54ee85b...`, `pdf 80f860b8...`, `png 99ee738b...`); comparison passed at 36 pages, `150235` bytes, global similarity `0.0030`, page mean `0.0249`, minimum `0.0009`, maximum `0.0856`, candidate SHA `80f860b8bb7359d349ab784ca7e641fc518f98bf2b73806b6b9ed0ddbf506c15`; exact semantic Playwright passed (`1 passed`, 191 structure nodes including the locked background); full backend passed (`263 passed, 9 skipped, 3 warnings` in 50.45s). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [Section 6 clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-358: Split Section 6 valuation and adjustment clause ownership on pages 13–14
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded clause decomposition; financial calculation semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source pages 13–14 separately identify Payments on Early Termination, Mid-Market Events, Bankruptcy/Illegality adjustments and the reasonable pre-estimate provision. The scaffold grouped these concepts into calculations, termination events and set-off summaries.
+- **Choice:** Add four declarative clause objects with explicit page ownership and source-aligned summaries. Keep them non-executable and do not implement valuation, pricing, adjustment or payment calculations in the template renderer.
+- **Alternatives:** Keep the bundled summaries; rejected because the source clause boundaries remain opaque. Add financial formulas or selectable valuation methods; deferred because that requires reviewed domain semantics and is outside this bounded decomposition.
+- **Consequences:** The inventory increases from 190 to 194 objects and improves Section 6 clause ownership on pages 13–14 without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary. Exact legal text, calculations and typography remain open.
+- **Validation:** Focused template/comparison tests passed (`68 passed, 3 warnings`); rebuilt Compose migration served 194 blocks/schema 3 with the four valuation/adjustment clause IDs on pages 13–14; the foreground baseline passed with 194 objects and zero missing bindings (`html f6164571...`, `pdf 7276dec1...`, `png ea4f28a2...`); comparison passed at 36 pages, `150727` bytes, global similarity `0.0038`, page mean `0.0250`, minimum `0.0009`, maximum `0.0856`, candidate SHA `7276dec1e1f172f5871cfca07dd3a44cdda50027f7ea53f9095c62fd560657ba`; exact semantic Playwright passed (`1 passed`, 195 structure nodes including the locked background); full backend passed (`263 passed, 9 skipped, 3 warnings` in 51.08s). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [Section 6 valuation clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-359: Split Sections 7–9 clause ownership on pages 15–16
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded clause decomposition; complete transfer, currency and miscellaneous legal grammar remains open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source pages 15–16 contain distinct transfer exceptions, Contractual Currency payment rules, separate indemnities, Evidence of Loss, Entire Agreement and Amendments clauses. The scaffold grouped these into two broad page summaries.
+- **Choice:** Add six declarative clause objects with explicit source-page ownership and source-aligned summaries. Keep them non-executable and do not infer transfer permissions, currency calculations or amendment workflows.
+- **Alternatives:** Keep bundled summaries; rejected because the source clause boundaries remain opaque. Add financial/currency formulas or permission rules; deferred because reviewed legal and domain semantics are not established by this slice.
+- **Consequences:** The inventory increases from 194 to 200 objects and improves clause ownership across pages 15–16 without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary. Exact transcription, legal semantics and typography remain open.
+- **Validation:** Focused template/comparison tests passed (`68 passed, 3 warnings`); rebuilt Compose migration served 200 blocks/schema 3 with the six Sections 7–9 clause IDs on pages 15–16; the foreground baseline passed with 200 objects and zero missing bindings (`html 55e7e749...`, `pdf 2b86f3f8...`, `png 69d89b57...`); comparison passed at 36 pages, `151634` bytes, global similarity `0.0030`, page mean `0.0248`, minimum `0.0009`, maximum `0.0856`, candidate SHA `2b86f3f8fd8fa145f24c20ee549d85bff336082cb8d6c71d06589fe8e6035cbb`; exact semantic Playwright passed (`1 passed`, 201 structure nodes including the locked background); full backend passed (`263 passed, 9 skipped, 3 warnings` in 50.58s). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [Sections 7–9 clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-360: Split Section 14 definition clause ownership on pages 21–24
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded clause decomposition; complete definition transcription and legal semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source pages 21–24 contain multiple independently named Section 14 definitions, while the scaffold represented each page with one broad definition summary plus selected field objects.
+- **Choice:** Add ten declarative clause objects for affected transactions, affiliate/agreement, automatic early termination, close-out amount, confirmation/consent, Credit Event Upon Merger, Credit Support Document, Credit Support Provider, default/determining party and early termination/illegality. Keep them as non-executable text and retain existing definition fields.
+- **Alternatives:** Treat each definition as an editable user value; rejected because the supplied source presents fixed legal definitions, not user elections. Copy the full source prose immediately; deferred because exact transcription and typography require separate evidence. Keep page summaries; rejected because named definition ownership remains ambiguous.
+- **Consequences:** The inventory increases from 200 to 210 objects and makes pages 21–24 more semantically inspectable without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary. Exact legal text, definition semantics and calibration remain open.
+- **Validation:** Focused template/comparison tests passed (`68 passed, 3 warnings`); rebuilt Compose migration served 210 blocks/schema 3 with the ten definition clause IDs on pages 21–24; the foreground baseline passed with 210 objects and zero missing bindings (`html 1c40dfec...`, `pdf a052f0ca...`, `png 9e45ec05...`); comparison passed at 36 pages, `152690` bytes, global similarity `0.0030`, page mean `0.0245`, minimum `0.0009`, maximum `0.0856`, candidate SHA `a052f0ca0cac0b99df86f8b6f2b9df12b2b5b3b15a7f4152a97f4a4967ba2669`; exact semantic Playwright passed (`1 passed`, 211 structure nodes including the locked background); full backend passed (`263 passed, 9 skipped, 3 warnings` in 50.63s). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [definition clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-378: Remove duplicated Office container prose
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded clause decomposition; complete Office and multibranch transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E4-01, E6-01, E6-04
+- **Context:** Page 19’s Office container repeated the Office-selection detail already represented by its child recourse and selection clauses.
+- **Choice:** Retain the page-owned Section 10 heading and keep the child Office clauses as the detailed editable content.
+- **Alternatives:** Keep duplicate prose or remove the parent heading; rejected because duplication is ambiguous and deletion weakens page structure.
+- **Consequences:** The inventory remains 307 objects without changing legal behavior, schema version, renderer safety or comparison boundaries.
+- **Validation:** Focused template logic passed (`70 passed, 3 warnings`); full backend passed (`267 passed, 9 skipped, 3 warnings` in 47.15s); foreground baseline passed with 307 objects and zero missing bindings (`html fbb8083d...`, `pdf 1a1f6718...`, `png 22cce973...`); comparison passed at 36 pages with `page_count_match: true`, `page_size_match: true`, no geometry mismatches, global similarity `0.0026`, page mean `0.0271`, minimum `0.0023`, maximum `0.1155`; rebuilt Compose served 307 blocks/schema 3 with page-19 ownership verified; frontend build, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes including the locked background). No legal, visual, native-reader, second-engine, accessibility or licensing approval is claimed.
+- **Implementation references:** [Office container](../backend/app/isda_template.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-377: Remove duplicated representation and interest container prose
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded clause decomposition; complete legal-text transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E4-01, E6-01, E6-04
+- **Context:** Page 4’s Basic Representations container and page 17’s Interest and Compensation container repeated detail already carried by their child semantic clauses.
+- **Choice:** Retain the page-owned headings and preserve the child representation/interest clauses as the detailed editable content.
+- **Alternatives:** Keep duplicate prose or remove the parent headings; rejected because duplication is ambiguous and removal weakens page structure.
+- **Consequences:** The inventory remains 307 objects without changing legal behavior, schema version, renderer safety or comparison boundaries.
+- **Validation:** Focused template logic passed (`70 passed, 3 warnings`); full backend passed (`267 passed, 9 skipped, 3 warnings` in 49.27s); foreground baseline passed with 307 objects and zero missing bindings (`html e18cd13f...`, `pdf f6af24b0...`, `png 7ddef150...`); comparison passed at 36 pages with `page_count_match: true`, `page_size_match: true`, no geometry mismatches, global similarity `0.0026`, page mean `0.0271`, minimum `0.0023`, maximum `0.1155`; rebuilt Compose served 307 blocks/schema 3 with page-4/page-17 ownership verified; frontend build, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes including the locked background). No legal, visual, native-reader, second-engine, accessibility or licensing approval is claimed.
+- **Implementation references:** [representation and interest containers](../backend/app/isda_template.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-376: Remove duplicated Schedule continuation prose
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded Schedule semantic decomposition; complete Schedule transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E4-01, E6-01, E6-04
+- **Context:** The page-30 Schedule continuation had child Cross-Default and election fields but its parent object repeated the full election summary.
+- **Choice:** Retain the page-owned Part 1 continuation heading and let the existing purpose clause and fields carry the editable Cross-Default, merger, automatic-termination and additional-event detail.
+- **Alternatives:** Keep duplicate prose or remove the parent object; rejected because duplication confuses selection and deletion weakens page structure.
+- **Consequences:** The inventory remains 307 objects and no Schedule election behavior becomes executable.
+- **Validation:** Focused template logic passed (`70 passed, 3 warnings`); full backend passed (`267 passed, 9 skipped, 3 warnings` in 52.32s); foreground baseline passed with 307 objects and zero missing bindings (`html 7bd184b1...`, `pdf 7e02d78d...`, `png 16b09ef4...`); comparison passed at 36 pages with `page_count_match: true`, `page_size_match: true`, no geometry mismatches, global similarity `0.0015`, page mean `0.0267`, minimum `0.0023`, maximum `0.1155`; rebuilt Compose served 307 blocks/schema 3 with page-30 ownership verified; frontend build, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes including the locked background). No legal, visual, native-reader, second-engine, accessibility or licensing approval is claimed.
+- **Implementation references:** [Schedule continuation objects](../backend/app/isda_template.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-375: Mark provisional semantic coordinates with calibration provenance
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as calibration-contract hardening; exact source alignment remains open
+- **Affected stories:** E2-01, E4-01, E6-01, E6-04
+- **Context:** Measured Schedule and signature fields use bounded millimetre coordinates, but the blocks did not identify those coordinates as provisional source-region measurements.
+- **Choice:** Add declarative `position_provenance: provisional-source-region` and `calibration_source: isda-source-measurements` metadata to every absolute semantic object, and assert all such objects stay within Letter page dimensions and owned pages.
+- **Alternatives:** Treat the coordinates as exact or leave provenance implicit; rejected because pypdf origins and provisional placements do not establish glyph-level fidelity.
+- **Consequences:** Calibration status is machine-auditable without changing renderer instructions, schema version, page ownership or the locked-PDF comparison boundary.
+- **Validation:** Focused template logic passed (`70 passed, 3 warnings`); full backend passed (`267 passed, 9 skipped, 3 warnings` in 50.94s); foreground baseline passed with 307 objects and zero missing bindings (`html 3ec857cb...`, `pdf aeb6cd7c...`, `png 76538615...`); comparison passed at 36 pages with `page_count_match: true`, `page_size_match: true`, no geometry mismatches, global similarity `0.0015`, page mean `0.0278`, minimum `0.0023`, maximum `0.1155`; rebuilt Compose served 307 blocks/schema 3 with 27 absolute fields and 27 provisional-provenance fields; frontend build, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes including the locked background). No visual, native-reader, second-engine, legal, accessibility or licensing approval is claimed.
+- **Implementation references:** [provisional coordinate metadata](../backend/app/isda_template.py), [coordinate invariants](../backend/tests/test_template_logic.py), [source measurements](../scripts/measure_isda_source.py).
+
+## DD-374: Add page-by-page PDF geometry diagnostics
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as comparison-harness hardening; visual fidelity and native-reader review remain open
+- **Affected stories:** E4-01, E6-01, E6-04
+- **Context:** The locked-source comparison reported only the first page’s MediaBox, so a later-page geometry drift could pass the diagnostic report unnoticed.
+- **Choice:** Compare every aligned source/candidate page MediaBox and report `page_size_match` plus bounded mismatch records. Keep visual comparison `null` unless a reviewed raster comparison path is available.
+- **Alternatives:** Treat the first page as representative or label MediaBox equality as visual fidelity; rejected because neither proves all-page geometry or appearance.
+- **Consequences:** Comparison evidence now proves all 36 candidate pages have matching Letter geometry in the current run, while preserving the locked-PDF comparison boundary and explicit review limitations.
+- **Validation:** Comparison-focused tests passed (`2 passed, 1 warning`); current report records `page_count_match: true`, `page_size_match: true`, and `page_size_mismatches: []`. No visual, native-reader, second-engine, legal, accessibility or licensing approval is claimed.
+- **Implementation references:** [comparison harness](../scripts/compare_isda_candidate.py), [comparison tests](../backend/tests/test_isda_comparison.py), [current comparison artifact](../artifacts/isda-editable-comparison.json), [handoff](isda-work-handoff.md).
+
+## DD-373: Remove duplicated termination-container prose
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic decomposition; complete legal-text transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Pages 11–15 contained child termination and transfer clauses while several parent objects repeated their detailed notice, designation, terminated-transaction and transfer-exception prose.
+- **Choice:** Retain those page-owned parent objects as headings or concise context and keep the existing child clauses as the detailed editable content.
+- **Alternatives:** Delete the parent objects or retain duplicate prose; deletion weakens page structure and duplicate prose makes semantic editing ambiguous.
+- **Consequences:** The inventory remains 307 objects and no legal timing, valuation or transfer behavior is made executable.
+- **Validation:** Focused template logic passed (`70 passed, 3 warnings`); full backend passed (`266 passed, 9 skipped, 3 warnings` in 52.13s); foreground baseline passed with 307 objects and zero missing bindings (`html 3ec857cb...`, `pdf ce031f8e...`, `png 76538615...`); comparison passed at 36 pages, `157001` bytes, global similarity `0.0015`, page mean `0.0278`, minimum `0.0023`, maximum `0.1155`; rebuilt Compose served 307 blocks/schema 3 with page-1/page-11/page-21/page-28 ownership counts `9/5/7/14`; frontend build, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes including the locked background). No legal, visual, native-reader, second-engine, accessibility or licensing approval is claimed.
+- **Implementation references:** [termination containers](../backend/app/isda_template.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-372: Remove duplicated definition-container prose
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic decomposition; complete legal-definition transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Definition pages 21–27 had independently editable definition clauses and fields, but their page containers repeated the same long grouped prose.
+- **Choice:** Retain the page-owned definition containers as term headings and let their child clauses and fields carry the editable content. Preserve the existing declarative vocabulary and schema.
+- **Alternatives:** Delete the containers or retain grouped legal prose; deletion weakens page structure, while duplication creates ambiguous semantic editing.
+- **Consequences:** The inventory remains 307 objects and the schema/renderer/comparison boundaries remain unchanged, with less duplicated editable text on pages 21–27.
+- **Validation:** Focused template logic passed (`70 passed, 3 warnings`); full backend passed (`266 passed, 9 skipped, 3 warnings` in 57.47s); foreground baseline passed with 307 objects and zero missing bindings (`html f5c1a6aa...`, `pdf 52d64c34...`, `png 25b15eae...`); comparison passed at 36 pages, `157091` bytes, global similarity `0.0015`, page mean `0.0281`, minimum `0.0023`, maximum `0.1155`; rebuilt Compose served 307 blocks/schema 3 with page-1/page-21/page-28/page-36 ownership counts `9/7/14/14`; frontend build, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes including the locked background). No legal, visual, native-reader, second-engine, accessibility or licensing approval is claimed.
+- **Implementation references:** [definition containers](../backend/app/isda_template.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-371: Remove duplicated early-page container prose
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic decomposition; complete legal-text transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Early pages had child clause objects but their parent/container objects repeated the same legal prose, producing duplicate editable text and ambiguous selection.
+- **Choice:** Retain the page-owned parent objects as headings or concise context and keep the independently editable child clauses as the only detailed prose objects for the affected interpretation, obligation, representation and Event of Default regions.
+- **Alternatives:** Delete the parent objects or retain duplicated prose; deletion would weaken page structure, while duplication prevents clean semantic editing.
+- **Consequences:** The inventory remains 307 objects, but early-page semantic ownership is clearer without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary.
+- **Validation:** Focused template logic passed (`70 passed, 3 warnings`); full backend passed (`266 passed, 9 skipped, 3 warnings` in 61.98s); foreground baseline passed with 307 objects and zero missing bindings (`html ecc610ca...`, `pdf b65aea0f...`, `png d7850206...`); comparison passed at 36 pages, `157816` bytes, global similarity `0.0015`, page mean `0.0289`, minimum `0.0023`, maximum `0.1155`; rebuilt Compose served 307 blocks/schema 3 with page-1/page-28/page-29/page-36 ownership counts `9/14/21/14`; frontend build, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes including the locked background). No legal, visual, native-reader, second-engine, accessibility or licensing approval is claimed.
+- **Implementation references:** [early-page semantic containers](../backend/app/isda_template.py), [decomposition tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-370: Split Master Agreement execution attestation into signature objects
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded execution-page semantic decomposition; signature validation and legal approval remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Page 28 had separate Master Agreement signature fields but retained the execution statement and authorisation attestation in one clause object.
+- **Choice:** Split the page-28 execution heading, execution statement and authorisation attestation into distinct clause/signature objects while preserving the existing signature fields and page ownership.
+- **Alternatives:** Keep the combined execution text or add executable authority checks; the former limits independent editing and the latter is outside this declarative template slice.
+- **Consequences:** The inventory increases from 305 to 307 objects without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary.
+- **Validation:** Focused template logic passed (`69 passed, 3 warnings`); full backend passed (`265 passed, 9 skipped, 3 warnings` in 48.41s); foreground baseline passed with 307 objects and zero missing bindings (`html 23e8e9f5...`, `pdf b53c34b5...`, `png d71cd698...`); comparison passed at 36 pages, `158005` bytes, global similarity `0.0015`, page mean `0.0277`, minimum `0.0032`, maximum `0.0604`; rebuilt Compose served 307 blocks/schema 3 with page-1/page-28/page-29/page-36 ownership counts verified; frontend build, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes including the locked background). No legal, native-reader, second-engine, accessibility or licensing approval is claimed.
+- **Implementation references:** [Master Agreement execution objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [execution ownership tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-369: Bind opening-party schema leaves to explicit editable fields
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded opening-page semantic decomposition; complete legal-text transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** The governed schema exposed top-level `party_x` and `party_y` values, but the opening page interpolated them inside one combined text clause rather than exposing independently editable semantic objects.
+- **Choice:** Split the opening page into explicit agreement-date, Party A legal-name and Party B legal-name fields while retaining the declarative renderer and surrounding contextual clause text. Add a reverse schema invariant requiring every scalar schema leaf to be represented by an editable field object.
+- **Alternatives:** Exempt the two top-level leaves from the invariant or retain combined interpolation; rejected because both permit schema fields that editors cannot select independently.
+- **Consequences:** The inventory increases from 301 to 305 objects; schema version, page count, renderer safety, local CPU execution and the locked-PDF comparison boundary remain unchanged.
+- **Validation:** Focused template logic passed (`69 passed, 3 warnings`); full backend passed (`265 passed, 9 skipped, 3 warnings` in 49.34s); foreground baseline passed with 305 objects and zero missing bindings (`html fd99cd59...`, `pdf 2a906cb9...`, `png 1e7afdd8...`); comparison passed at 36 pages, `157950` bytes, global similarity `0.0015`, page mean `0.0278`, minimum `0.0032`, maximum `0.0604`; rebuilt Compose served 305 blocks/schema 3 with page-1/page-29/page-36 ownership counts verified; frontend build, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 306 structure nodes including the locked background). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [opening semantic fields and schema](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [schema coverage tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-368: Add measured Schedule-field coverage invariants
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as focused validation hardening
+- **Affected stories:** E2-01, E3-06, E4-01, E6-01, E6-04
+- **Context:** The Schedule field inventory spans pages 29–35 through a measured-field map, so page ownership and binding regressions could otherwise pass broad object-count checks.
+- **Choice:** Add focused assertions for unique semantic IDs and representative measured fields across counterparty, termination, tax, agreement, notice, office, credit-support, netting and additional-provision regions, including page ownership, field kind and binding paths.
+- **Alternatives:** Rely on the aggregate count and generic schema test; rejected because they do not prove representative page-region coverage.
+- **Consequences:** Validation becomes more sensitive to duplicate IDs, moved fields and missing bindings without changing the template inventory, schema version, renderer safety, local CPU execution or comparison boundary.
+- **Validation:** Focused template logic passed (`68 passed, 3 warnings`); full backend passed (`264 passed, 9 skipped, 3 warnings` in 61.76s); exact semantic Playwright passed (`1 passed`); frontend build, Python compile and `git diff --check` passed. No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [Schedule coverage assertions](../backend/tests/test_template_logic.py), [Schedule measured-field map](../backend/app/isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-367: Split remaining Schedule and execution clause ownership on pages 29–36
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded Schedule/signature clause decomposition; complete legal-text transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Schedule and execution pages had many bound fields but retained broad Part 1–5 and signature descriptions as the only semantic clause targets.
+- **Choice:** Add concise declarative clause objects for Part 1 purpose, Cross-Default, tax, agreements, Process Agent/offices, payment netting, other provisions and signature attestation while retaining all existing table, field and signature bindings.
+- **Alternatives:** Add more duplicated source prose; rejected because it risks pagination drift. Encode legal election logic or signature validation; deferred because this bounded slice does not establish reviewed legal grammar or authority policy.
+- **Consequences:** The inventory increases from 293 to 301 objects without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); rebuilt Compose served 301 blocks/schema 3 with page ownership 29/31/34/36 verified; foreground baseline passed with 301 objects and zero missing bindings (`html f2308322...`, `pdf e4af46cc...`, `png 2b1a3619...`); comparison passed at 36 pages, `157918` bytes, global similarity `0.0015`, page mean `0.0282`, minimum `0.0032`, maximum `0.0764`; full backend passed (`263 passed, 9 skipped, 3 warnings` in 52.20s); frontend build, Python compile and `git diff --check` passed; exact semantic Playwright passed (`1 passed`, 302 structure nodes including the locked background). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [Schedule and execution clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-366: Split remaining defined-term clauses on pages 21–24
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition and ownership correction; complete legal-definition transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Pages 21–24 retained grouped definitions for additional representations, deferral/currency terms, close-out/confirmation terms and default/termination terms. The first implementation also exposed that newly added page-9–16 objects had been placed in the later-page list, so page ownership required correction.
+- **Choice:** Add explicit declarative definition clause objects on pages 21–24 and place the page-9–16 clause objects in their owning page lists. Preserve the existing safe renderer and non-executable legal text.
+- **Alternatives:** Keep grouped definitions or accept metadata-only page labels; rejected because renderer grouping and source ownership would remain inaccurate. Encode reviewed legal definitions; deferred because this slice does not establish legal grammar or approval.
+- **Consequences:** The inventory increases from 276 to 293 objects; the corrected baseline remains 36 pages without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); rebuilt Compose served 293 blocks/schema 3 with page ownership 21/22/23/24 verified; foreground baseline passed with 293 objects and zero missing bindings (`html 697b40c9...`, `pdf e8227518...`, `png 5256e543...`); comparison passed at 36 pages, `157156` bytes, global similarity `0.0014`, page mean `0.0284`, minimum `0.0032`, maximum `0.0764`; full backend passed (`263 passed, 9 skipped, 3 warnings` in 52.77s); frontend build, Python compile and `git diff --check` passed; exact semantic Playwright passed (`1 passed`, 294 structure nodes including the locked background). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [pages 9–27 clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-365: Split remaining termination, transfer and miscellaneous clauses on pages 9–16
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition; complete legal-text transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Pages 9–16 retained grouped text around waiting-period deferrals, termination designation, payment calculations, set-off, transfer, currency judgments, survival, remedies and counterparts/Confirmations.
+- **Choice:** Add explicit declarative clause objects for those source-observed subclauses while retaining the safe non-executable renderer.
+- **Alternatives:** Keep grouped summaries; rejected because source-observed clauses could not be addressed independently. Encode legal timing, valuation or remedy behavior; deferred because this slice does not establish reviewed legal grammar.
+- **Consequences:** The inventory increases from 265 to 276 objects without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); rebuilt Compose served 276 blocks/schema 3 with page ownership 9/11/15/16 verified; foreground baseline passed with 276 objects and zero missing bindings (`html 9c5fc4c6...`, `pdf bd4eea22...`, `png 03fbabe9...`); comparison passed at 36 pages, `156269` bytes, global similarity `0.0014`, page mean `0.0275`, minimum `0.0032`, maximum `0.0764`; full backend passed (`263 passed, 9 skipped, 3 warnings` in 52.62s); frontend build, Python compile and `git diff --check` passed; exact semantic Playwright passed (`1 passed`, 277 structure nodes including the locked background). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [pages 9–16 clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-364: Split representations, agreements and event categories on pages 5–8
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition; complete legal-text transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Pages 5–8 grouped representations, ongoing agreements, Events of Default and event consequences into broad page-owned summaries.
+- **Choice:** Add explicit declarative clause objects for litigation, specified information, payer/payee tax representations, no agency, ongoing agreement duties, eight event categories and five consequence categories.
+- **Alternatives:** Keep grouped summaries; rejected because source-observed clauses could not be addressed independently. Encode legal consequences or executable default logic; deferred because this slice does not establish reviewed legal grammar.
+- **Consequences:** The inventory increases from 242 to 265 objects without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); rebuilt Compose served 265 blocks/schema 3 with page ownership 5/6/7/8 verified; foreground baseline passed with 265 objects and zero missing bindings (`html b72c07b6...`, `pdf 6c7fc21e...`, `png 786bca08...`); comparison passed at 36 pages, `155672` bytes, global similarity `0.0014`, page mean `0.0271`, minimum `0.0032`, maximum `0.0764`; full backend passed (`263 passed, 9 skipped, 3 warnings` in 52.74s); frontend build, Python compile and `git diff --check` passed; exact semantic Playwright passed (`1 passed`, 266 structure nodes including the locked background). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [pages 5–8 clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-363: Split interpretation, obligations and basic representations on pages 1–4
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition; complete legal-text transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Pages 1–4 grouped interpretation, payment/delivery, netting/withholding and basic-representation text into broad page-owned summaries, limiting semantic editing and ownership checks.
+- **Choice:** Add explicit declarative clause objects for definitions, inconsistency, single agreement, payment and delivery obligations, netting, tax withholding, status, powers, authorisations, no-conflict and binding obligations.
+- **Alternatives:** Keep the grouped summaries; rejected because individual source-observed clauses could not be addressed independently. Encode legal formulas or executable obligations; deferred because this slice does not establish reviewed legal grammar.
+- **Consequences:** The inventory increases from 230 to 242 objects without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); rebuilt Compose served 242 blocks/schema 3 with page ownership 1/2/3/4 verified; foreground baseline passed with 242 objects and zero missing bindings (`html 2aaeeeea...`, `pdf cfa5012a...`, `png a9db78e4...`); comparison passed at 36 pages, `154601` bytes, global similarity `0.0014`, page mean `0.0260`, minimum `0.0009`, maximum `0.0764`; full backend passed (`263 passed, 9 skipped, 3 warnings` in 58.43s); frontend build, Python compile and `git diff --check` passed; exact semantic Playwright passed (`1 passed`, 243 structure nodes including the locked background). No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [pages 1–4 clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-362: Split remaining defined-term fields on pages 25–27
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded semantic field decomposition; complete legal-definition transcription and calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Pages 25–27 still grouped multiple source-observed defined terms into broad clause summaries while only Market Quotation, Office, Proceedings, Termination Event and Transaction had editable definition fields.
+- **Choice:** Add declarative page-owned fields for Indemnifiable Tax, Law, Local Business Day, Loss, Non-defaulting Party, Notice, Potential Event of Default, Specified Entity, Specified Indebtedness, Tax and Unpaid Amounts, with sample data and schema entries.
+- **Alternatives:** Keep broad summaries; rejected because those terms remain indistinguishable to editors. Encode reviewed legal definitions or formulas; deferred because this slice does not establish legal grammar or approval.
+- **Consequences:** The inventory increases from 219 to 230 objects and pages 25–27 become more semantically inspectable without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); local foreground baseline passed with 230 objects and zero missing bindings (`html 028f48a9...`, `pdf e4450b64...`, `png 0b9f4cd7...`); comparison passed at 36 pages, `154049` bytes, global similarity `0.0015`, page mean `0.0253`, minimum `0.0009`, maximum `0.0856`, candidate SHA `e4450b64580d5382a6a3839f569ad0a673457df2f5fa8bdf3de2209eea8f6240`; rebuilt live Compose API served 230 blocks/schema 3 with page ownership 25/26/27 verified; the full backend suite passed (`263 passed, 9 skipped, 3 warnings` in 51.04s); frontend typecheck/build, Python compile and `git diff --check` passed; and exact semantic Playwright passed (`1 passed`, 231 structure nodes including the locked background). A broader grep-selected browser run previously exposed one timeout in the separate locked-background preview-status flow, so that flow is not claimed green. No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [pages 25–27 definition objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-361: Correct and split Section 9–13 clause ownership on pages 17–20
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded clause decomposition and ownership correction; complete prose transcription and legal semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source pages 17–18 identify defaulted payments/deliveries, deferred interest, Early Termination interest and interest calculation. The prior page-18 object was misleadingly labeled “Calculation Agent.” Pages 19–20 separately identify Office recourse/selection, notice-detail changes, jurisdiction and Process Agent service.
+- **Choice:** Replace the misleading page-18 semantic IDs with Section 9 interest-owned IDs, add the source-observed Section 9/10/12/13 clause objects, and retain all as non-executable declarative clauses.
+- **Alternatives:** Keep the “Calculation Agent” label; rejected because it conflicts with source ownership. Encode interest formulas, notice timing, jurisdiction or service-of-process behavior; deferred because this bounded slice does not establish reviewed legal grammar.
+- **Consequences:** The inventory increases from 210 to 219 objects and source ownership is more accurate across pages 17–20 without changing schema version, renderer safety, local CPU execution or the locked-PDF comparison boundary. Exact legal text and calibration remain open.
+- **Validation:** Focused template/comparison tests passed (`68 passed, 3 warnings`); rebuilt Compose migration served 219 blocks/schema 3 with corrected Section 9 ownership and new Section 9–13 clause IDs on pages 17–20; the foreground baseline passed with 219 objects and zero missing bindings (`html 9fb5b5ef...`, `pdf c2c76d1c...`, `png 70929b8c...`); comparison passed at 36 pages, `153522` bytes, global similarity `0.0015`, page mean `0.0250`, minimum `0.0009`, maximum `0.0856`, candidate SHA `c2c76d1c981479834ab3a7a4692e8ef8c80970663011a48b68e8419a657fab38`; the full backend suite passed (`263 passed, 9 skipped, 3 warnings` in 53.73s); frontend typecheck/build, Python compile and `git diff --check` passed; and the exact semantic Playwright check passed (`1 passed`, 220 structure nodes including the locked background). A broader grep-selected browser run previously exposed one timeout in the separate locked-background preview-status flow, so that flow is not claimed green. No visual, native-reader, second-engine, font/licence or legal approval is claimed.
+- **Implementation references:** [pages 17–20 clause objects](../backend/app/isda_template.py), [bootstrap refresh](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-346: Add source-observed Specified Entity purpose fields
+
+- **Date:** 2026-09-30
+- **Status:** Accepted and Implemented as bounded Part-1/Part-2 decomposition; complete tax and termination-option semantics remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 29 contains four Specified Entity purpose lines for each party, and source page 31 contains a Party B tax-jurisdiction line. The scaffold represented the surrounding Schedule sections but did not expose these source-observed values independently.
+- **Choice:** Add eight explicit `schedule.elections.specified_entity_*` fields for Sections 5(a)(v), 5(a)(vi), 5(a)(vii) and 5(b)(v), plus `schedule.tax.jurisdiction_party_y`, with schema titles and deterministic `None`/jurisdiction sample values. Extend bootstrap refresh detection so persisted 155-object definitions converge to this inventory while nested defaults continue to merge safely.
+- **Alternatives:** Collapse all Specified Entity lines into one free-form value; rejected because the source presents four independently selectable purposes per party. Infer complete tax treaty option fields; deferred because the source text alone does not establish their complete governed grammar.
+- **Consequences:** The semantic inventory increases to 164 objects and improves page-29/page-31 source coverage without weakening renderer safety. Exact option semantics, coordinates and full tax representation coverage remain open.
+- **Validation:** Focused template logic passed (`67 passed, 3 warnings`); compile and frontend build passed; rebuilt Compose migration completed; live API served 164 blocks/schema 3 with the new sample values; the foreground baseline passed with 164 objects and zero missing bindings; comparison passed at 36 pages, `148173` bytes and similarity `0.0029`, candidate SHA `ca7463c6c0a5510a5e18a18496dd9d5f685de4f6661c945ed71b689053ed4959`; focused Playwright passed (`1 passed`); full backend suite passed (`262 passed, 9 skipped, 3 warnings` in 56.23s). Visual, native-reader, second-engine, accessibility, font/licence and legal review remain pending.
+- **Implementation references:** [Schedule objects/schema/sample](../backend/app/isda_template.py), [bootstrap migration](../backend/app/bootstrap.py), [semantic/schema tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+## DD-379: Remove three remaining duplicate mid-agreement container passages
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic container cleanup; complete legal-text transcription and visual calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** The 307-object inventory still contained three page-owned heading objects whose detailed prose was repeated by an adjacent child clause: Section 6 calculations, Section 6 set-off and Section 8 currency judgment.
+- **Choice:** Keep each parent as a source-owned heading and retain the detailed wording in its child clause. Preserve semantic IDs, page ownership, field bindings, the declarative renderer, local CPU path and locked-PDF comparison boundary.
+- **Alternatives:** Remove the parent objects or merge the child text back into a single object; rejected because the parent provides stable source navigation and the child remains independently editable.
+- **Consequences:** The semantic inventory remains 307 objects while duplicate editable prose is reduced in three locations. This does not establish exact legal transcription, PDF fidelity or review approval.
+- **Validation:** Focused template logic passed (`71 passed, 3 warnings`); full backend passed (`268 passed, 9 skipped, 3 warnings` in 56.48s); the foreground baseline regenerated 307 objects with zero missing fields (`html 5ed072c6...`, `pdf 04765759...`, `png 56c16715...`); comparison remained diagnostic at 36 pages with matching Letter geometry and no page-size mismatches (`normalized_text_similarity 0.0015`, page mean `0.0250`, `visual_comparison: null`); live Compose served 307 blocks and the shortened parent text; frontend build, Python compile and `git diff --check` passed; exact semantic Playwright passed (`1 passed`, 308 structure nodes including the locked background). Native-reader, visual, second-engine, font/licence and legal review remain pending.
+- **Implementation references:** [ISDA semantic objects](../backend/app/isda_template.py), [focused tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md), [comparison](isda-template-comparison.md).
+## DD-380: Split remaining combined Schedule headings from their detail clauses
+
+- **Date:** 2026-10-01
+- **Status:** Superseded by DD-381 after the page-count invariant rejected the six-object variant; complete legal-text transcription and visual calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Schedule pages 29, 31, 32, 35 and 36 still combined a Part heading with explanatory prose in one editable object, despite the surrounding Schedule already exposing child purpose objects and fields.
+- **Choice:** Keep the source-owned Schedule heading in a `schedule` object and move its explanatory passage into a page-owned `clause` object. Add bootstrap refresh detection and browser inventory coverage for the new semantic IDs.
+- **Alternatives:** Leave combined text in the heading or merge the prose into existing purpose clauses; rejected because independent editing and stable semantic navigation are clearer when the source heading and detail are separate.
+- **Consequences:** The six-object variant increased the inventory from 307 to 313 and caused a 37-page foreground artifact, so it was not retained. This does not establish exact legal transcription or visual fidelity.
+- **Validation:** The attempted foreground regeneration had 313 objects, zero missing fields, but 37 pages; it was rejected by the page-count invariant. Visual comparison, native-reader review, second-engine review, font/licence and legal review remain pending.
+- **Implementation references:** [Schedule semantic objects](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [focused tests](../backend/tests/test_template_logic.py), [browser test](../frontend/tests/foundation.spec.ts), [handoff](isda-work-handoff.md).
+
+## DD-381: Reuse existing Schedule purpose clauses to preserve pagination
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as a pagination-preserving correction; complete legal-text transcription and visual calibration remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** DD-380 proved that adding six new flow clauses made the foreground candidate 37 pages, violating the 36-page source-page ownership invariant.
+- **Choice:** Retain independent Schedule headings where already available, move the explanatory detail into the existing page-owned purpose clauses, and keep the inventory at 307. Preserve the declarative renderer, local CPU path, schema, page ownership and locked-PDF boundary.
+- **Alternatives:** Relax the 36-page comparison invariant or reduce arbitrary typography globally; rejected because either would hide pagination drift or weaken source calibration evidence.
+- **Consequences:** Schedule detail remains semantically editable without adding flow pressure; the retained candidate remains 36 pages and the schema/field inventory is unchanged.
+- **Validation:** Focused, full backend, baseline, comparison, Compose/live, frontend build, compile, diff and Playwright evidence is recorded after this correction. The rejected 37-page attempt is retained as negative evidence in DD-380.
+- **Implementation references:** [Schedule objects](../backend/app/isda_template.py), [focused tests](../backend/tests/test_template_logic.py), [comparison harness](../scripts/compare_isda_candidate.py), [handoff](isda-work-handoff.md).
+## DD-382: Give page-owned surfaces an explicit bounded page height
+
+- **Date:** 2026-10-01
+- **Status:** Height rule superseded by DD-422 (content-area height); page-ownership intent retained. Originally: Accepted and Implemented as renderer pagination hardening; exact PDF fidelity and review gates remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** The 36 page-owned semantic surfaces produced a 37-page Chromium candidate because absolute, provisional source-region fields could extend an auto-sized surface’s scroll area. Text and table anchors remained semantically present, but the physical page-count comparison failed.
+- **Choice:** For definitions containing only page-owned blocks, emit the allow-listed page-size height as an explicit surface height with `overflow:hidden` and `box-sizing:border-box`. Preserve the existing declarative block vocabulary, absolute coordinates, local CPU renderer and locked-PDF comparison boundary.
+- **Alternatives:** Relax the page-count invariant, remove absolute positions, or globally shrink typography; rejected because each would hide or alter the calibration problem rather than enforce the page ownership contract.
+- **Consequences:** Each owned surface is bounded to one configured page, restoring the 36-page candidate while clipping only content outside the declared page boundary. This is pagination evidence, not exact visual fidelity or legal/native-reader approval.
+- **Validation:** Focused comparison/template tests passed (`73 passed, 3 warnings`); full backend passed (`268 passed, 9 skipped, 3 warnings` in 49.87s); foreground baseline produced 307 objects, zero missing fields and 36 pages; 305 text semantic anchors plus the two repeatable table objects were retained in extracted output. Comparison reported `page_count_match: true`, `page_size_match: true`, no MediaBox mismatches, normalized text similarity `0.0026`, page mean `0.0265`, `visual_comparison: null`; frontend build, Docker Compose rebuild/migration/live API, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes). Native-reader, second-engine, visual, font/licence and legal review remain pending.
+- **Implementation references:** [page-surface renderer](../backend/app/rendering.py), [pagination test](../backend/tests/test_template_logic.py), [foreground baseline](../scripts/render_isda_foreground_baseline.py), [comparison](../scripts/compare_isda_candidate.py), [handoff](isda-work-handoff.md).
+## DD-383: Normalize repeatable Schedule tables to the shared semantic contract
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded table-schema hardening; exact PDF fidelity and review gates remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** The two repeatable Schedule tables were safe declarative renderer blocks, but were constructed inline and lacked the shared page-owned position/unit, TOC and semantic metadata contract used by text, field and signature objects.
+- **Choice:** Construct both tables through a small allow-listed `_isda_table` factory with `semantic_kind: schedule`, stable IDs/anchors, page ownership, flow position mode, millimetre units and unchanged item/column bindings.
+- **Alternatives:** Add table-specific executable behavior or leave the inline dictionaries unchanged; rejected because table editing remains declarative and the missing metadata weakened semantic inspection and page ownership checks.
+- **Consequences:** The inventory, schema version, sample data, table columns and rendered content remain unchanged while both table objects become uniformly inspectable and testable.
+- **Validation:** Focused template/comparison tests passed (`73 passed, 3 warnings`); full backend passed (`268 passed, 9 skipped, 3 warnings` in 51.00s); foreground baseline remained 307 objects, zero missing fields and 36 pages (`html 5f1d7acc...`, `pdf ebdf6df9...`, `png 7cdcc2f2...`); comparison remained `page_count_match: true`, `page_size_match: true`, no MediaBox mismatches, normalized text similarity `0.0026`, page mean `0.0265`, `visual_comparison: null`; live Compose exposed both tables with schedule semantics and flow/mm ownership; frontend build, Docker rebuild/migration, compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 308 structure nodes). Visual, native-reader, second-engine, font/licence and legal review remain pending.
+- **Implementation references:** [table factory and Schedule objects](../backend/app/isda_template.py), [focused tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md), [comparison](isda-template-comparison.md).
+## DD-384: Require repeatable-table columns to resolve through array-item schema
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded schema validation; exact PDF fidelity and review gates remain open
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** Scalar schema coverage already required every ordinary ISDA field path to be represented by an editable object, but array-item leaves were only checked by table-specific examples.
+- **Choice:** Add a generic invariant for every repeatable table: each declared column path must resolve to its item-object schema and use an allowed scalar type.
+- **Alternatives:** Treat table columns as presentation-only or rely on individual table tests; rejected because either permits schema drift that can make an editable table column unbound.
+- **Consequences:** Schema/table drift is detected across all current repeatable Schedule tables without changing the renderer, data schema version, table content or local CPU path.
+- **Validation:** Focused template/comparison tests passed (`74 passed, 3 warnings`); full backend passed (`269 passed, 9 skipped, 3 warnings` in 48.99s). The existing 307-object/36-page foreground baseline and geometry/text comparison remained green; Compose/live, frontend build, compile, `git diff --check` and exact semantic Playwright remained green. Source-PDF raster probing remains unavailable because offline Chromium treats the PDF as a download; visual, native-reader, second-engine, font/licence and legal review remain pending.
+- **Implementation references:** [table schema invariant](../backend/tests/test_template_logic.py), [ISDA schema/tables](../backend/app/isda_template.py), [handoff](isda-work-handoff.md).
+## DD-385 — Make unavailable visual-comparison tooling explicit
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded comparison instrumentation
+- **Affected stories:** E4-01, E6-01, E6-04
+- **Context:** The ISDA comparison report intentionally leaves `visual_comparison` null because the local harness does not rasterize the locked source PDF. A null value alone does not distinguish unavailable tooling from an unperformed review.
+- **Choice:** Add a capability-derived `visual_comparison_status` to the offline report. It reports `unavailable-no-local-rasterizer` when no allow-listed local rasterizer is present, or `not-run-rasterizer-not-integrated` when one is present but this harness has not integrated it. Keep `visual_comparison` null and retain pending native-reader and second-engine review fields.
+- **Alternatives:** Treat extracted text and PDF geometry as visual evidence; rejected because they cannot establish glyph placement, wrapping, clipping or reader behavior. Add an unreviewed rasterizer dependency; rejected because dependency licensing and source allow-list review remain unresolved.
+- **Consequences:** Comparison artifacts now explain the missing visual result without overstating fidelity or approval. No renderer, locked-PDF boundary, or candidate content changes.
+- **Validation:** Focused comparison/template tests passed (`75 passed, 3 warnings`); full backend passed (`270 passed, 9 skipped, 3 warnings` in 49.81s); the comparison command reported matching 36-page Letter geometry and `visual_comparison_status: unavailable-no-local-rasterizer`. The current environment has no allow-listed local rasterizer, and offline Chromium treats both `file://` and locally served HTTP PDF navigation as a download (`Download is starting`). Frontend build, Docker Compose rebuild/migration/live API (`307` blocks, schema version `3`, `136` bound fields), Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`). Visual, native-reader, second-engine, font/licence and legal review remain pending.
+- **Implementation references:** [comparison harness](../scripts/compare_isda_candidate.py), [comparison tests](../backend/tests/test_isda_comparison.py), [comparison notes](isda-template-comparison.md), [handoff](isda-work-handoff.md).
+
+## DD-386 — Add a single offline ISDA contract audit
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded validation tooling
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** ISDA semantic, schema, coordinate and renderer invariants were distributed across focused tests, making a quick authoritative audit of the current template unnecessarily difficult.
+- **Choice:** Add `scripts/audit_isda_template.py` with an offline audit covering the 307-object inventory, pages 1-36, stable semantic kinds/IDs, field and table schema bindings, non-empty sample values for every repeatable table column, provisional absolute-coordinate bounds/provenance, sample-data resolution, and 36 rendered page surfaces. Support an optional JSON output path for reproducible evidence. Keep the audit declarative and local CPU-only.
+- **Alternatives:** Infer health from object counts alone; rejected because it misses schema and render binding drift. Add a networked or native-reader dependency; rejected because that would exceed the local comparison boundary and unresolved licensing/review gates.
+- **Consequences:** Future ISDA changes have a single executable contract check. A passing audit still does not claim exact PDF fidelity, native-reader approval, second-engine review, legal approval or licensing/accessibility approval.
+- **Validation:** `audit_isda_template.py --output artifacts/isda-template-audit.json` and its focused regression pass with the current 307-object, 36-surface definition and two Schedule tables with two rows each; focused comparison/template/audit tests passed (`76 passed, 3 warnings`). Full backend and product checks are recorded in the handoff.
+- **Implementation references:** [offline audit](../scripts/audit_isda_template.py), [audit regression](../backend/tests/test_isda_audit.py), [ISDA semantic model](../backend/app/isda_template.py).
+
+## DD-387 — Bind the Schedule page-29 agreement date
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded Schedule semantic decomposition
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** The source Schedule page contains its own “dated as of” editable region. The semantic model exposed the governed agreement date on page 1 but did not give the page-29 Schedule region an independently addressable object.
+- **Choice:** Add one page-29 field object, `schedule-agreement-date`, bound to the existing top-level `agreement_date` schema path and local sample value. Do not create a duplicate schema property or infer a separate legal date.
+- **Alternatives:** Leave the date only in the opening page; rejected because page ownership and Schedule editing would remain incomplete. Add `schedule.agreement_date`; rejected because the source uses the same agreement date and a second value could diverge without evidence.
+- **Consequences:** The semantic inventory increases from 307 to 308 objects while preserving the schema version, declarative renderer, local CPU path, page ownership and locked-PDF comparison boundary.
+- **Validation:** Focused template/audit checks passed (`76 passed, 3 warnings`); regenerated foreground baseline produced 308 objects, zero missing fields, 36 pages and hashes `html c7472d51...`, `pdf d4c6dd14...`, `png 0bd12a38...`; comparison remained diagnostic with 36/36 pages, matching Letter geometry, normalized extracted-text similarity `0.0029`, `visual_comparison: null` and `visual_comparison_status: unavailable-no-local-rasterizer`; the offline audit passed with 308 objects and 36 surfaces. Full backend passed (`271 passed, 9 skipped, 3 warnings` in 53.09s); frontend build, Docker Compose rebuild/migration/live API served 308 blocks/schema 3 with 137 bound fields, Python compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 309 structure nodes). Exact source transcription, visual fidelity and review approvals remain open.
+- **Implementation references:** [Schedule field](../backend/app/isda_template.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-388 — Audit required Schedule and execution semantic anchors
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded validation hardening
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** The Schedule and execution pages have source-observed semantic IDs, but the audit previously checked global ownership and a few representative objects rather than requiring the complete bounded anchor set for pages 29-36.
+- **Choice:** Add an allow-listed required-ID map for the Schedule and execution pages to the offline audit, and report semantic-kind counts. The map covers page-owned headings, tables, representative fields and signature anchors already established by the implementation; it does not infer new legal fields.
+- **Alternatives:** Require every source-extracted text fragment to become an object; rejected because extraction fragments are not legal clause boundaries and would overstate transcription. Keep representative-only checks; rejected because deletion or page movement of an untested required anchor could pass unnoticed.
+- **Consequences:** Schedule/execution inventory drift now fails the single local audit without changing schema, rendering behavior, page ownership or the locked-PDF boundary.
+- **Validation:** The audit and focused test pass after DD-388; full backend passed (`271 passed, 9 skipped, 3 warnings` in 50.30s), with compile and `git diff --check` also passing. The existing DD-387 frontend/build/Compose/Playwright evidence remains valid because this slice changes only the offline audit. Visual, native-reader, second-engine, legal, accessibility and licensing gates remain open.
+- **Implementation references:** [audit required-ID map](../scripts/audit_isda_template.py), [audit regression](../backend/tests/test_isda_audit.py), [ISDA semantic objects](../backend/app/isda_template.py).
+
+## DD-389 — Require non-empty local samples for bound scalar fields
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded schema validation hardening
+- **Affected stories:** E3-06, E5-05, E6-01
+- **Context:** The semantic contract requires every bound field to be projected in the schema and exercised by local sample data. Renderer missing-field diagnostics alone do not prove that a present binding has a useful non-empty fixture value.
+- **Choice:** Extend the offline ISDA audit to resolve every bound scalar `field_path` against local sample data and fail on missing or empty values; report the bound-field count. Keep table-column sample checks in the same audit.
+- **Alternatives:** Treat a present key as sufficient; rejected because empty fixtures hide broken previews. Add runtime defaults; rejected because sample values are fixtures, not legal defaults.
+- **Consequences:** Schema/sample drift is caught before rendering evidence is accepted, without changing the schema, renderer, local CPU path or legal semantics.
+- **Validation:** The audit artifact reports 137 bound fields with non-empty local samples; focused audit regression passed, and the full backend passed (`271 passed, 9 skipped, 3 warnings` in 46.88s). The existing DD-387 product evidence remains valid because this slice changes only validation tooling. Visual, native-reader, second-engine, legal, accessibility and licensing gates remain open.
+- **Implementation references:** [sample-value audit](../scripts/audit_isda_template.py), [audit regression](../backend/tests/test_isda_audit.py), [ISDA sample/schema](../backend/app/isda_template.py).
+
+## DD-390 — Require an explicit foreground-only manifest for comparison
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded comparison hardening
+- **Affected stories:** E4-01, E6-01, E6-04
+- **Context:** The candidate comparison contract depends on comparing an editable foreground PDF, but the prior command accepted that boundary only through caller convention.
+- **Choice:** Add an optional candidate manifest input and, when supplied, require `locked_background: omitted`; record the manifest status in the comparison report. Keep no-manifest diagnostic compatibility for existing callers, while the ISDA baseline comparison supplies its manifest.
+- **Alternatives:** Inspect PDF resources to infer whether a source background was merged; rejected because PDF resource presence cannot reliably establish provenance. Reject every comparison without a manifest; deferred because existing generic comparison callers do not all produce one.
+- **Consequences:** The ISDA comparison evidence now explicitly proves the candidate-only boundary without altering the renderer or locked source. It still does not establish visual fidelity or review approval.
+- **Validation:** Focused comparison tests passed (`4 passed, 1 warning`) covering accepted/rejected manifest states; the ISDA comparison command was rerun with the foreground baseline manifest and reported `candidate_manifest.status: foreground-only`, matching 36-page geometry and `visual_comparison: null`; full backend passed (`272 passed, 9 skipped, 3 warnings` in 46.61s). Visual, native-reader, second-engine, font/licence and legal review remain pending.
+- **Implementation references:** [comparison harness](../scripts/compare_isda_candidate.py), [comparison tests](../backend/tests/test_isda_comparison.py), [foreground baseline](../artifacts/isda-foreground-baseline/isda-foreground.json).
+
+## DD-391 — Converge persisted ISDA drafts on the Schedule date field
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded bootstrap convergence
+- **Affected stories:** E2-01, E3-06, E6-01
+- **Context:** Adding `schedule-agreement-date` to the code model does not by itself update an existing persisted ISDA draft; the bootstrap refresh guard must recognize the new source-observed semantic anchor.
+- **Choice:** Add `schedule-agreement-date` to the existing allow-listed ISDA semantic-ID refresh guard. Preserve existing sample values through the existing merge behavior and keep schema version 3.
+- **Alternatives:** Force-refresh every ISDA draft; rejected because it could discard user edits. Add a general migration framework; deferred because this is a bounded template convergence requirement.
+- **Consequences:** Existing persisted drafts converge to the 308-object Schedule contract at startup when the guard detects the missing ID, without weakening renderer limits or changing the locked-PDF boundary.
+- **Validation:** Full backend passed (`272 passed, 9 skipped, 3 warnings` in 52.95s); Docker Compose rebuild/migration completed; live API served 308 blocks/schema version 3 with `schedule-agreement-date` on page 29; Python compile and `git diff --check` passed. Visual and independent review gates remain open.
+- **Implementation references:** [bootstrap guard](../backend/app/bootstrap.py), [Schedule field](../backend/app/isda_template.py), [bootstrap tests](../backend/tests/test_foundation.py), [handoff](isda-work-handoff.md).
+
+## DD-392 — Expose source-observed Schedule page-30 detail fields
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded Schedule semantic decomposition
+- **Affected stories:** E2-01, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 30 provides optional detail regions for Specified Transaction, Specified Indebtedness, Additional Termination Event and custom Termination Currency. The model previously exposed only the associated election summaries.
+- **Choice:** Add four plain string fields under the governed `schedule.elections` object, with stable page-30 semantic IDs and representative non-legal fixture values. Do not encode option validation, legal consequences or executable termination logic.
+- **Alternatives:** Keep detail text inside the election summary; rejected because it prevents independent editing. Model options as enums or executable rules; deferred because legal option semantics require reviewed domain evidence.
+- **Consequences:** The inventory increases from 308 to 312 objects and the bound-field count from 137 to 141 while preserving schema version 3, declarative rendering, local CPU execution, page ownership and the locked-PDF boundary.
+- **Validation:** Focused semantic/audit checks passed (`73 passed, 3 warnings`); regenerated baseline produced 312 objects, zero missing fields, 36 pages (`html c152bd35...`, `pdf d0f8e049...`, `png 628517a2...`); comparison reported 36/36 pages, matching Letter geometry, normalized extracted-text similarity `0.0030`, foreground-only manifest status and `visual_comparison: null`; full backend passed (`272 passed, 9 skipped, 3 warnings` in 64.99s); frontend build, Compose rebuild/migration/live API served 312 blocks/schema 3 with 141 bound fields, compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 313 structure nodes). Visual and independent-review gates remain open.
+- **Implementation references:** [Schedule detail fields/schema/sample](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic/audit tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-393 — Expose source-observed Schedule page-31 tax detail fields
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded Schedule semantic decomposition
+- **Affected stories:** E2-01, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 31 provides free-form detail regions for Payer and Payee Representation alternatives in addition to the party-specific choice fields.
+- **Choice:** Add four plain string fields under `schedule.tax`: payer and payee representation detail for Party A and Party B. Use representative non-legal fixture text and leave option selection/meaning declarative.
+- **Alternatives:** Collapse the detail into the choice fields; rejected because independent editing is lost. Add enum or tax-rule validation; deferred because that requires reviewed legal/domain evidence.
+- **Consequences:** The inventory increases from 312 to 316 objects and bound fields from 141 to 145 while preserving schema version 3, the safe renderer, local CPU path, page ownership and comparison boundary.
+- **Validation:** Focused semantic/audit checks passed (`73 passed, 3 warnings`); regenerated baseline produced 316 objects, zero missing fields, 36 pages (`html 72533528...`, `pdf d29ebc22...`, `png 594a3398...`); comparison reported 36/36 pages, matching Letter geometry, normalized extracted-text similarity `0.0030`, foreground-only manifest status and `visual_comparison: null`; full backend passed (`272 passed, 9 skipped, 3 warnings` in 63.27s); frontend build, Compose rebuild/migration/live API served 316 blocks/schema 3 with 145 bound fields, compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 317 structure nodes). Visual and independent-review gates remain open.
+- **Implementation references:** [tax detail fields/schema/sample](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic/audit tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-394 — Expose source-observed Multibranch office-list fields
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded Schedule semantic decomposition
+- **Affected stories:** E2-01, E3-06, E4-01, E6-01, E6-04
+- **Context:** Source page 34 has optional lists of Offices for each Multibranch Party. The model represented the party elections but not those independently editable list details.
+- **Choice:** Add two plain string fields under `schedule.offices`, one for each party’s Multibranch office list, with local fixture values. Do not model routing behavior or infer an array grammar from the source form.
+- **Alternatives:** Leave the list inside the election field; rejected because the detail region cannot be edited independently. Introduce an Office array and routing rules; deferred until a governed data shape and legal/domain review exist.
+- **Consequences:** The inventory increases from 316 to 318 objects and bound fields from 145 to 147 while preserving schema version 3, declarative rendering, local CPU execution, page ownership and the locked-PDF boundary.
+- **Validation:** Focused semantic/audit checks passed (`73 passed, 3 warnings`); regenerated baseline produced 318 objects, zero missing fields, 36 pages (`html 4e0b6854...`, `pdf 47b63b64...`, `png 50291263...`); comparison reported 36/36 pages, matching Letter geometry, normalized extracted-text similarity `0.0032`, foreground-only manifest status and `visual_comparison: null`; full backend passed (`272 passed, 9 skipped, 3 warnings` in 58.59s); frontend build, Compose rebuild/migration/live API served 318 blocks/schema 3 with 147 bound fields, compile, `git diff --check` and exact semantic Playwright passed (`1 passed`, 319 structure nodes). Visual and independent-review gates remain open.
+- **Implementation references:** [Multibranch fields/schema/sample](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic/audit tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-395 — Record the ISDA acceptance gate matrix
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded evidence documentation
+- **Affected stories:** E2-01, E3-06, E4-01, E6-01, E6-04
+- **Context:** The implementation has strong local structural evidence but several required acceptance gates depend on visual tooling, independent readers/engines, licensing review, accessibility review or legal/domain approval.
+- **Choice:** Add a current gate matrix that separates passed structural evidence, diagnostic comparison evidence and pending external approvals. Link the matrix to the generated audit, foreground manifest and comparison report.
+- **Alternatives:** Call the template complete based on local tests; rejected because that would overclaim exact fidelity and external approval. Leave the gates scattered across historical decisions; rejected because current status would be difficult to audit.
+- **Consequences:** Handoff readers can identify the exact remaining evidence without weakening any gate or changing implementation behavior.
+- **Validation:** Matrix reflects current artifacts and known tool limitations; it does not itself satisfy pending gates.
+- **Implementation references:** [gate matrix](isda-acceptance-gates.md), [handoff](isda-work-handoff.md), [audit](../scripts/audit_isda_template.py), [comparison](../scripts/compare_isda_candidate.py).
+
+## DD-396 — Enforce semantic binding metadata in the ISDA audit
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded validation hardening
+- **Affected stories:** E2-01, E2-05, E2-06, E3-06, E4-01, E6-01, E6-04
+- **Context:** The offline audit checked semantic kinds and scalar schema resolution, but did not explicitly reject a field object without a role/path, a scalar binding attached to a non-field semantic kind, or a repeatable table without Schedule ownership.
+- **Choice:** Extend the local audit to require non-empty semantic IDs, require `field_path` and `field_role` on `field` objects, allow scalar bindings only on `field` or `signature` objects, and require every table object to use the `schedule` semantic kind. Keep these checks metadata-only and preserve the existing safe renderer.
+- **Alternatives:** Rely on the frontend label or renderer missing-field checks; rejected because either can hide malformed semantic metadata. Require every clause to have a schema binding; rejected because declarative legal prose is not necessarily data-bound.
+- **Consequences:** Semantic/schema drift now fails the authoritative offline audit before rendering evidence is accepted. No template object, schema version, renderer behavior, page ownership or locked-PDF boundary changes.
+- **Validation:** Offline audit passed with 318 objects, 147 bound fields, 36 page surfaces and no failures; focused semantic/audit/comparison tests passed (`77 passed, 3 warnings`); the full backend suite passed (`272 passed, 9 skipped, 3 warnings` in 54.96s).
+- **Implementation references:** [ISDA audit](../scripts/audit_isda_template.py), [audit regression](../backend/tests/test_isda_audit.py), [handoff](isda-work-handoff.md).
+
+## DD-397 — Expose stable semantic metadata in the editor structure tree
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded editor-contract hardening
+- **Affected stories:** E2-01, E2-05, E3-06, E4-01, E6-01
+- **Context:** The ISDA editor displayed semantic labels, but structure-tree buttons did not expose stable semantic IDs, semantic kinds or page ownership to browser automation and accessible inspection.
+- **Choice:** Add non-rendering `data-semantic-id`, `data-semantic-kind` and `data-page-number` attributes to structure-tree buttons when the metadata exists. Keep the persisted definition, renderer vocabulary and locked-PDF boundary unchanged.
+- **Alternatives:** Select nodes by visible text only; rejected because labels can change and are not stable semantic identifiers. Add a new API schema; rejected because the existing definition metadata already supplies the required contract.
+- **Consequences:** Browser tests and editor tooling can address a semantic object deterministically and verify that selection navigates to its owned page, without making semantic metadata executable or changing generated PDF content.
+- **Validation:** Frontend build and the focused ISDA Playwright test pass; the test verifies the page-29 Schedule agreement-date field exposes kind `field`, page `29`, and selects page 29. Backend semantic/audit/comparison and full-suite evidence remains green from DD-396.
+- **Implementation references:** [editor structure tree](../frontend/src/main.tsx), [Playwright regression](../frontend/tests/foundation.spec.ts), [template contract](template-contract.md), [handoff](isda-work-handoff.md).
+
+## DD-398 — Make external ISDA acceptance evidence collectable
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded review-evidence documentation
+- **Affected stories:** E4-01, E6-01, E6-04, E11-05, E14-01
+- **Context:** The acceptance matrix correctly leaves visual, native-reader, second-engine, font/licensing, accessibility and legal gates pending, but did not provide a single artifact-oriented record for collecting the evidence needed to close them.
+- **Choice:** Add a review checklist keyed to the current locked-source and foreground-candidate hashes. Require named tool/version information, output or screenshot artifacts, reviewer/date attribution and explicit results for each external gate. Keep all rows pending until evidence is actually attached.
+- **Alternatives:** Mark gates complete from local structural tests; rejected because that would overclaim external approval. Add a rasterizer or reviewer dependency to the repository; rejected because it would exceed the local authority and licensing boundary.
+- **Consequences:** Reviewers have a reproducible handoff format and the acceptance matrix links to the required evidence record. The checklist itself is not approval and does not change rendering, schema or candidate content.
+- **Validation:** Checklist hashes match the current foreground manifest and comparison report; `git diff --check` and the offline ISDA audit pass. All external rows remain explicitly pending.
+- **Implementation references:** [review checklist](isda-review-evidence-checklist.md), [acceptance matrix](isda-acceptance-gates.md), [foreground manifest](../artifacts/isda-foreground-baseline/isda-foreground.json), [comparison report](../artifacts/isda-editable-comparison.json).
+
+## DD-399 — Audit review-checklist provenance against candidate artifacts
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded evidence-integrity tooling
+- **Affected stories:** E4-01, E6-01, E6-04, E11-05, E14-01
+- **Context:** The external review checklist records source and candidate hashes, but a manually maintained checklist could become stale after a candidate regeneration.
+- **Choice:** Add a local audit that compares checklist hashes with the comparison report and candidate bytes, and verifies the foreground-only manifest plus matching page count/geometry. Keep review result rows pending; this audit proves provenance consistency, not visual or reader approval.
+- **Alternatives:** Trust manually copied hashes; rejected because stale evidence could be associated with a new candidate. Treat a passing provenance audit as visual approval; rejected because it cannot inspect glyph placement or reader behavior.
+- **Consequences:** Review evidence can be rejected early when it refers to the wrong candidate, without adding a renderer, changing candidate content or weakening the locked-PDF boundary.
+- **Validation:** The new audit passes against the current checklist, foreground manifest and comparison report; focused template/audit/comparison tests pass (`78 passed, 3 warnings`); Python compilation and `git diff --check` pass.
+- **Implementation references:** [review checklist audit](../scripts/audit_isda_review_checklist.py), [review checklist](isda-review-evidence-checklist.md), [acceptance matrix](isda-acceptance-gates.md).
+
+## DD-400 — Mark historical ISDA comparison evidence explicitly
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded documentation correction
+- **Affected stories:** E4-01, E6-01, E6-04, E14-01
+- **Context:** `docs/isda-template-comparison.md` retained earlier 230-object and 307-object candidate metrics near its historical narrative, which could be mistaken for the current 318-object comparison evidence.
+- **Choice:** Mark the older comparison narrative, bounded-slice sequence and next-step text historical, and append a current authoritative comparison section keyed to the DD-394–DD-399 candidate hash, manifest and report. Preserve all historical records for traceability.
+- **Alternatives:** Delete old metrics; rejected because decision history and reproducibility references would be lost. Leave the ambiguity; rejected because current acceptance evidence must be auditable.
+- **Consequences:** Readers can distinguish historical diagnostics from the current candidate without changing any template, renderer, comparison algorithm or approval status.
+- **Validation:** Current section matches the foreground manifest and comparison report; the review-checklist provenance audit, offline template audit and `git diff --check` pass; the full backend suite passes (`273 passed, 9 skipped, 3 warnings` in 47.31s).
+- **Implementation references:** [comparison record](isda-template-comparison.md), [foreground manifest](../artifacts/isda-foreground-baseline/isda-foreground.json), [comparison report](../artifacts/isda-editable-comparison.json), [provenance audit](../scripts/audit_isda_review_checklist.py).
+
+## DD-401 — Split page-11 Termination Event notice clauses
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition
+- **Affected stories:** E2-01, E2-05, E4-01, E6-01, E6-04
+- **Context:** The page-11 semantic model bundled the source-observed notice obligations for ordinary Termination Events and Force Majeure Events into one editable clause, although the source presents them as separate alternatives.
+- **Choice:** Keep the existing `section-6-termination-event-notice` object for the non-Force-Majeure obligation and add `section-6-force-majeure-notice` as a separate page-11 clause. Use declarative source-observed wording only; do not create legal option rules or schema bindings.
+- **Alternatives:** Leave both obligations bundled; rejected because independent editing and source ownership are obscured. Add executable notice logic; deferred because legal semantics and runtime behavior are outside this bounded slice.
+- **Consequences:** The inventory increases from 318 to 319 semantic objects while preserving schema version 3, page ownership, the safe renderer, local CPU path, 36-page output invariant and locked-PDF boundary. Existing persisted drafts converge through the semantic-ID guard.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated baseline contains 319 objects, zero missing fields and 36 pages (`pdf 9f3b8ea4...`, `png 7c290a7e...`); comparison reports matching Letter geometry, normalized extracted-text similarity `0.0032` and `visual_comparison_status: unavailable-no-local-rasterizer`; the full backend suite passes (`273 passed, 9 skipped, 3 warnings` in 67.62s); no visual, native-reader, second-engine, legal or licensing approval is implied.
+- **Implementation references:** [page-11 semantic objects](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-402 — Split page-15 permitted-transfer clauses
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition
+- **Affected stories:** E2-01, E2-05, E4-01, E6-01, E6-04
+- **Context:** The page-15 semantic model bundled corporate/asset transfers and transfers of certain Early Termination Amount interests into one editable summary, while the source presents them as separate exceptions to the transfer restriction.
+- **Choice:** Replace the bundled object with two page-15 clause objects: `section-7-corporate-asset-transfers` and `section-7-early-termination-interest-transfers`. Keep the wording declarative and source-observed; add no executable transfer rules or schema bindings.
+- **Alternatives:** Leave both exceptions bundled; rejected because independent editing is obscured. Model transfer permissions as executable conditions; deferred because legal interpretation and runtime policy are outside this slice.
+- **Consequences:** The inventory increases from 319 to 320 semantic objects while preserving schema version 3, page ownership, safe rendering, local CPU execution, 36-page output and the locked-PDF boundary. Existing persisted drafts converge through the semantic-ID guard.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated baseline contains 320 objects, zero missing fields and 36 pages (`pdf 39ef4269...`, `png 8459a21c...`); comparison reports matching Letter geometry, normalized extracted-text similarity `0.0032` and `visual_comparison_status: unavailable-no-local-rasterizer`; the full backend suite passes (`273 passed, 9 skipped, 3 warnings` in 50.15s); frontend build, Python compile, Compose rebuild, exact semantic Playwright (`1 passed`) and both offline audits pass; `git diff --check` passes. No visual, native-reader, second-engine, legal or licensing approval is implied.
+- **Implementation references:** [page-15 semantic objects](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-403 — Decompose page-10 termination-event mechanics
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition
+- **Affected stories:** E2-01, E2-05, E4-01, E6-01, E6-04
+- **Context:** Page 10 still represented the source's Credit Event Upon Merger designated-event tests, event hierarchy, waiting-period deferral and head/home-office rule as one generic event-hierarchy clause. That obscured independently editable legal text while the renderer remained capable of safely storing separate declarative clauses.
+- **Choice:** Replace the page-10 event-hierarchy summary with source-observed clause objects for the designated-event test, its consolidation/control/capital-structure limbs, hierarchy clauses, deferral timing and head/home-office condition. Keep each object page-owned, declarative and unbound; do not infer runtime event logic.
+- **Alternatives:** Leave the summary bundled; rejected because distinct source paragraphs remain inseparable in the editor. Encode the tests as executable termination rules; deferred because legal interpretation and runtime policy are outside this slice.
+- **Consequences:** The inventory increases from 320 to 329 semantic objects while preserving schema version 3, the 36-page invariant, safe rendering, local CPU execution and the locked-PDF comparison boundary. Existing drafts converge through the existing semantic-ID guard because the replaced summary ID is retained only where its meaning remains applicable and new IDs are bootstrap-required.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated baseline contains 329 objects, zero missing fields and 36 pages (`html f9d40ebc...`, `pdf b61e1b36...`, `png 9502df5e...`); comparison reports matching Letter geometry, normalized extracted-text similarity `0.0015`, mean page similarity `0.0268` and `visual_comparison_status: unavailable-no-local-rasterizer`; the full backend suite passes (`273 passed, 9 skipped, 3 warnings` in 47.51s); frontend build, Compose rebuild/migration, Python compile, exact semantic Playwright (`1 passed`) and both offline audits pass; `git diff --check` passes. No visual, native-reader, second-engine, legal or licensing approval is implied.
+- **Implementation references:** [page-10 semantic objects](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-404 — Decompose pages 12–14 close-out mechanics
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition
+- **Affected stories:** E2-01, E2-05, E4-01, E6-01, E6-04
+- **Context:** Pages 12–14 still compressed the right-to-terminate branches, calculation statement/payment timing, Early Termination Amount outcomes, mid-market treatment, adjustments and set-off mechanics into broad summary clauses.
+- **Choice:** Add source-observed, independently editable clause objects for those distinct branches and outcomes while retaining existing stable IDs where their meaning remains applicable. Keep them declarative and unbound; do not encode valuation, notice, set-off or termination rules as executable behavior.
+- **Alternatives:** Leave the close-out mechanics bundled; rejected because the source presents independently reviewable branches. Add runtime valuation or termination policy; deferred because it requires legal interpretation and is outside this semantic slice.
+- **Consequences:** The inventory increases from 329 to 338 semantic objects while preserving schema version 3, page ownership, safe rendering, local CPU execution, the 36-page invariant and the locked-PDF comparison boundary. New semantic IDs are added to the existing bootstrap convergence guard.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated baseline contains 338 objects, zero missing fields and 36 pages (`html cafc2b7b...`, `pdf 5c44b656...`, `png eeba7c7c...`); comparison reports matching Letter geometry, normalized extracted-text similarity `0.0120`, mean page similarity `0.0316` and `visual_comparison_status: unavailable-no-local-rasterizer`; the full backend suite passes (`273 passed, 9 skipped, 3 warnings` in 46.46s); frontend build, Compose rebuild/migration, Python compile, exact semantic Playwright (`1 passed`) and both offline audits pass; `git diff --check` passes. No visual, native-reader, second-engine, legal or licensing approval is implied.
+- **Implementation references:** [pages 12–14 semantic objects](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-405 — Decompose pages 17–20 interest, notices and jurisdiction
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition
+- **Affected stories:** E2-01, E2-05, E4-01, E6-01, E6-04
+- **Context:** Pages 17–20 still bundled source-distinct interest/compensation branches, multibranch office rules, notice effectiveness, governing-law jurisdiction and process-agent mechanics into broad editable summaries.
+- **Choice:** Add source-observed page-owned clause objects for those branches and retain existing stable IDs for the surrounding headings and clauses. Keep all new objects declarative and unbound; do not implement interest calculation, notice delivery, jurisdiction or process-agent behavior.
+- **Alternatives:** Keep the summaries bundled; rejected because independent review/editing is obscured. Add runtime financial or legal workflow behavior; deferred because it is outside this semantic/template slice.
+- **Consequences:** The inventory increases from 338 to 347 semantic objects while preserving schema version 3, safe rendering, local CPU execution, page ownership, the 36-page invariant and the locked-PDF comparison boundary. New IDs are added to the bootstrap convergence guard.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated baseline contains 347 objects, zero missing fields and 36 pages (`html bd988a02...`, `pdf ce62ab09...`, `png d316ff63...`); comparison reports matching Letter geometry, normalized extracted-text similarity `0.0080`, mean page similarity `0.0327` and `visual_comparison_status: unavailable-no-local-rasterizer`; the full backend suite passes (`273 passed, 9 skipped, 3 warnings` in 47.12s); frontend build, Compose rebuild/migration, Python compile, exact semantic Playwright (`1 passed`) and both offline audits pass; `git diff --check` passes. No visual, native-reader, second-engine, legal or licensing approval is implied.
+- **Implementation references:** [pages 17–20 semantic objects](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-406 — Bind comparison evidence to the semantic manifest count
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as comparison-contract hardening
+- **Affected stories:** E4-01, E6-01, E6-04
+- **Context:** The comparison harness enforced the foreground-only locked-PDF boundary but discarded the manifest's semantic object count, allowing a valid-looking comparison report to omit which editable inventory produced the candidate.
+- **Choice:** Require a positive semantic object count in supplied foreground manifests, carry it into `candidate_manifest.object_count`, and test the invariant. This remains structural provenance only; it does not establish visual, native-reader or legal approval.
+- **Alternatives:** Continue checking only the locked-background flag; rejected because stale candidate provenance would be harder to detect. Infer the count from PDF text; rejected because PDF extraction cannot reliably reconstruct semantic objects.
+- **Consequences:** Comparison artifacts now identify the semantic inventory used to generate the candidate while preserving the existing renderer, local CPU path, foreground-only boundary and review limitations.
+- **Validation:** Focused comparison/audit tests pass (`6 passed, 1 warning`); the regenerated comparison artifact carries `candidate_manifest.object_count: 347`, remains foreground-only with matching 36-page Letter geometry, and retains `visual_comparison_status: unavailable-no-local-rasterizer`; the checklist provenance audit, Python compile and `git diff --check` pass. External visual, native-reader, second-engine, licensing, accessibility and legal gates remain unchanged.
+- **Implementation references:** [comparison harness](../scripts/compare_isda_candidate.py), [comparison tests](../backend/tests/test_isda_comparison.py), [foreground baseline](../scripts/render_isda_foreground_baseline.py), [handoff](isda-work-handoff.md).
+
+## DD-407 — Decompose pages 21–22 compound definitions
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition
+- **Affected stories:** E2-01, E2-05, E4-01, E6-01, E6-04
+- **Context:** The definitions pages represented several multi-branch definitions as one editable object: Affected Transactions, Affiliate/Agreement, Applicable Close-out Rate, Applicable Deferral Rate and Close-out Amount.
+- **Choice:** Split those source-observed branches into page-owned clause objects while retaining stable IDs for the existing primary definitions. Keep all definitions declarative and unbound; do not implement valuation, rate selection or transaction classification.
+- **Alternatives:** Leave compound definitions bundled; rejected because independent review/editing is obscured. Add executable valuation or rate rules; deferred because those choices require legal and financial interpretation outside this slice.
+- **Consequences:** The inventory increases from 347 to 356 semantic objects while preserving schema version 3, safe rendering, local CPU execution, page ownership, the 36-page invariant and the locked-PDF comparison boundary. New IDs are added to the bootstrap convergence guard.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated baseline contains 356 objects, zero missing fields and 36 pages (`html 66ccd96b...`, `pdf edded356...`, `png 80dd1213...`); comparison reports matching Letter geometry, normalized extracted-text similarity `0.0112`, mean page similarity `0.0338` and `visual_comparison_status: unavailable-no-local-rasterizer`; the full backend suite passes (`273 passed, 9 skipped, 3 warnings` in 47.51s); frontend build, Compose rebuild/migration, Python compile, exact semantic Playwright (`1 passed`) and both offline audits pass; `git diff --check` passes. No visual, native-reader, second-engine, legal or licensing approval is implied.
+- **Implementation references:** [pages 21–22 semantic objects](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-408 — Audit page-owned Schedule and execution coverage
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded validation hardening
+- **Affected stories:** E4-01, E6-01, E6-04
+- **Context:** The offline audit proved global semantic counts and page ownership, but did not report or enforce per-page field, Schedule-table and signature coverage for the Schedule/execution surfaces.
+- **Choice:** Add per-page semantic-kind counts to the audit and require fields on pages 28–36, Schedule objects on the actual Schedule-owned pages 29 and 31–36, signatures on both execution pages, and repeatable tables on pages 32–33. Keep this metadata-only and preserve the declarative renderer and comparison boundary.
+- **Alternatives:** Continue relying on global counts and representative IDs; rejected because a moved or emptied page could pass those weaker checks. Infer coverage from rendered text; rejected because text extraction cannot prove semantic ownership.
+- **Consequences:** The audit report becomes stronger page-owned schema/rendering evidence without changing the 356-object inventory, schema version, renderer behavior or external review status.
+- **Validation:** Focused audit tests pass (`2 passed, 1 warning`); the regenerated audit reports per-page semantic-kind counts, 356 objects, 147 bound fields, 36 rendered surfaces and zero failures; Python compile and `git diff --check` pass. Visual, native-reader, second-engine, licensing, accessibility and legal gates remain unchanged.
+- **Implementation references:** [offline audit](../scripts/audit_isda_template.py), [audit tests](../backend/tests/test_isda_audit.py), [acceptance gates](isda-acceptance-gates.md), [handoff](isda-work-handoff.md).
+
+## DD-409 — Require stable page-surface anchors in the audit
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded validation hardening
+- **Affected stories:** E4-01, E6-01, E6-04
+- **Context:** The current renderer uses page-owned flow/absolute surfaces and stable anchors, but the offline audit did not explicitly reject a semantic object with missing or duplicate anchor metadata, an invalid page number or a non-millimetre position unit.
+- **Choice:** Require every semantic object to have a unique non-empty `anchor_id`, a page number from 1–36 and `position_unit: mm`; report the anchor count in the audit. Keep this metadata-only and do not alter renderer instructions or coordinates.
+- **Alternatives:** Infer anchors from semantic IDs; rejected because persisted/editor metadata already exposes explicit anchors. Check only representative coordinates; rejected because page-surface drift can occur outside representatives.
+- **Consequences:** Rendering evidence now has a stronger page-surface provenance invariant without changing the 356-object inventory, schema version, safe renderer or external review status.
+- **Validation:** Focused audit tests pass (`2 passed, 1 warning`); the regenerated audit reports 356 objects, 356 unique anchors, valid pages 1–36, millimetre units, 147 bound fields, 36 rendered surfaces and zero failures; Python compile and `git diff --check` pass. Visual, native-reader, second-engine, licensing, accessibility and legal gates remain unchanged.
+- **Implementation references:** [offline audit](../scripts/audit_isda_template.py), [audit tests](../backend/tests/test_isda_audit.py), [template contract](../docs/template-contract.md), [handoff](isda-work-handoff.md).
+
+## DD-410 — Split page-23 valuation-information definitions
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition
+- **Affected stories:** E2-01, E2-05, E4-01, E6-01, E6-04
+- **Context:** Page 23 still bundled Close-out Amount information sources, commercially reasonable valuation procedures, and Confirmation/Consent meaning into broad editable definitions.
+- **Choice:** Add source-observed, page-owned clause objects for market/internal information, valuation methods and Consent while retaining the existing primary definitions. Keep all objects declarative and unbound; do not implement valuation algorithms or approval behavior.
+- **Alternatives:** Leave the definitions bundled; rejected because the source presents independently reviewable information and method branches. Add executable valuation/consent behavior; deferred because it requires legal and financial interpretation outside this template slice.
+- **Consequences:** The inventory increases from 356 to 359 semantic objects while preserving schema version 3, safe rendering, local CPU execution, page ownership, the 36-page invariant and the locked-PDF comparison boundary.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated baseline contains 359 objects, zero missing fields and 36 pages (`html 015c3531...`, `pdf bf84ffc7...`, `png e5ee17b0...`); comparison reports matching Letter geometry, normalized extracted-text similarity `0.0118`, mean page similarity `0.0340` and `visual_comparison_status: unavailable-no-local-rasterizer`; the full backend suite passes (`273 passed, 9 skipped, 3 warnings` in 53.25s); frontend build, Compose rebuild/migration, Python compile, exact semantic Playwright (`1 passed`) and both offline audits pass; `git diff --check` passes. No visual, native-reader, second-engine, legal or licensing approval is implied.
+- **Implementation references:** [page-23 semantic objects](../backend/app/isda_template.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-411 — Complete page-24 definition clause coverage
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition
+- **Affected stories:** E2-01, E2-05, E4-01, E6-01, E6-04
+- **Context:** Page 24 exposed several definition clauses but omitted independently editable objects for source-observed Cross-Default, electronic messages, English law, Event of Default, Force Majeure Event and General Business Day terms.
+- **Choice:** Add those page-24 definition clauses and expand the existing Default Rate clause using source-observed declarative wording. Keep all definitions unbound and non-executable.
+- **Alternatives:** Leave the terms inside the compound heading; rejected because they cannot be independently reviewed or edited. Add runtime default, jurisdiction or messaging behavior; deferred because it requires legal/domain interpretation outside the template slice.
+- **Consequences:** The inventory increases from 359 to 365 semantic objects while preserving schema version 3, safe rendering, local CPU execution, page ownership, the 36-page invariant and the locked-PDF comparison boundary.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated baseline contains 365 objects, zero missing fields and 36 pages (`html 7a98e582...`, `pdf 815c55b0...`, `png c0e87fdf...`); comparison reports matching Letter geometry, normalized extracted-text similarity `0.0135`, mean page similarity `0.0345` and `visual_comparison_status: unavailable-no-local-rasterizer`; the full backend suite passes (`273 passed, 9 skipped, 3 warnings`); frontend build, Compose rebuild/migration, Python compile, exact semantic Playwright (`1 passed`), both offline audits and `git diff --check` pass. External visual, native-reader, second-engine, licensing, accessibility and legal gates remain unchanged.
+- **Implementation references:** [page-24 semantic objects](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-412 - Split pages 25-27 definition headings into page-owned clauses
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded semantic clause decomposition
+- **Affected stories:** E2-01, E2-05, E4-01, E6-01, E6-04
+- **Context:** Pages 25-27 exposed independently editable definition fields, but their source-owned definition text remained represented only by three compound heading clauses. This weakened clause-level review and page ownership evidence for the closing definition pages.
+- **Choice:** Add sixteen unbound, source-observed clause objects for the five page-25, five page-26 and six page-27 definition terms while retaining the existing bound definition fields and stable IDs. Keep the wording declarative and bounded; do not add tax, notice, insolvency, valuation or termination behavior.
+- **Alternatives:** Leave the compound headings unchanged; rejected because individual terms could not be reviewed as clause objects. Replace fields with hard-coded legal text; rejected because the governed definition fields remain the editable source for schedule-specific content. Add executable domain rules; deferred because this slice is semantic structure, not legal or financial logic.
+- **Consequences:** The inventory increases from 365 to 381 semantic objects, with 220 clauses, 143 fields, 10 Schedule objects and 8 signature objects; schema version 3, bound-field count, safe declarative rendering, local CPU execution, page ownership, the 36-page invariant and locked-PDF comparison boundary remain unchanged.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated baseline contains 381 objects, zero missing fields and 36 pages (`html 18cf30d9...`, `pdf c2ff1a321...`, `png 4a93bc8b...`); comparison reports matching Letter geometry, normalized extracted-text similarity `0.0136`, mean page similarity `0.0358` and `visual_comparison_status: unavailable-no-local-rasterizer`; the full backend suite passes (`273 passed, 9 skipped, 3 warnings`); frontend build, Compose rebuild/migration, Python compile, exact semantic Playwright (`1 passed`), both offline audits and `git diff --check` pass. Visual, native-reader, second-engine, licensing, accessibility and legal gates remain separate and unclaimed.
+- **Implementation references:** [pages 25-27 semantic objects](../backend/app/isda_template.py), [bootstrap convergence](../backend/app/bootstrap.py), [semantic tests](../backend/tests/test_template_logic.py), [audit](../scripts/audit_isda_template.py), [handoff](isda-work-handoff.md).
+
+## DD-413 - Enforce exact semantic-kind and pages-25-27 ownership counts
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as bounded contract-audit hardening
+- **Affected stories:** E2-01, E4-01, E6-01, E6-04
+- **Context:** The audit reported semantic-kind and page-kind counts, but only enforced the total object count and broad Schedule/execution coverage. A future edit could silently remove a clause kind or one of the new pages-25-27 clause objects while retaining the same total.
+- **Choice:** Require the current exact semantic-kind counts (220 clauses, 143 fields, 10 Schedule objects and 8 signatures) and require the five page-25, five page-26 and six page-27 clause IDs in the offline audit. Keep this metadata-only and preserve the declarative renderer, local CPU path and comparison boundary.
+- **Alternatives:** Continue reporting counts without enforcement; rejected because the audit would not protect the current contract. Enforce every historical ID globally; deferred because the current bounded contract needs only the stable source-observed anchors and exact kind totals.
+- **Consequences:** Structural regression detection is stronger without changing template objects, schema version, renderer behavior, page count or external review status.
+- **Validation:** Focused template/audit/comparison tests pass (`78 passed, 3 warnings`); the regenerated audit passes with 381 objects, exact semantic-kind counts, 381 anchors, 147 bound fields, 36 page surfaces and zero failures; the full backend suite passes (`273 passed, 9 skipped, 3 warnings` in 47.59s); Python compile and `git diff --check` pass. Frontend build passes and the focused ISDA Playwright test passes (`1 passed`); the live API serves 381 blocks across 36 pages with data schema version 3 and the required page-25-27 clause IDs. A full 45-test Playwright run exposed 25 broader editor-flow failures/timeouts and 20 passes, while the same ISDA test passed. This audit-only change is not identified as the cause of those unrelated UI failures. Visual, native-reader, second-engine, licensing, accessibility and legal gates remain separate and unclaimed.
+- **Implementation references:** [contract audit](../scripts/audit_isda_template.py), [audit tests](../backend/tests/test_isda_audit.py), [semantic tests](../backend/tests/test_template_logic.py), [handoff](isda-work-handoff.md).
+
+## DD-414 - Give synchronous PDF rendering an explicit bounded block limit
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as local PDF-generation fix
+- **Affected stories:** E6-01, E6-04, E7-01
+- **Context:** The ISDA template contains 381 blocks. The PDF endpoint reused the 128-block limit intended for the fast HTML preview and returned HTTP 413 before invoking the configured local Chromium renderer. The preview route already queues larger templates, so the editor showed a server preview but could not generate a PDF.
+- **Choice:** Add a separate `sync_pdf_render_max_blocks` setting with a bounded default of 512, keep the existing 128-block preview limit unchanged, and apply the PDF-specific limit before the existing isolated render/PDF worker boundary. This accommodates the current ISDA template while retaining an operator-configurable resource guard.
+- **Alternatives:** Remove the limit; rejected because PDF rendering remains a resource-sensitive operation. Reuse the 128-block preview limit; rejected because it prevents the current supported ISDA template from reaching the renderer. Add a durable asynchronous PDF job; deferred because the immediate defect is the incorrect shared limit and the current UI expects the synchronous PDF response contract.
+- **Consequences:** Templates up to 512 blocks can use the existing bounded synchronous PDF path; larger templates continue to receive a clear 413 response until an asynchronous PDF-job contract is implemented. The renderer remains declarative, local CPU-only and network-isolated.
+- **Validation:** Python compile and frontend production build pass; the rebuilt Compose stack returns HTTP 200 for the live 381-block ISDA request, with a Chromium candidate PDF of 1,181,483 bytes beginning `%PDF-1.4`; the focused browser export test passes (`1 passed`, 8.8s). The focused backend test was added but could not run in the current host/image because pytest is not installed there. This fixes availability only and does not establish visual fidelity, native-reader, second-engine, licensing, accessibility or legal approval.
+- **Implementation references:** [settings](../backend/app/config.py), [local config](../config.toml), [PDF route](../backend/app/main.py), [PDF tests](../backend/tests/test_pdf_render.py), [handoff](isda-work-handoff.md).
+
+## DD-415 - Remove the locked source PDF from the ISDA editable template
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented as foreground-output correction
+- **Affected stories:** E2-15, E4-01, E6-01, E6-04
+- **Context:** The persisted ISDA template still carried the supplied source PDF as `page.background_pdf`. Normal PDF generation therefore composited locked source pages behind the editable foreground, making the output look like a source comparison layer rather than a generated editable document and obscuring the poor foreground fidelity.
+- **Choice:** Remove `page.background_pdf` from the ISDA template during bootstrap convergence and retain the locked-background capability for explicitly authored non-ISDA templates. The ISDA generated PDF is now foreground-only by default; the source PDF remains comparison input only.
+- **Alternatives:** Keep the background for visual similarity; rejected because it masks output quality and violates the intended editable-output boundary. Delete locked-background support globally; rejected because E2-15 remains a separate supported capability. Make the UI silently switch comparison mode; rejected because persisted template ownership should be explicit and testable.
+- **Consequences:** Rebuilt local ISDA output contains only generated semantic content. The locked-PDF renderer/comparison path remains available for deliberate tests and other templates. This change does not claim exact visual fidelity or legal approval.
+- **Validation:** Added bootstrap regression coverage; after Compose rebuild/bootstrap, the live ISDA template has 381 blocks and no `page.background_pdf`. The live generated foreground PDF is 96,538 bytes, begins `%PDF-1.4`, and reports `locked_background: omitted`; the two focused Playwright checks pass. The comparison remains diagnostic: 36/36 Letter pages, normalized text similarity `0.0136`, mean page similarity `0.0358`, and visual comparison unavailable because no local rasterizer is installed. The result confirms the locked source was removed, not that the foreground is visually close.
+- **Implementation references:** [bootstrap convergence](../backend/app/bootstrap.py), [foundation tests](../backend/tests/test_foundation.py), [ISDA handoff](isda-work-handoff.md).
+
+## DD-416 - Remove the ISDA session handoff document
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-01, E4-01, E6-01 (documentation only)
+- **Context:** `docs/isda-work-handoff.md` (DD-313) had grown into an append-only log of superseded counts and validation runs. It duplicated this register, `docs/isda-acceptance-gates.md` and `docs/isda-template-comparison.md`, and kept steering sessions toward page-by-page ISDA decomposition. The project owner clarified that the ISDA template was a probe to find editor limitations, not a product objective, and asked for the file to be removed.
+- **Choice:** Delete the handoff file and its README index row. Supersede DD-313. Current ISDA status stays in the acceptance-gate matrix and comparison record. Future fidelity work is directed through the proposed E16 epic (DD-417).
+- **Alternatives:** Condense the handoff; rejected by the project owner. Keep it as history; rejected because this register already holds the historical reasoning.
+- **Consequences:** Historical DD entries that link `isda-work-handoff.md` now point to a removed file. Those links are kept unchanged as historical references, not rewritten. There is no copy-paste restart prompt; sessions start from `AGENTS.md`, the README and the relevant epic.
+- **Validation:** The file was untracked and was deleted from the working tree. `README.md` no longer references it. DD-313 is marked superseded.
+- **Implementation references:** [README](../README.md), [DD-313](#dd-313-maintain-a-durable-isda-session-handoff), [acceptance gates](isda-acceptance-gates.md).
+
+## DD-417 - Propose E16 template fidelity tuning epic
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner on 2026-10-01; Phase A in progress (see DD-418)
+- **Affected stories:** New E16-01 to E16-10. Feeds E2, E4, E5 and E6 refinements. Precedes but does not schedule E13-05
+- **Context:** The ISDA exercise was meant to find which editor components need refinement or addition to make templates for any document easy and flexible. In practice it was done by hand-written Python block builders (`backend/app/isda_template.py`) and a locked source background. Those bypass the editor and hide its limitations. The only comparison metric was whole-document `SequenceMatcher` text similarity (`0.0136`), which cannot localise differences to components.
+- **Choice:** Add a proposed internal epic, E16, in [its own document](epic-e16-template-fidelity.md) without changing `docs/epics.md`. The epic adds a corpus, an offline SourceModel analyser, a fixed feature taxonomy, reconstruction limited to the editor-reachable template contract, an editor capability manifest, region-level comparison, attribution of each difference to a component/property/cause, a ranked cross-corpus gap report, fidelity regression tracking and authoring-effort metrics. The harness is a separate package that talks to the application only through its public HTTP API.
+- **Alternatives:** Keep extending the ISDA builder page by page; rejected because it optimises one document and does not produce reusable editor evidence. Promote E13-05 (PDF to draft template) from R3; rejected because that would change a source release, and E13-05 is a user-facing AI feature, not a measurement tool. Visual raster diff only; rejected as the sole metric because it cannot attribute differences to components.
+- **Owner decisions (2026-10-01):** (1) Reconstruction uses both a deterministic rule-based mapper and agent-driven reconstruction through the API. Analysis, comparison and attribution stay deterministic, and agent runs must report gaps with the same fixed taxonomy. (2) The ISDA source PDF and generated ISDA PDFs are local-only and git-ignored, as is `fidelity-corpus/local/`. (3) `backend/app/isda_template.py` is frozen: it gets no new content and is retired once the harness reproduces the document. (4) Start Phase A.
+- **Consequences:** Editor gaps become ranked, reproducible findings instead of anecdotes. The owner decides which become refinements. The rasterizer dependency (DD-013) remains open.
+- **Validation:** The ignore rules and the frozen-module header are in place. Phase A evidence is recorded in DD-418.
+- **Implementation references:** [E16 epic](epic-e16-template-fidelity.md), [.gitignore](../.gitignore), [frozen ISDA builder](../backend/app/isda_template.py).
+
+## DD-418 - Implement E16 Phase A: SourceModel, capability manifest and region comparison
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented (Phase A). Raster comparison and the Playwright UI-exposure check are pending
+- **Affected stories:** E16-02, E16-05, E16-06 (proposed epic, DD-417). Findings feed E2-01, E2-07, E4-01, E6-01 and E6-04
+- **Context:** The epic needs a deterministic measuring stick before any reconstruction. Two problems surfaced on the way. First, the previous ISDA comparison relied on pypdf 6.1.3 text extraction, which scales `T*` leading by the font size twice, does not advance the text position after `Tj`, and merges separately positioned text on one baseline. That put text hundreds of millimetres off the page and scrambled word order, so the earlier `0.0136` similarity and the "off-page table text" observation were extraction artifacts. Second, nothing in the repository described which template properties the renderer applies and which the editor exposes.
+- **Choices:**
+  1. **SourceModel v2** (`backend/fidelity/source_model.py`) is an interpreter of our own for content-stream text and graphics state. It tracks CTM, Tm/Tlm, Tf, Tc, Tw, Tz, TL, Ts and Tr; handles q/Q, the line-positioning and text-showing operators, TJ kerning, rules, boxes, segments, and image and form XObjects; and computes each glyph origin from font widths. pypdf is used only to parse streams and decode codes and widths (`pypdf._cmap`, private API on a pinned version; tests guard behaviour). Words split at whitespace, gaps over 0.2 em, and font or size changes. Off-page and invisible (Tr 3/7) text is flagged and excluded from comparison.
+  2. **Comparison** (`backend/fidelity/compare.py`) aligns words across the whole document in reading order, so differing line or page breaks still match. It reports text F1, reading-order ratio, same-page share, |dx|/|dy| distributions, the share of words within 1 and 3 mm, size/bold/italic/family-class agreement, rule/box/image matching within 2 mm, and localised `missing`/`replaced`/`extra`/`moved` regions. Renderer anchor markers are stripped and counted.
+  3. **Capability manifest** (`backend/app/capabilities.py`, `GET /api/editor/capabilities`, `editor-capabilities-v1`) is declarative, with bounds read from `app.rendering` and UI exposure read from the editor draft serializer (`saveEditorDraft`, including its second pass that restores layout and page fields for every block kind). Tests fail when the renderer reads an undeclared property or a `control` property is absent from the editor source.
+  4. **Runner** `scripts/fidelity_run.py` provides `analyse`, `compare`, `run` (render via the public `render-pdf` route with `comparison_mode=editable-only`) and `capabilities`. The harness package lives outside `app` and reaches the application only over HTTP.
+- **Alternatives:** Keep pypdf text extraction and patch around it; rejected after measuring 438 merged fragments in the source and 611 in the candidate, and the leading defect. Monkeypatch pypdf internals; rejected as more fragile than using its decoding helpers. Add pdfminer.six or PyMuPDF; deferred, because a new dependency needs DD-013 licence review (PyMuPDF is AGPL). Generate the manifest by static analysis of the renderer; rejected as brittle, and replaced by a declarative manifest with a renderer-coverage test.
+- **Findings (diagnostic, ISDA local-only):**
+  - Text-block `font_size` accepts integer px only. The source's 9.96 pt (13.28 px) cannot be expressed. The template used 11 px, giving a 1.71 pt delta on every matched word. Rich-text run sizes accept decimals.
+  - The renderer's TOC anchor markers (`__DOCPLATFORM_ANCHOR_*__`, 0.75 pt) are in the PDF text layer: 379 words. This affects copy/paste, search and accessibility.
+  - `tab_stops` applies only the first stop as a uniform CSS `tab-size`: no per-stop positions, alignment or leaders. The source uses tabbed clause numbers ("1." then "Interpretation" 12.5 mm later) and dot leaders made of text.
+  - Rich-text blocks ignore `break_before`/`keep_together`, and block-level layout is applied both to the section and to every paragraph.
+  - The editor saves `align` for code blocks, but the renderer ignores it. Image `height` is not saved by the editor.
+  - Text recall is `0.203`: the ISDA template contains about a fifth of the source wording. Positions: 0.3% of matched words within 3 mm. The template uses zero page margins (source text starts at about 25 mm).
+  - The source has no vector rules (its dotted lines are text), while the candidate draws 55 rules.
+- **Consequences:** Phase B (feature taxonomy, reconstruction and attribution) can now be measured. The findings are candidate refinements, not accepted stories; the owner selects them through the E16-08 loop. The ISDA acceptance-gate text row now cites these metrics.
+- **Validation:** `pytest tests/test_fidelity.py` passed (12 tests). The full backend suite passed (`286 passed, 10 skipped, 2 warnings` in 48.17s). Ruff is clean for all new files. After a local Compose rebuild, `GET /api/editor/capabilities` served `editor-capabilities-v1`, and `fidelity_run.py run` rendered `isda-template` (draft) through the API and reproduced the offline metrics above. Interpreter word counts agree with pypdf extraction (candidate 4,029 vs 4,029; source 18,665 vs 18,716). No raster, native-reader, accessibility, legal or second-engine evidence is claimed.
+- **Implementation references:** [SourceModel](../backend/fidelity/source_model.py), [comparison](../backend/fidelity/compare.py), [API client](../backend/fidelity/api_client.py), [capability manifest](../backend/app/capabilities.py), [route](../backend/app/main.py), [runner](../scripts/fidelity_run.py), [tests](../backend/tests/test_fidelity.py), [E16 epic](epic-e16-template-fidelity.md), [API reference](api-reference.md), [ISDA gates](isda-acceptance-gates.md).
+
+## DD-419 - Install pypdfium2 as fidelity-harness tooling for raster comparison
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner ("install pypdfium2 if I don't need the license immediately") and Implemented as local tooling. Exception scope pending DD-013
+- **Affected stories:** E16-06 (raster comparison), E16-09; related to E4-01 visual evidence
+- **Context:** DD-418 left visual comparison unavailable because no local rasterizer was approved. The owner asked to install pypdfium2 as long as no licence purchase or immediate licence obligation stood in the way.
+- **Choice:** Install `pypdfium2==5.13.0` (PDFium 153.0.7999.0) only into the backend development virtualenv, declared as the optional `fidelity` extra in `backend/pyproject.toml` and pinned in `backend/requirements-fidelity.lock`. It is not added to `requirements.lock`, so the Dockerfile and application image are unchanged. Pillow and NumPy are not added; the harness will read pypdfium2's raw grayscale buffer.
+- **Licence review (actual wheel contents, win_amd64, sha256 `47dcca2a8d507b5fd24f94c3c9d48fb379430f097bc20f01beff6c963ffbcedb`):** bindings `Apache-2.0 OR BSD-3-Clause`. Bundled: PDFium BSD-3-Clause; pdfium-binaries MIT; abseil Apache-2.0; llvm-libc Apache-2.0 WITH LLVM-exception; FreeType FTL; ICU Unicode-3.0 (GPLv3 text only in an Autoconf-script exception); lcms2 MIT; libjpeg-turbo IJG/BSD-3-Clause; OpenJPEG BSD-2-Clause; libpng libpng-2.0; libtiff libtiff; zlib Zlib; AGG 2.3 permissive notice; fast_float MIT; simdutf MIT; project docs CC-BY-4.0. The only GPL text is ICU's Autoconf-script exception and LLVM's GPLv2 compatibility clause; neither applies to this use. Everything is free and permissive with notice requirements. Nothing needs purchasing, and there is no copyleft obligation for local use.
+- **Alternatives:** PyMuPDF; rejected (AGPL-3.0). Poppler `pdftoppm`; rejected (GPL, external binary). Chromium's PDF viewer; already shown to download instead of rendering (DD-385). Waiting for DD-013; rejected by the owner for local tooling.
+- **Consequences:** The harness can rasterize source and candidate pages offline. Several bundled licences (BSD, FTL, Unicode-3.0, IJG, libpng, libtiff, Zlib) are outside the literal MIT/Apache/OFL allow-list, so the strict scan will report pypdfium2 under the `fidelity-tooling` scope. This is a recorded tooling exception, not a compliance claim. Shipping pypdfium2 in an image or distributable would need the bundled notices and a DD-013 decision. Linux and macOS wheels bundle their own binaries and need their own hash and licence review.
+- **Validation:** The wheel was downloaded without dependencies and its `dist-info/licenses` files were inspected (20 files listed above). After installation, `pypdfium2.version` reports 5.13.0 / PDFium 153.0.7999.0. Both 36-page ISDA PDFs render page 1 at 100 dpi grayscale (850 x 1100 px) in about 0.05 s with no extra dependencies. No raster comparison metric is recorded yet.
+- **Implementation references:** [pyproject](../backend/pyproject.toml), [fidelity lock](../backend/requirements-fidelity.lock), [dependency inventory](dependency-inventory.json), [dependency review](dependencies.md), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-420 - Add raster visual comparison to the E16 fidelity harness
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner ("add the visual comparison next") and Implemented
+- **Affected stories:** E16-06, E16-07 (localisation input), E16-09. Diagnostic input for E4-01, E6-01, E6-04
+- **Context:** DD-418 compared text and geometry only. With pypdfium2 installed as fidelity tooling (DD-419), the harness can compare what the pages actually look like.
+- **Choice:** Add `backend/fidelity/visual.py`:
+  - **Rendering:** pages are rendered with PDFium at 72 dpi grayscale (default; bounded to 18-300) and thresholded to ink masks (< 160).
+  - **Overlap:** exact ink IoU, plus tolerant recall, precision and F1 with a 1 mm default dilation. Recall is the share of source ink with candidate ink nearby; precision is the reverse.
+  - **Ink ratio:** candidate ink divided by source ink.
+  - **Worst cells:** the five worst 10 mm cells per page, split into missing and extra ink.
+  - **Diff PNGs (optional):** indexed images with white for no ink, grey for matched, red for missing source ink and blue for extra candidate ink.
+
+  Pixel arithmetic uses Python big-integer bit operations on 0/1 byte masks padded per row, so no NumPy or Pillow dependency is added. The PNG encoder uses the standard library. If pypdfium2 is absent the result is `unavailable-no-rasterizer`, so the product runtime and default test environment do not depend on it. `scripts/fidelity_run.py compare|run` add the visual section by default, with `--no-visual`, `--visual-dpi`, `--visual-tolerance-mm` and `--diff-images`.
+- **Alternatives:** Pillow or NumPy for pixel maths; rejected because it adds dependencies and licence scope that the big-integer approach makes unnecessary. SSIM or perceptual metrics; deferred because ink overlap with tolerance is easier to interpret and attribute to page regions. Rendering through Chromium; rejected because its PDF viewer downloads instead of rendering (DD-385), and comparing Chromium output with Chromium output would not be independent.
+- **Consequences:** The harness now produces a visual score and red/blue overlays that a person can review, and worst-cell regions for Phase B attribution. It is a single engine with a binary ink threshold that ignores colour, so it is not native-reader, second-engine or accessibility evidence.
+- **Validation:** `tests/test_fidelity_visual.py` (7 tests; skipped when pypdfium2 is absent) covers: identical pages give IoU and F1 1.0; a 0.5 mm shift stays within tolerance (F1 > 0.97, IoU < 0.9); disjoint content gives F1 0.0 and localised extra-ink cells; page-count mismatch; a valid indexed PNG with both missing and extra ink; unavailable-rasterizer reporting; dpi bounds. The full backend suite passed (`293 passed, 10 skipped, 2 warnings` in 48.87s), and Ruff is clean for the changed files. On the local-only ISDA document through the live API (`run --draft --diff-images`), 36 pages were compared in about 3 s: ink F1 `0.069` (recall `0.041`, precision `0.208`), candidate ink `0.19x` of the source, and every page below 0.5. A source-against-itself run scored 1.0. The page-1 diff image shows the generated text in a small block at the top-left with zero margins, while the source layout shows as missing (red).
+- **Implementation references:** [visual comparison](../backend/fidelity/visual.py), [runner](../scripts/fidelity_run.py), [tests](../backend/tests/test_fidelity_visual.py), [E16 epic](epic-e16-template-fidelity.md), [ISDA gates](isda-acceptance-gates.md).
+
+## DD-421 - Implement E16 Phase B: taxonomy, editor-contract reconstruction and attribution
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner ("start Phase B") and Implemented. Renderer defects found are reported, not fixed
+- **Affected stories:** E16-03, E16-04, E16-07, E16-08 (single document), E16-10. Findings feed E2-01, E2-06, E2-07, E4-01, E6-01 and E6-04
+- **Context:** Phase A could measure a candidate but not produce one. The goal is to rebuild a source document the way an editor user could, render it through the normal API, and attribute each shortfall to an editor component, property or renderer behaviour.
+- **Choices:**
+  1. **Taxonomy** (`fidelity-taxonomy-v1`, 23 features). Paragraph segmentation is based on pitch, style, segment and short-line rules. Running furniture means digit-normalised text recurring in the top or bottom 25 mm on at least half the pages. Detectors cover justification, centring, indents, decimal sizes, mixed inline style, numbered labels, tab gaps, leaders, tables, columns, rules, boxes, images and signature labels. SourceModel lines gained style `runs`, `word_indices` and in-line tab gaps (`\t` plus `tabs_mm`, above 1 em); words are joined with a space only where a visible gap exists.
+  2. **Rule-based mapper** (`reconstruction-v1`). It uses the simplest fitting component: `text`, or `rich_text` only for mixed styles, and a data-bound `table` for grids. It uses flow layout only, page ownership by `page_number`, and baseline-derived spacing. Indents, line height and tab stops come from the measured source. Centred and right-aligned text gets no indent. The page gets nearest size, measured margins, running footer and page numbers. Unexpressible features become coded gaps. `harness-limitation` separates mapper scope (e.g. images) from editor findings.
+  3. **Validator.** `validate_reconstruction` admits only properties that exist in `editor-capabilities-v1` and are reachable from the editor, within their bounds. This is how agent-produced reconstructions (the owner's "both" decision, DD-417) are held to the same contract as the mapper.
+  4. **Attribution v2.** Region-overlap blame alone pinned everything on justification (an earlier v1 draft), so it was replaced by three layers. Global checks come first. Per-gap evidence then follows each source word through the alignment and compares its horizontal displacement (robust to pagination) with words outside any editor gap. Each gap also gets exclusive evidence over words not claimed by a higher-ranked gap. Finally, region findings carry a cause and the overlapping gaps as possible contributors.
+  5. **Runner.** `fidelity_run.py reconstruct SOURCE --out-dir DIR [--reconstruction agent.json] [--diff-images]` runs analyse, detect, map (or load), validate, then saves through `POST /api/templates` (or a new draft version on 409) and renders via `render-pdf` (draft). It then compares, runs the visual check, attributes, and writes `reconstruction.json`, `features.json`, `attribution.json`, `gap-report.json` and `report.json`.
+- **Alternatives:** Use the frozen ISDA builder as the reconstruction; rejected, because it bypasses the editor contract (DD-417). Absolute positioning for exact placement; rejected as the default because it hides flow and pagination limitations, and it is counted as effort when used. Region-overlap attribution only; rejected after it attributed 18,386 words to justification while the dominant cause was pagination.
+- **Findings on the local-only ISDA document (diagnostic):**
+  - **Fidelity:** 492 editor-reachable blocks (257 text, 231 rich_text, 4 table), zero validator violations, 0 absolute blocks, about 10 properties per block. Text F1 `0.985` (from `0.333` with the frozen builder), reading order `0.981`, typography size match `0.997`, visual ink F1 `0.436` (from `0.069`).
+  - **Renderer defect, pagination (high):** the candidate has 72 pages, not 36, and only 1.7% of words land on their source page. Page-owned surfaces are emitted with the full page height (`height:279mm; overflow:hidden`) inside `@page` margins, so every surface overflows onto an extra page. This dominates vertical error (17,721 words attributed to pagination).
+  - **Renderer defect, running furniture (medium):** the footer renders as "ISDA® 2002 Page 0" at the top of the overflow page, and post-processed page numbers are drawn near the top-left (about y = 3 mm). The source footer words show a median |dx| of 139 mm.
+  - **Renderer defect, rich-text double layout:** before the mapper fix, a centred rich-text title shifted 61 mm right because block layout is applied to both the section and each paragraph (confirms DD-418).
+  - **Control words (outside any editor gap):** median |dx| `0.63 mm`. Where the editor can express the source, horizontal placement is accurate.
+  - **Ranked editor gaps (excess median |dx| over control):**
+    1. `text.align` cannot justify: 14,736 words, +13.8 mm.
+    2. Text `font_size` is whole px only: +11.2 mm overall; exclusive 1,689 words at 7.45 mm.
+    3. `tab_stops` cannot place clause labels: 222 labels, +7.9 mm; exclusive 6.66 mm.
+    4. `page.footer` has fixed position and styling.
+    5. Dot leaders are literal characters.
+    6. `tab_stops` cannot place positioned gaps.
+    7. No columns component.
+    8. Static tables need a sample-data workaround, with fixed borders and header styling.
+    9. Page-number position and format are fixed.
+- **Consequences:** The owner can select refinements from evidence. The most valuable product fixes are the pagination surface height and the running furniture (renderer defects), then `align: justify`, decimal font sizes for text blocks, and real tab stops with positions and leaders. Cross-corpus ranking, more documents and agent runs belong to Phase C.
+- **Validation:** `tests/test_fidelity_phase_b.py` (4 tests) uses a synthetic three-page document with a running footer, page numbers, a tab-labelled clause, mixed inline style, a leader and a rule. It checks: detection; a validator-clean reconstruction with exact tab stops and runs; validator rejection of `background_pdf`, a `ui=none` property, an out-of-range size, an unknown property and an unknown reason code; and attribution evidence and the pagination global finding. All fidelity tests pass (23), the full backend suite passed (`297 passed, 10 skipped, 2 warnings` in 58.03s), and Ruff is clean for the changed files. The live ISDA run used the rebuilt Compose API (`fidelity-19b1443c9a46`, draft v4). No native-reader, accessibility, legal or second-engine evidence is claimed.
+- **Implementation references:** [taxonomy](../backend/fidelity/taxonomy.py), [reconstruction](../backend/fidelity/reconstruct.py), [attribution](../backend/fidelity/attribute.py), [SourceModel](../backend/fidelity/source_model.py), [comparison matches](../backend/fidelity/compare.py), [API client](../backend/fidelity/api_client.py), [runner](../scripts/fidelity_run.py), [tests](../backend/tests/test_fidelity_phase_b.py), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-422 - Size page-owned surfaces to the page content area
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner ("fixing this") and Implemented. Supersedes the height rule in DD-382; DD-382's page-ownership intent is retained
+- **Affected stories:** E2-06, E2-07, E6-01, E6-04; E16 finding from DD-421
+- **Context:** DD-382 emitted `height:<full page height>mm; overflow:hidden` for page-owned `.page-surface` sections. That held only for the frozen ISDA builder's zero-margin template. With real margins, every surface was taller than the `@page` content area and overflowed onto an extra page. The E16 reconstruction of ISDA (32.2/27.6 mm top/bottom margins) rendered 72 pages instead of 36, with 1.7% of words on their source page.
+- **Choice:** Size each page-owned surface to the content area: page height (after orientation) minus the top and bottom margins, with a 1 mm floor. Other surface rules (relative positioning, `overflow:hidden`, one surface per owned page) are unchanged.
+- **Alternatives:** Remove the fixed height and let surfaces auto-size; rejected because it reopens the DD-382 page-count failure from absolutely positioned content. Subtract a safety margin; not needed, since the Letter table value (279 mm) is already 0.4 mm under the true page height and the A4/landscape geometry is exact.
+- **Consequences:** Page-owned templates with margins now paginate one surface per page. Content that does not fit its page is still clipped silently by `overflow:hidden`. On the ISDA reconstruction, justified source lines rewrap left-aligned (no `justify`) into more lines, and about 7% of words are clipped. This is recorded as an E16 finding: the editor or renderer should warn about overflow instead of dropping content silently. Not implemented here.
+- **Validation:** A new unit test checks the content-area height for Letter and A4 with margins and for A4 landscape. The existing zero-margin ISDA test is unchanged (`279mm`). `tests/test_template_logic.py` passed (73) and the full backend suite passed (`298 passed, 10 skipped, 2 warnings`). After a Compose rebuild, `fidelity_run.py reconstruct` on the local-only ISDA document rendered 36 pages (was 72) with 99.9% of matched words on their source page (was 1.7%). Visual ink F1 rose to `0.709` (was `0.436`), with pages below 0.5 down to 5 (was 21). Text recall fell to `0.929` (was `0.989`) because of the clipping described above. The running-furniture defect remains.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [test](../backend/tests/test_template_logic.py), [DD-382](#dd-382-give-page-owned-surfaces-an-explicit-bounded-page-height), [DD-421](#dd-421---implement-e16-phase-b-taxonomy-editor-contract-reconstruction-and-attribution).
+
+## DD-423 - Implement E16 Phase C: corpus, cross-corpus ranking and fidelity baselines
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner ("post that implement later stages") and Implemented. RTL/CJK and image/chart corpus categories, agent runs and CI wiring remain open
+- **Affected stories:** E16-01, E16-08, E16-09; ground-truth evidence for E16-03; columns support for E16-02 and E16-06
+- **Context:** Phase B measured one document. The epic needs many document types so that gaps are ranked by how often and how badly they hurt users, and so that later editor changes are protected against regressions.
+- **Choices:**
+  1. **Corpus generator** (`scripts/build_fidelity_corpus.py`, `fidelity-corpus-generator-v1`). It produces six project-authored fixtures typeset directly as PDF content streams with standard fonts: a letter (justified, centred, right-aligned, first-line indent, rules); an invoice (shaded header, right-aligned number columns, rules); a form (filled section bars, dot-leader fields, checkboxes, signature labels); a two-column report (running header, page numbers, justified columns); a three-page statement (repeated table); and a numbered contract (clause labels, hanging indents). Font widths are measured once from PDFium's standard-font metrics and embedded as `/Widths`, so layout is exact and independent of the Chromium renderer under test. The text is neutral fixture wording, not real records. Generated files are git-ignored and rebuilt on demand.
+  2. **Manifest** (`fidelity-corpus/manifest.json`, `fidelity-corpus-v1`) records id, category, path, origin, licence, `local_only` and `expected_features` (ground truth for detectors). The ISDA PDF is registered as local-only and skipped when absent. Pending categories (RTL/CJK, image/chart) are listed, not implied.
+  3. **Detector and analyser improvements found by the ground truth:**
+     - two-column gutter detection (a whitespace band in the middle 30-70% that at most 10% of rows cross, with prose on both sides, so tables are not mistaken for columns);
+     - lines split at the gutter, and column-aware segmentation and comparison reading order (removes the Phase A limitation);
+     - table columns aligned by left or right edge;
+     - page numbers with labels ("Statement page 2");
+     - the bottom margin treated as unconstrained when body text never nears the page bottom.
+  4. **Attribution gains visual evidence and lost graphics.** The visual comparison now returns the full per-page 10 mm cell grid. Each gap gets `visual_px` over the cells its detections touch (page-level detections excluded), and source rules or boxes absent from the output count as lost elements. Tables gain a separate `table.font_size` missing-property gap, because cell text takes the body typography.
+  5. **Cross-corpus ranking** (`backend/fidelity/corpus.py`). A gap's score is the mean, over documents, of its share of each document's editor-gap impact, averaging the text-impact share and the visual share, so each document counts equally. Global renderer findings are aggregated separately.
+  6. **Baselines and regressions.** Nine per-document metrics are tracked with a direction and tolerance (text F1, reading order, same page, within 3 mm, size match, visual F1, control |dx|, expected-feature recall, page-count match). `corpus --check` exits 1 on any regression. `corpus --update-baseline` requires `--decision DD-nnn`, and that heading must exist in this register. Shared scores go to `fidelity-corpus/baselines.json`; local-only scores go to the git-ignored `fidelity-corpus/local/baselines.json`.
+- **Alternatives:** Author corpus sources through Chromium; rejected because candidate and source would share an engine and hide engine-specific behaviour. Download public-domain forms; deferred until the owner chooses documents (no external fetch was made). Rank by summed raw impact; rejected because the 36-page ISDA document would dominate every ranking. Allow baseline updates without a decision; rejected by the project's decision-record requirement.
+- **Findings across 7 documents (diagnostic):**
+  - **Scores:** text F1 0.91-1.00, reading order 0.90-1.00, same-page 0.999-1.0, and every expected feature detected. Visual F1 ranges from 0.34 (invoice) and 0.42 (statement) to 0.96 (form). Table-heavy documents score worst because table cells cannot take typography (size match 0.42 and 0.0) and borders and shading are fixed.
+  - **Global renderer finding:** the running-furniture defect (headers, footers and page numbers not reproduced on matching pages) appears in 2 documents.
+  - **Ranked editor gaps (mean impact share):**
+    1. Text-block `font_size` whole-px only: 0.295, 6 of 7 documents.
+    2. `text.align` cannot justify: 0.209, 4 documents.
+    3. `tab_stops` cannot place positioned gaps: 0.101, 4 documents.
+    4. No line/rule component: 0.076, 4 documents.
+    5. `tab_stops` cannot place clause labels: 0.061.
+    6. Static tables need a sample-data workaround: 0.059.
+    7. Table cells have no typography: 0.059.
+    8. No rectangle/box component: 0.047.
+    9. No columns component: 0.047.
+    10. No tab leaders: 0.031.
+- **Consequences:** The owner now has a corpus-wide, evidence-ranked refinement list, and a regression gate for implementing it. The first baseline is approved by this decision. Later baseline changes must cite their own decision.
+- **Validation:**
+  - `tests/test_fidelity_corpus.py` (6 tests) covers: manifest validity and local-only marking; generated-corpus ground truth (all expected features detected, exact widths, report gutters at 104-112 mm on every page, no false gutter on the statement); equal-weight ranking; regression direction and tolerance; baseline updates refused without a recorded decision; and the Markdown report.
+  - All fidelity tests pass (29). The full backend suite passed (`304 passed, 10 skipped, 2 warnings` in 47.50s), and Ruff is clean for the changed files.
+  - `fidelity_run.py corpus` rebuilt all 7 documents through the live Compose API (templates `fidelity-<id>`) and produced the figures above. The baseline was then written with `--update-baseline --decision DD-423`, and `--check` reported no regressions.
+  - No native-reader, accessibility, legal or second-engine evidence is claimed.
+- **Implementation references:** [corpus generator](../scripts/build_fidelity_corpus.py), [manifest](../fidelity-corpus/manifest.json), [baselines](../fidelity-corpus/baselines.json), [corpus module](../backend/fidelity/corpus.py), [runner](../scripts/fidelity_run.py), [SourceModel gutters](../backend/fidelity/source_model.py), [taxonomy](../backend/fidelity/taxonomy.py), [attribution](../backend/fidelity/attribute.py), [visual grid](../backend/fidelity/visual.py), [reconstruction](../backend/fidelity/reconstruct.py), [tests](../backend/tests/test_fidelity_corpus.py), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-424 - Accept two-decimal font sizes on text blocks
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner ("implement those three improvements") and Implemented
+- **Affected stories:** E2-01, E4-01, E6-01; E16 gap `text.font_size` [value-precision-loss], ranked first across the corpus in DD-423 (6 of 7 documents)
+- **Context:** Text-block `font_size` accepted whole CSS px only, so common print sizes (9.96 pt = 13.28 px, 11 pt = 14.67 px) could not be expressed. Rich-text runs already accepted decimals, so the same document needed two components to be exact.
+- **Choice:** The renderer accepts any number from 8 to 96 and emits it rounded to two decimals. The capability manifest declares `font_size` as a number with `precision: 2`. Both editor size inputs (the formatting bar and the text panel) and the rich-text run size use `step="0.01"` and round to two decimals.
+- **Alternatives:** Express sizes in pt; rejected because px is the contract unit everywhere else. Unbounded precision; rejected because two decimals (< 0.008 pt) are below visible difference.
+- **Consequences:** Existing integer sizes render unchanged. The mapper no longer records `text.decimal_size` gaps.
+- **Validation:** A renderer unit test covers 13.28, rounding of 13.284999, and rejection of 7.5. A Playwright test enters 13.28 in the editor and finds `font-size:13.28px` in the server preview. Corpus results are in DD-427.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [editor](../frontend/src/main.tsx), [rich-text panel](../frontend/src/RichTextContextualPanel.tsx), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py), [browser test](../frontend/tests/foundation.spec.ts).
+
+## DD-425 - Add justified alignment to text blocks and rich-text paragraphs
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner and Implemented
+- **Affected stories:** E2-01, E4-01, E6-01; E16 gap `text.align` [missing-property], ranked second in DD-423 (4 documents, 14,736 ISDA words)
+- **Context:** Contracts, letters and reports are commonly justified. `align` allowed left, center and right only, so justified source lines rewrapped differently, words drifted horizontally (excess median 13.8 mm on ISDA), and longer wrapped text was clipped at page ends.
+- **Choice:** Add `justify` to the alignment enum for text blocks and rich-text paragraphs, rendered as CSS `text-align: justify` with the browser's default left-aligned last line. The editor adds a Justify button for text and rich-text blocks (other components keep three alignments) and an i18n key `alignJustify`.
+- **Alternatives:** Inter-word spacing (`word_spacing`) as a property; rejected because users think in alignment, not spacing values. `text-align-last` control; deferred until a document needs it.
+- **Consequences:** Justified lines in the Chromium candidate end exactly at the source's right edge (190.5 mm in the letter, 190.9-191.0 mm in ISDA). Hyphenation is not enabled, so line breaks can still differ when words do not fit.
+- **Validation:** A renderer unit test covers text and rich-text justify and rejection of unknown alignment. A Playwright test clicks Justify and finds `text-align:justify` in the server preview. Corpus results are in DD-427.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [editor](../frontend/src/main.tsx), [rich-text panel](../frontend/src/RichTextContextualPanel.tsx), [i18n](../frontend/src/i18n.ts), [contract](template-contract.md).
+
+## DD-426 - Replace uniform tab size with positioned, aligned tab stops with leaders
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner and Implemented. Supersedes the `tab_stops` rendering in the earlier text-layout slice (first stop as a uniform CSS `tab-size`)
+- **Affected stories:** E2-01, E2-10, E6-01; E16 gaps `text.tab_stops` for positioned gaps, clause labels and leaders (ranked 3rd, 5th and 10th in DD-423)
+- **Context:** Clause labels ("(a)" then text), tabular lines (description and right-aligned amounts) and fill-in or leader lines need text at exact horizontal positions. The previous implementation used only the first stop, converted to a character-based `tab-size`, so positions were approximate and alignment and leaders were impossible.
+- **Choice:**
+  - **Stop format:** a number (left stop) or `{position, align: left|right, leader: none|dot|underscore|hyphen}`. Up to 16 stops, positions 0-2000 px from the left indent, where 0 is the hanging-indent stop.
+  - **Layout:** each tab segment is laid out in an inline-flex box spanning from the current boundary (initially the first-line indent) to the stop. A left stop's box holds the preceding text plus the leader fill, so the next segment starts at the stop. A right stop's box holds any pending text, the fill, and the following segment aligned to the box end. Text after the last tab stays inline and wraps.
+  - **Leaders:** drawn as dotted, solid or dashed bottom borders at the baseline. This adds no characters to the PDF text layer.
+  - **Rich text:** run content is split at tabs into well-formed per-segment spans with a private-use separator, so styles carry across segments.
+  - **Editor:** the tab-stop field takes `48, 500r.` syntax (parsed on blur by `tabStops.ts`). The canvas approximates with the first stop's width; the server preview is authoritative.
+  - **Validator:** checks tab-stop objects (keys, align, leader, position range).
+- **Alternatives:** CSS `tab-size` (the old behaviour; positions are character-based and uniform). Absolutely positioned segments; rejected because text after the tab could not wrap. A grid per paragraph; rejected because continuation lines would be forced under the stop, which is wrong for first-line-only tabs such as ISDA's "(a)". Leader characters; rejected because they pollute the text layer and copy/paste.
+- **Consequences:**
+  - Center and decimal stops are not supported (recorded as a manifest limitation).
+  - Text that is longer than its box pushes later stops right instead of jumping to the next stop.
+  - Existing numeric `tab_stops` now mean exact left positions rather than a character-based approximation, and plain-number lists remain valid.
+- **Validation:** Renderer unit tests cover normalisation (bounds, invalid entries, enum fallbacks), box layout for left and right stops with leaders and a trailing literal tab, first-line-indent boundaries, escaping, rich-text segment splitting and the leader CSS. The validator rejects malformed stop objects. A Playwright test enters `64, 500r.` and the field reformats to `64, 500r.` after save. Corpus results are in DD-427.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [validator](../backend/fidelity/reconstruct.py), [editor syntax](../frontend/src/tabStops.ts), [editor](../frontend/src/main.tsx), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py).
+
+## DD-427 - Mapper v2 and corpus re-measurement after the first refinement loop
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-03, E16-04, E16-09; evidence for DD-424 to DD-426
+- **Context:** The harness has to use the new capabilities to show whether they close the gaps. The first re-measurement also exposed segmentation bugs that the new exactness made visible: the regression gate flagged the letter and then the invoice.
+- **Choice:**
+  1. **Mapper `rule-based-mapper-v2`:**
+     - justify paragraphs detected as justified;
+     - emit two-decimal sizes;
+     - express the first row of left-aligned or justified text blocks as tab segments: leader words become leader tabs, a leader before a number becomes a right stop with a leader, numeric groups become right stops, and other gaps become left stops;
+     - give rich-text paragraphs left stops at their in-line tab positions.
+
+     Remaining gaps are recorded only for leaders kept literal in centred, right-aligned or rich-text lines, and for out-of-range stops. A stop at the indent (0 px) is used for hanging clauses.
+  2. **Segmentation fixes found by the gate:**
+     - A line ending more than a quarter of the column width before its right edge is a hard break (address blocks).
+     - A wrapped continuation must start under the first line (first-line indent up to 25 mm), at a first-line tab or segment position, or under the previous continuation.
+     - Segments in one row are ordered left to right, not by baseline.
+  3. **Baseline:** after `corpus --check` passed with 0 regressions, the baseline was re-approved by this decision, so the improved scores become the new floor.
+- **Results (before -> after, visual F1 / words within 3 mm):**
+
+  | Document | Visual F1 | Words within 3 mm |
+  | --- | --- | --- |
+  | contract | 0.774 -> 0.972 | 0.189 -> 0.824 |
+  | form | 0.959 -> 0.980 | 0.909 -> 1.000 |
+  | invoice | 0.342 -> 0.388 | 0.070 -> 0.042 |
+  | report | 0.446 -> 0.474 | 0.041 -> 0.018 |
+  | letter | 0.650 -> 0.621 | 0.312 -> 1.000 |
+  | statement | unchanged | unchanged |
+  | isda-2002 | 0.709 -> 0.709 | 0.064 -> 0.260 |
+
+  - **Text F1** is 0.91-1.00 everywhere.
+  - **ISDA horizontal error:** median |dx| fell from 14.3 to 0.23 mm for justified words and from 8.6 to 0.36 mm for clause labels. The control group's median |dx| fell from 0.59 to 0.28 mm.
+  - **Corpus ranking:** the three implemented gaps have left the top of the ranking. It is now led by missing line/rule (0.171) and box (0.157) components, columns (0.133) and tables (static-data workaround and typography, 0.127 each).
+- **Open findings:**
+  - ISDA's visual F1 did not move, because vertical drift (median |dy| 6.7 mm on the same page) and about 7% clipped words now dominate. That needs a separate investigation of paragraph spacing and line-box metrics.
+  - The letter's visual F1 dropped 0.029 (within tolerance) while all its words moved within 3 mm. The cause is not yet established.
+  - The invoice and report lost some within-3 mm words (within tolerance), and the statement is limited by tables.
+- **Validation:**
+  - Backend suite: `306 passed, 10 skipped, 2 warnings`.
+  - All fidelity tests pass (29), with Phase B expectations updated: clause labels and leaders are now expressed, not gaps.
+  - Ruff is clean for changed files, and the frontend type-check and build pass.
+  - The focused Playwright layout test passes. The full Playwright suite had 19 passed and 26 failed. Six representative failures (formatted-draft preview, core control names, block textareas, repeatable table, page settings, locale switch) also fail with this session's frontend edits temporarily reverted. They target older editor selectors and pre-date this change. They are not fixed here and need their own maintenance slice.
+  - After `--update-baseline --decision DD-427`, `corpus --check` returned 0 regressions against the new baseline.
+  - `fidelity_run.py corpus --check` against the DD-423 baseline returned exit 0 with 0 regressions after the segmentation fixes. An earlier run flagged the letter and then the invoice, and both were traced to the mapper bugs above.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [segmentation](../backend/fidelity/taxonomy.py), [tests](../backend/tests/test_fidelity_phase_b.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-428 - Fix rich-text line height and double-applied layout (ISDA vertical drift and clipping)
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner ("fix the ISDA vertical drift and clipping next") and Implemented. Fixes the rich-text double-layout defect first recorded in DD-418
+- **Affected stories:** E2-01, E2-07, E4-01, E6-01; E16 finding from DD-427 (median |dy| 6.7 mm and about 7% clipped words on ISDA)
+- **Context:** Line-by-line comparison showed plain-text paragraphs kept the source pitch (4.15 mm), while every rich-text paragraph (for example "(b) *Inconsistency.*" with a bold-italic run) stepped 5.0 mm. Two renderer defects caused this.
+  - **Wrong base size for line height:** rich-text paragraphs had no font size of their own and inherited the 16 px page default, so a unitless 1.18 line height gave 18.9 px instead of 15.7 px for 13.28 px runs.
+  - **Layout applied twice:** block-level layout went on the `.rich-text-block` section and again on each paragraph, doubling spacing-before and indents.
+
+  The accumulated drift pushed content past each page's content area, where `overflow:hidden` clipped it (DD-422).
+- **Choice:**
+  - **Line height:** a rich-text paragraph gets `font-size` equal to its largest explicit run size (including condition branches), so line height multiplies the line's actual text size, as with Word's "multiple" spacing.
+  - **Layout scope:** `_layout_style` takes a scope. Text blocks still get everything on their paragraph. Rich-text sections get only block-level placement (absolute position, keep-with-next, page break after). Each rich-text paragraph gets paragraph-level layout (line height, spacing, indents) once.
+- **Alternatives:** Have the mapper emit a smaller line-height multiple to compensate; rejected because it hides the defect from users. Use absolute line heights (px); rejected because the contract's `line_height` is a multiple. Make block layout section-only; rejected because spacing and indents are per-paragraph properties in word processors.
+- **Consequences:** Rich-text paragraphs with block-level indents or spacing now render with single, not doubled, values. Existing rich-text templates that relied on the doubled values will move. The editor canvas still approximates rich text; the server preview and PDF are authoritative.
+- **Validation:**
+  - **Unit test:** the section carries only placement styles; a paragraph gets `font-size:20px` from its largest run, including a condition branch, plus a single `margin-top`, `padding-left` and `line-height`; a paragraph without explicit sizes gets no font size.
+  - **Suites:** the full backend suite passed (`307 passed, 10 skipped, 2 warnings`), and Ruff is clean for the changed areas.
+  - **ISDA, after a Compose rebuild with `corpus --check` (0 regressions):**
+    - visual F1 0.709 -> 0.960;
+    - text F1 0.959 -> 0.996 (recall 0.927 -> 0.997, so clipping is effectively gone);
+    - median |dy| 6.7 -> 0.30 mm (p90 0.46 mm);
+    - words within 1 mm 0.72, within 3 mm 0.26 -> 0.78;
+    - pages below 0.5 visual F1: 3 (29, 33, 36: Schedule tables and side-by-side signature blocks).
+  - **Other corpus documents:** unchanged within tolerance.
+  - The baseline is re-approved by this decision.
+- **Remaining ISDA findings:** the running footer and page numbers (renderer defect, DD-421), Schedule tables (static data, typography and borders), side-by-side signature blocks (no columns), leaders kept literal inside rich-text lines, and horizontal drift on about 3,400 words concentrated on those pages.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [test](../backend/tests/test_template_logic.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-429 - Render headers, footers and page numbers as @page margin boxes
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner ("fix the footer and page number bug next") and Implemented. Supersedes the fixed-position header/footer elements and, for numbering, the PDF page-number overlay (backlog-refinements E6-01/E6-04 row)
+- **Affected stories:** E2-06, E6-01, E6-04; E16 global finding `running-furniture` (2 documents) and gaps `page.footer`, `page.header`, `page.show_page_numbers`
+- **Context:** Three defects combined.
+  1. **Overlay page number:** the post-processed number was appended to Chromium's content stream without `q/Q` isolation. It inherited the scaling and y-flipping transform Chromium leaves active and was drawn at about 2.2 pt near the top-left of every page. The table-of-contents number overlay had the same flaw.
+  2. **Fixed header and footer:** `position:fixed` elements with negative offsets were not repeated reliably in Chromium print. A probe showed the header at the bottom of pages 1-2 and the footer near the top of pages 2-3. In page-owned templates the footer appeared at y = 58.7 mm on pages 2-36.
+  3. **Wrong counter:** the footer's `counter(page)` rendered "Page 0".
+- **Choice:**
+  - **Margin boxes:** emit the running header, footer and page number as CSS `@page` margin boxes (`@top-*`, `@bottom-*`). Page counters (`counter(page)`, `counter(pages)`) resolve there natively in paged-media engines. A probe with the pinned Chromium build 1243 rendered the header, three-zone footer and "n of N" correctly on every page.
+  - **New page properties** (also declared in the capability manifest and exposed in both editor page-settings panels): `header_align`, `footer_align`, `page_number_position`, `page_number_format` (`{page}`, `{pages}`) and `header_footer_font_size`.
+  - **Escaping:** text is hex-escaped into CSS strings, so `</style>`, quotes and non-ASCII text are safe.
+  - **Screen preview:** the HTML header and footer elements remain for screen preview (page 1) and are hidden in print.
+  - **PDF route:** no longer adds the page-number overlay. `add_page_numbers` is retained with `q/Q` isolation, shared with the TOC overlay through `_append_overlay`.
+- **Alternatives:** Keep fixed elements and tune offsets; rejected as engine-specific and unreliable. Draw header and footer in the PDF overlay; rejected because a Type1 Helvetica overlay cannot shape non-Latin scripts or use the template font. Render furniture inside each page-owned surface; rejected because it would not cover flowing (non-page-owned) templates.
+- **Consequences:**
+  - Existing templates keep their header and footer text. They are now left-aligned in the margin boxes by default, the page number moves to the bottom-right box, and the default size is 12 px instead of the body size.
+  - Margin boxes are vertically centred in their margin, with no offset control (recorded as a manifest limitation).
+  - Multi-zone bands, bold/italic furniture and first-page differences are not supported.
+- **Validation:**
+  - **Unit tests:** margin-box rules for header, footer and numbers; alignment; position; `Page {page} of {pages}` format; shared boxes; CSS escaping of `</style>`, quotes and non-ASCII; enum, format and size fallbacks; screen-only HTML elements hidden in print; no `position:fixed`. An overlay test with a deliberately leaked transform shows the number at 9 pt in the bottom-right.
+  - **Suites:** full backend `309 passed, 10 skipped, 2 warnings`. Ruff is clean for the changed areas, and the frontend type-check and build pass.
+  - **Playwright:** the editor layout test passes. The page-settings browser test still fails at its first step (`.page-settings` > "Page size"), the stale selector that pre-dates this work (DD-427).
+  - **Corpus (`corpus --check`, 0 regressions):**
+    - global findings 2 -> 0;
+    - ISDA footer "ISDA(R) 2002" and numbers 1-36 on every page at 9.96 pt in the bottom band;
+    - report "Page n of 3" centred;
+    - statement "Statement page n";
+    - ISDA text F1 0.996 -> 0.998.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [PDF route](../backend/app/main.py), [overlays](../backend/app/pdf_toc.py), [manifest](../backend/app/capabilities.py), [editor](../frontend/src/main.tsx), [i18n](../frontend/src/i18n.ts), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py), [overlay test](../backend/tests/test_pdf_render.py).
+
+## DD-430 - Map running furniture to page properties in the E16 mapper
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-03, E16-04, E16-09; evidence for DD-429
+- **Context:** With DD-429 the editor can place footers, headers and numbers. The mapper still emitted one left footer string and a fixed number, and the analyser split full-width lines at two-column gutters ("Page 1" | "of 3").
+- **Choice:**
+  - **Mapping:** the mapper sets `footer`/`header` with alignment taken from the text's position relative to the margins. It sets `page_number_position` from the number's band and zone, and derives `page_number_format` by replacing the page and total numbers with `{page}` and `{pages}`. `header_footer_font_size` comes from the source size, and `theme.font_family` from the dominant body family.
+  - **Remaining gaps recorded:** several texts in one band (`header`/`footer`), a running band missing from page 1 (`*_first_page`), and furniture more than 3 mm from the middle of its margin (`*_offset`).
+  - **Analyser:** lines are split at a gutter only where a real gap (over 1 em) exists.
+- **Validation:**
+  - **ISDA:** maps to a right-aligned "ISDA(R) 2002" footer and a centred `{page}` number, with gaps for the first page and the about 6 mm offset.
+  - **Report:** `Page {page} of {pages}` plus a multi-zone header gap. **Statement:** `Statement page {page}`.
+  - All fidelity tests pass (29), and column detection is still found on all three report pages.
+  - `corpus --check` returned 0 regressions. The baseline was then re-approved with `--decision DD-430` and re-checked.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [analyser](../backend/fidelity/source_model.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-431 - Add static rows, typography, alignment and rules to the table component
+
+- **Date:** 2026-10-01
+- **Status:** Accepted by the project owner ("fix the table gaps next") and Implemented
+- **Affected stories:** E2-02, E6-01; E16 gaps `table.items` [workaround-used] and `table.font_size` [missing-property], ranked 4th and 5th across the corpus (3 documents)
+- **Context:**
+  - **Static content:** tables only repeated rows from a data array, so fixed tables (invoice lines, Schedule tables) had to be faked through sample data.
+  - **Fixed appearance:** the header row was always emitted and bold. Cells took the 16 px body default with a fixed 1 px #cfd9cc grid and 6 px padding, with no column alignment.
+  - **Result:** the table-heavy invoice and statement scored worst visually (0.39 and 0.42), with font sizes matching on 42% and 0% of words.
+- **Choice:**
+  - **Rows:** `data_mode: "static"` with bounded `static_rows` (cells interpolated, HTML-escaped, short rows padded). Bound tables are unchanged.
+  - **Columns:** per-column `align`.
+  - **Header and typography:** `show_header`, `header_bold`, `header_background`, `font_family` and `font_size`.
+  - **Borders:** `borders` (grid, horizontal rules or none), with `border_color` and `border_width`.
+  - **Spacing:** `cell_padding_x`, `cell_padding_y`, `row_height`, and spacing before and after the table.
+  - **Defaults:** cell styles are emitted only when a property is set, so existing tables keep identical HTML.
+  - **Wiring:** declared in the capability manifest. The editor gets a `TableStylePanel` (rows source, fixed-row text with `|`-separated cells, header, font, borders, padding, row height, spacing) and a per-column Align select, threaded through the editor's load and save paths.
+- **Alternatives:** Keep static content in sample data; rejected because it ties fixed document text to render data and confuses authors. Per-cell styling and merged cells; deferred as a larger model change (recorded as manifest limitations). A CSS class per table; rejected in favour of bounded inline styles that need no generated stylesheet.
+- **Consequences:**
+  - Fixed tables are now authorable directly.
+  - Limitations: no merged cells, per-cell shading or vertical alignment, and no table indent; tables span the content width.
+  - The editor canvas does not preview table styling; the server preview and PDF are authoritative.
+- **Validation:**
+  - **Unit test:** static rows with interpolation and escaping; header shading and normal weight; horizontal rules; padding; row height; spacing; right alignment; header suppression; borderless tables; default tables unchanged; invalid static rows rejected.
+  - **Suites:** the frontend type-check and build pass. The manifest guard confirms every declared table control is referenced by the editor.
+  - **Corpus results** are in DD-432.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [table panel](../frontend/src/TableStylePanel.tsx), [editor](../frontend/src/main.tsx), [styles](../frontend/src/tableEditor.css), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py).
+
+## DD-432 - Rebuild tables as static tables and fit vertical placement to the page area
+
+- **Date:** 2026-10-01
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-02, E16-04, E16-09; evidence for DD-431
+- **Context:** Using DD-431 required mapper changes. Re-measurement also exposed placement errors that the regression gate caught one by one.
+  - **Statement:** visual F1 fell to 0.12 because the table started 2.5 mm late.
+  - **Invoice:** its first block started late, and text spaced more than 240 px down was misplaced or clipped.
+- **Choice:**
+  1. **Analyser:** tracks the non-stroking fill colour (`g`/`rg`/`k`/`sc`/`scn`) for filled shapes, so shaded header bars are measured exactly (#d9d9d9, #e0e0e0).
+  2. **Table mapper:**
+     - cells are assigned to columns;
+     - each column's alignment comes from whichever edge (left, right or centre) lines up best;
+     - column boundaries sit one cell padding from aligned edges;
+     - the row height is the source row pitch;
+     - font and size come from the cells;
+     - a header is detected from bold text or a filled bar, which becomes `header_background`;
+     - horizontal rules between rows become `borders: "horizontal"` with the rule's width and colour.
+  3. **Vertical spacing:** measured bottom-to-top (previous block bottom to this block's top). For consecutive same-size paragraphs this equals the previous rule.
+  4. **Rich-text lines:** laid out with the largest run size, matching the renderer (DD-428).
+  5. **Page area fitting:**
+     - The detected top margin is lowered to the highest first-block top, and each page's first spacing is recomputed instead of being clamped to zero.
+     - The bottom margin is reduced so every computed block bottom fits the clipped page area.
+  6. **Large gaps:** a block needing more than the 240 px spacing cap is placed absolutely (mm), with explicit zero spacing so the browser's default paragraph margin does not apply. This is recorded as a `workaround-used` gap and counted in effort.
+- **Results (visual F1, DD-430 baseline -> now; `corpus --check` 0 regressions):**
+
+  | Document | Before | After |
+  | --- | --- | --- |
+  | invoice | 0.388 | 0.792 (text F1 1.0, size match 1.0) |
+  | statement | 0.418 | 0.916 (size match 0.975) |
+  | letter | 0.621 | 0.974 |
+  | ISDA | 0.960 | 0.979 (text F1 0.999, no page below 0.5) |
+  | form | 0.980 | 0.980 |
+  | contract | 0.972 | 0.974 |
+  | report | 0.500 | 0.514 |
+
+  - **ISDA Schedule pages:** 29/33/36 went from 0.29/0.43/0.16 to 0.89/0.71/0.52.
+  - **Corpus ranking:** table gaps left it. It is now led by line/rule (0.280) and box (0.181) components, then columns (0.132), then the footer offset and multi-zone header residuals from DD-429.
+- **Validation:**
+  - **Suites:** full backend `310 passed, 10 skipped, 2 warnings`, all fidelity tests pass (29), and Ruff is clean for the changed areas.
+  - **Playwright:** the editor layout test passes. The repeatable-table browser test still fails on the same stale `locator('style')` strict-mode selector seen in the full-suite run before this work (DD-427).
+  - **Corpus gate:** intermediate runs flagged the statement (visual 0.42 -> 0.12), then the invoice (words within 3 mm, then text F1 1.0 -> 0.89 -> 0.83). Each was traced and fixed as described above before the final run passed.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [analyser](../backend/fidelity/source_model.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-433 - Add a shape component for lines and rectangles
+
+- **Date:** 2026-10-02
+- **Status:** Accepted by the project owner ("go ahead and create these components") and Implemented
+- **Affected stories:** E2-01, E2-03, E6-01; E16 gaps `shape.line` and `shape.rectangle` [missing-component], ranked first and second across the corpus after DD-432 (shares 0.280 and 0.181; 4 and 3 documents)
+- **Context:** Letters, forms, invoices and statements use rules (letterhead rules, signature lines) and boxes (shaded section bars, checkboxes). The editor had no way to draw them, so they were omitted, and the form and letter lost that visual content.
+- **Choice:**
+  - **Component:** one `shape` block with `shape: line|rectangle`.
+    - Lines are horizontal or vertical.
+    - Rectangles have width, height, stroke, optional fill and a front/behind layer.
+    - Placement is absolute in mm from the content area, or in the flow with spacing before/after.
+  - **Rendering:** `aria-hidden` `div` elements with bounded inline borders and background.
+  - **Behind layer:** `.page-surface` gains `z-index:0`, so a behind-layer shape (`z-index:-1`) paints under text but stays on the page.
+  - **Editor:** an "Add line or rectangle" action in both insert panels, a Shape panel (kind, direction, size, line colour/width/style, fill, layer, fixed position X/Y or spacing), a canvas preview, and load/save wiring. Placement reuses the shared position fields saved for every block.
+  - **Manifest:** declares the component; the guard confirms every control is referenced.
+- **Alternatives:**
+  - Table borders or text underlines as rules; rejected because rules are independent of text.
+  - Inline SVG; rejected because bounded CSS boxes suffice and avoid an SVG sanitisation surface.
+  - Separate line and rectangle components; rejected because they share placement and stroke properties.
+- **Consequences:**
+  - Not supported: diagonal lines, ellipses, rounded corners and paths.
+  - Shapes in page margins are clipped on page-owned surfaces.
+  - Absolute shapes in flowing (non-page-owned) templates are positioned from the document start, as with absolute text.
+- **Validation:**
+  - **Renderer test:** rectangle behind with fill, dotted line, vertical flow line with spacing, unsafe colour, style and position values ignored or clamped, page-surface stacking context, and an unknown shape rejected.
+  - **New Playwright test:** inserts a rectangle, sets size, layer and fixed position, saves, and finds `width:50mm;height:8mm` and `position:absolute;left:12mm;top:30mm;z-index:-1` in the server preview. It passes alongside the layout test.
+  - **Suites:** backend `311 passed, 10 skipped, 2 warnings`. Ruff is clean for the changed areas, and the frontend build passes.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [shape panel](../frontend/src/ShapePanel.tsx), [editor](../frontend/src/main.tsx), [i18n](../frontend/src/i18n.ts), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py), [browser test](../frontend/tests/foundation.spec.ts).
+
+## DD-434 - Map source rules and boxes to shape blocks
+
+- **Date:** 2026-10-02
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-02, E16-04, E16-09; evidence for DD-433
+- **Context:** The mapper recorded every source rule and box as a missing component.
+- **Choice:**
+  - **Analyser:** tracks stroke colour (`G`/`RG`/`K`/`SC`/`SCN`) and line width (`w`, scaled by the CTM), and records each graphic's thickness.
+  - **Mapping:** filled rules become lines of the rule's thickness and colour, and stroked paths become lines centred on the path. Filled boxes become rectangles behind text; stroked boxes become outlined rectangles (for example checkboxes).
+  - **Placement:** positions are set after the final margins.
+  - **Not converted:** graphics already used by a table (horizontal borders, header shading) and diagonal segments. Shapes in the clipped page-margin areas are recorded as `value-out-of-range` gaps.
+  - **Content edges:** rules and boxes in the page body (outside the 25 mm header and footer bands) now count when estimating the content edges, so a rule wider than the text is not clipped.
+- **Results (`corpus --check`, 0 regressions; visual F1 against DD-432):**
+  - form 0.980 -> 1.000 (three shaded section bars and three checkboxes);
+  - letter 0.974 -> 0.998 (letterhead and signature rules);
+  - invoice unchanged at 0.792 (its rules and shading are table-borne);
+  - other documents unchanged.
+  - **Gaps that remain:** the report header rule and statement footer rule, which lie in page margins.
+  - **Ranking:** now led by columns (0.132), then the footer-offset and multi-zone header residuals.
+- **Validation:**
+  - **Phase B test:** the in-area rule becomes a horizontal 165.1 mm black line shape with no gap. All fidelity tests pass (29).
+  - **Corpus:** passes the check. The baseline is re-approved with `--decision DD-434`.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [analyser](../backend/fidelity/source_model.py), [taxonomy margins](../backend/fidelity/taxonomy.py), [tests](../backend/tests/test_fidelity_phase_b.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-435 - Add column sections (start, column break, end)
+
+- **Date:** 2026-10-02
+- **Status:** Accepted by the project owner ("add columns support next") and Implemented
+- **Affected stories:** E2-01, E2-06, E6-01; E16 gap `columns.count` [missing-component], ranked first after DD-434 (share 0.132; the report scored 0.51)
+- **Context:** Reports and newsletters set text in two or more columns, and agreements place parties side by side. The editor had no column layout, so column content was stacked in one full-width flow.
+- **Choice:** Flat column-section markers, as in word processors.
+  - **Markers:** `columns` (count, gap, widths, optional rule, spacing) opens a section, `column_break` moves to the next column, and `columns_end` closes it.
+  - **Rendering:** the renderer groups fragments between markers within each page group. With breaks it emits an explicit CSS grid (one `div` per column, with the rule as a border centred in the gap). Without breaks it emits balanced CSS multi-column flow.
+  - **Closing:** open sections close at the end of their page group or at the next `columns` marker; stray markers are ignored.
+  - **Editor:** "Start columns", "Column break" and "End columns" insert actions; dashed canvas markers; a Columns panel (count, gap, widths, rule); load and save wiring.
+  - **Manifest:** declares the three components.
+- **Alternatives:** A nested container block with child block lists; rejected because the editor, components and binding walkers all assume a flat list, and nested editing UI would be a large change. Page-level column settings; rejected because they cannot express full-width titles above columns.
+- **Consequences:**
+  - Not supported: nested sections, and sections that continue across page-owned surfaces.
+  - Explicit widths are the author's responsibility (widths plus gap at most 100%).
+  - The editor canvas shows markers, not the column layout; the server preview and PDF are authoritative.
+- **Validation:**
+  - **Unit test:** an explicit grid with widths, gap, rule and spacing; a section closing at the end of its page; a flowing three-column section; stray break ignored; invalid widths falling back.
+  - **New Playwright test:** inserts start, break and end; sets gap 8 mm and widths 60/35; saves; finds `display:grid;grid-template-columns:60% 35%;column-gap:8mm` with two columns in the server preview. It passes alongside the layout and shape tests.
+  - **Suites:** backend `312 passed, 10 skipped, 2 warnings`. Ruff is clean for the changed areas, and the frontend build passes.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [columns panel](../frontend/src/ColumnsPanel.tsx), [editor](../frontend/src/main.tsx), [i18n](../frontend/src/i18n.ts), [styles](../frontend/src/editor.css), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py), [browser test](../frontend/tests/foundation.spec.ts).
+
+## DD-436 - Map detected two-column pages to column sections
+
+- **Date:** 2026-10-02
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-03, E16-04, E16-09; evidence for DD-435
+- **Context:** The analyser already detects two-column gutters (DD-423). The mapper flattened column content into one flow, recording a missing-component gap.
+- **Choice:**
+  - **Page order:** on pages with a gutter, the mapper orders full-width paragraphs above the columns first. Then it emits a `columns` section with `count: 2`, the measured gap, and widths from the column edges (widths plus gap equal the content width). The left column's paragraphs follow, a `column_break`, the right column's, `columns_end`, and then any full-width paragraphs below.
+  - **Within a column:** indents and justification measure from the column's edges, and vertical spacing restarts from the section top in each column. After the section, flow continues from the taller column's bottom.
+  - **Shared calculation:** paragraph size and line-height calculation was factored into `_paragraph_metrics`, so the section top uses the same line-box model as paragraphs.
+- **Results (`corpus --check`, 0 regressions):**
+  - **Report:** visual F1 0.514 -> 0.983, reading order 0.984 -> 0.996, text F1 0.996, same page 1.0. Other documents unchanged.
+  - **Ranking:** columns left it, which is now led by the multi-zone header (0.149), the footer offset (0.072) and margin-area rules (0.071).
+  - **Not covered:** ISDA's side-by-side signature blocks are not detected as columns (too few words per row for the prose test), so they are unchanged.
+- **Validation:** All fidelity tests pass. The corpus passes the check, and the baseline is re-approved with `--decision DD-436`.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-437 - Add header/footer zones, distances from the page edge, and header/footer rules
+
+- **Date:** 2026-10-02
+- **Status:** Accepted by the project owner ("fix the header and footer gaps next") and Implemented. Extends DD-429
+- **Affected stories:** E2-06, E6-01, E6-04; E16 gaps `page.header` (multi-zone, share 0.149), `page.footer_offset`/`header_offset` (0.072/0.056) and margin-area `shape.position_y` rules (0.071)
+- **Context:** DD-429 placed one header and one footer text, vertically centred in the margin. The report and statement put text at both sides of the header. ISDA's footer sits about 7 mm from the margin's middle. The report's header rule and the statement's footer rule lie in the margins, where shapes are clipped.
+- **Choice:**
+  - **Zones:** per-zone texts `header_left|center|right` and `footer_left|center|right`, interpolated, taking precedence over the legacy text in the same zone.
+  - **Distances:** `header_distance_mm`/`footer_distance_mm` render as `vertical-align: top|bottom` plus padding in the margin boxes.
+  - **Rules:** `header_rule`/`footer_rule` with offsets from the content area render as a border on all three margin boxes of the band, with a `margin-bottom`/`margin-top` offset. Empty zones are emitted with `content: ""`, so the rule spans the full width; colour and width are shared.
+  - **Verification first:** a probe with the pinned Chromium build 1243 confirmed padding, `vertical-align`, border and margin in margin boxes, and the collapsing empty centre box.
+  - **Editor:** a `FurniturePanel` ("Header and footer zones") in both page-settings panels, stored as page properties.
+  - **Manifest:** declares the new properties. Its limitations now say all zones share one size and weight and there is no different first page.
+- **Alternatives:** Shapes anchored to the page edge so rules can sit in margins; rejected because absolutely positioned content beyond the page-owned surface risked the extra pages DD-382 fixed. Per-zone styling; deferred.
+- **Consequences:**
+  - Templates using only the legacy header and footer render unchanged.
+  - Rules always span the full content width.
+  - Not supported: per-zone font size or weight, and a different first page.
+- **Validation:**
+  - **Unit test:** zone texts with interpolation; zone precedence over legacy text; distance styles; a three-box header rule with offset and colour; a footer rule shared with the page number; legacy-only output unchanged; out-of-range distance ignored.
+  - **New Playwright test:** opens Page settings, sets left and right header zones, distance, rule and gap, saves, and finds the zones in the preview header and the margin-box rules in the stylesheet. It passes, as do the column, shape and layout tests.
+  - **Suites:** backend `313 passed, 10 skipped, 2 warnings`. Ruff is clean for the changed areas, and the frontend build passes.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [furniture panel](../frontend/src/FurniturePanel.tsx), [editor](../frontend/src/main.tsx), [styles](../frontend/src/editor.css), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py), [browser test](../frontend/tests/foundation.spec.ts).
+
+## DD-438 - Map furniture zones, distances and margin rules in the E16 mapper
+
+- **Date:** 2026-10-02
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-04, E16-09; evidence for DD-437
+- **Choice:**
+  - **Zones:** every running header or footer line goes to its own zone by position.
+  - **Distances:** measured from the source baseline (0.91 em ascent for headers, 0.24 em descent for footers).
+  - **Font size:** the band size is the median of all furniture line sizes, so a large title does not enlarge every zone.
+  - **Rules:** a rule in the top or bottom margin that spans at least 60% of the content width and recurs on at least half the pages becomes a header or footer rule, with its offset, colour and thickness. It is mapped after the final margins and excluded from shape mapping.
+  - **Remaining gaps:** zones that differ in size or weight (`header_footer_font_size`) and a running band missing from page 1 (`*_first_page`).
+- **Results (`corpus --check`, 0 regressions):**
+  - **Report:** visual F1 0.983 -> 1.000, text F1 0.996 -> 1.000.
+  - **Statement:** 0.916 -> 0.985, text F1 0.990 -> 1.000.
+  - **Others:** unchanged.
+  - **Ranking:** now led by the statement's mixed-size header zones (0.143), then ISDA's out-of-range positioned tabs (0.068), leaders in rich-text lines (0.060), and the first-page footer.
+- **Validation:**
+  - **Phase B tests updated:** the footer maps to `footer_right` with a centred number and a footer distance. The fully expressible synthetic document is checked on control evidence; leader-only words are excluded from alignment, so the found rate is above 0.95 rather than 1.0.
+  - All fidelity tests pass (29). The corpus passes the check, and the baseline is re-approved with `--decision DD-438`.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [tests](../backend/tests/test_fidelity_phase_b.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-439 - Add per-zone header/footer styles
+
+- **Date:** 2026-10-02
+- **Status:** Accepted by the project owner ("fix the per-zone font size gap next") and Implemented. Extends DD-437
+- **Affected stories:** E2-06, E6-01; E16 gap `page.header_footer_font_size` [missing-property], ranked first after DD-438 (share 0.143, statement)
+- **Context:** All header and footer zones shared one size and weight. The statement's 13 pt bold title and 9 pt account number in the same band could not both be reproduced.
+- **Choice:**
+  - **Property:** a `zone_styles` page property keyed by zone (`header_left` ... `footer_right`). Each entry may set `font_size` (6-48 px), `bold` and `italic`, overriding `header_footer_font_size` for that margin box. A page number sharing the zone takes its style. Unknown zones, non-boolean flags and out-of-range sizes are ignored.
+  - **Editor:** the "Header and footer zones" group shows size, B and I controls beside each zone's text, stored in `zone_styles`.
+  - **Manifest:** declares the property and updates the limitation (no mixed styling within a zone; no different first page).
+- **Alternatives:** 18 flat properties (size, bold and italic for each of six zones); rejected as noisy for the editor and manifest. Rich text in margin boxes; rejected because margin-box `content` is plain text.
+- **Consequences:** One style per zone; a zone cannot mix styles.
+- **Validation:**
+  - **Unit test:** size and bold override, italic, a page-number zone style, and invalid zone, flag and size ignored.
+  - **Playwright:** the zones test now also sets a 14 px bold left header and finds both in the margin-box CSS. It passes, as do the column, shape and layout tests.
+  - **Suites:** backend `314 passed, 10 skipped, 2 warnings`. Ruff is clean for the changed areas, and the frontend build passes.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [furniture panel](../frontend/src/FurniturePanel.tsx), [styles](../frontend/src/editor.css), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py), [browser test](../frontend/tests/foundation.spec.ts).
+
+## DD-440 - Map per-zone furniture styles
+
+- **Date:** 2026-10-02
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-04, E16-09; evidence for DD-439
+- **Choice:**
+  - **Zone styles:** the mapper keeps the source line placed in each zone, including the page-number zone. After choosing the shared median size, it sets `zone_styles` for zones whose text differs by more than 0.3 pt, or is bold or italic.
+  - **Gap removed:** the mixed-typography gap is no longer emitted.
+- **Results (`corpus --check`, 0 regressions):**
+  - **Statement:** visual F1 0.985 -> 0.994 and size match 0.975 -> 0.996 (title 17.33 px bold, number 10.67 px). Reading order 1.000 -> 0.980 is within the 0.02 tolerance.
+  - **Report:** header zones italic, scores unchanged at 1.000.
+  - **ISDA:** footer bold, visual F1 0.9794 -> 0.9786, within tolerance.
+  - **Ranking:** now ISDA-only: out-of-range positioned tabs (0.067), leaders kept literal in rich-text lines (0.060), and the first-page footer (0.014).
+- **Validation:** All fidelity tests pass. The corpus passes the check, and the baseline is re-approved with `--decision DD-440`.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-441 - Fix table row-height growth and absolute text width; add a header row height
+
+- **Date:** 2026-10-02
+- **Status:** Accepted (project owner asked to "investigate why the invoice is at 0.79") and Implemented
+- **Affected stories:** E2-02, E2-01, E6-01; E16 investigation of the invoice (visual F1 0.792 with no ranked gap explaining it)
+- **Context:** A line-by-line comparison of the invoice found three causes.
+  1. **Rows grew by a pixel each:** body rows were about 0.3 mm taller than specified, accumulating down the table and into the totals table below. The cell `height` was content-box, so each 0.4 px horizontal rule (rounded up to a device pixel) added about 1 px per row.
+  2. **Header row too tall:** the source's shaded header bar (6.4 mm) is shorter than the body pitch (7.06 mm), but a table had only one row height.
+  3. **Centred absolute text misaligned:** the absolutely positioned "Payment terms" paragraph (centred) shrank to its text, so centring had no width to work in and the text sat 25 mm left.
+- **Choice:**
+  - **Row height:** when `row_height` is set, cells use `box-sizing: border-box`, so the row height includes borders and padding.
+  - **Header row:** a new table property `header_row_height` (1-400 px, border-box) sets the header row's height. It is declared in the capability manifest and edited in the table panel.
+  - **Absolute text:** absolutely positioned text and rich-text blocks get `right:0`, spanning from their left position to the content area's right edge, like a text box.
+- **Alternatives:** Compensate in the mapper by shrinking row heights; rejected because a user setting a row height expects that height. Give absolute text an explicit width property; deferred, since spanning to the right edge matches word-processor text boxes and needs no new property.
+- **Consequences:**
+  - Tables with a row height and borders now render at exactly that height (slightly shorter than before).
+  - Short absolute text now has a box to the right edge. Left-aligned output is visually unchanged; centred and right-aligned text now aligns as authored.
+- **Validation:**
+  - **Unit tests:** border-box row and header heights, without duplicate declarations, and the absolute text `right:0` box. The static-table test is updated for border-box.
+  - **Suites:** backend `315 passed, 10 skipped, 2 warnings`. Ruff is clean for the changed areas, and the frontend build passes.
+  - **Playwright:** the layout (absolute text), zones, column and shape tests pass.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [table panel](../frontend/src/TableStylePanel.tsx), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py).
+
+## DD-442 - Map header row heights and record per-row table styling as a gap
+
+- **Date:** 2026-10-02
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-04, E16-09; evidence for DD-441
+- **Choice:**
+  - **Header height:** when a shaded bar marks the header, its height becomes `header_row_height`, and the table's top and bottom are computed with the header row's own height.
+  - **New gap:** a body row that is entirely bold while others are not is recorded as a `table.row_styles` [missing-property] gap (the invoice's "Total due").
+- **Results (`corpus --check`, 0 regressions):**
+  - **Invoice:** visual F1 0.792 -> 0.946.
+  - **Others:** unchanged within tolerance (contract 0.9736 -> 0.9738, statement 0.9943 -> 0.9937).
+- **Remaining invoice causes:**
+  - **Letterhead:** the large "INVOICE" title and the right-hand "Invoice no." / "Issue date" lines share a row in segmentation, so they become one rich-text paragraph with a single baseline. "Invoice no." sits 2.4 mm low, and the following blocks sit about 1.1 mm low. A user would build this with a two-column section or a borderless table, which the mapper does not yet attempt.
+  - **Bold totals row:** see the gap above.
+  - **"980.00"/"900.00" outliers:** word-alignment artefacts from repeated values, not layout errors.
+- **Validation:** All fidelity tests pass. The corpus passes the check, and the baseline is re-approved with `--decision DD-442`.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-443 - Rebuild side-by-side blocks as a two-column section
+
+- **Date:** 2026-10-02
+- **Status:** Accepted (project owner asked to "teach the rebuild to handle side-by-side letterheads") and Implemented. Extends DD-436
+- **Affected stories:** E16-04, E16-10; follows the DD-442 finding on the invoice letterhead
+- **Context:** The invoice's "INVOICE" title (22 pt, left) and its "Invoice no." line (10 pt, right, on a baseline 2.1 mm higher) fell into one segmentation row. The mapper emitted them as one rich-text paragraph with a single baseline, so the right-hand details sat 2.4 mm low and everything below about 1.1-1.3 mm low. In the editor, a user builds a letterhead as a two-column section: the title, a column break, then the details.
+- **Choice:** On pages without a detected gutter, the mapper (`_row_split` and `_side_by_side` in the mapper):
+  - **Split:** splits a one-row paragraph at its widest horizontal gap. The gap must be at least 15 mm, and the halves must differ in largest size by more than 1.5 pt or in first baseline by more than 1 mm. Tabbed lines and table rows share one size and baseline and are left alone.
+  - **Grow:** adds following paragraphs that lie wholly on one side of the split and start within one font size (at least 2 mm) of that side's last block.
+  - **Emit:** emits the group as a `columns` section: left blocks, `column_break`, right blocks, `columns_end`. The columns meet at the middle of the horizontal gap, with a column gap of at most 6 mm, so the percentage widths and the gap fill the content width.
+  - **Align:** right-hand blocks are right-aligned when they share a right edge (within 1 mm) and either start at different x positions or reach the content area's right edge.
+- **Alternatives:**
+  - A borderless two-cell static table; rejected because table cells hold single plain values, not separate styled paragraphs.
+  - Absolute positioning of the right-hand block; rejected because the mapper prefers flow layout (DD-421).
+  - Splitting in taxonomy segmentation; rejected because the section is a reconstruction choice, and segmentation also feeds comparison and features.
+- **Consequences:**
+  - Only the invoice changes in the current corpus; the column markers of the other documents are unchanged.
+  - A side-by-side block of three or more parts is split only at its widest gap.
+- **Validation:**
+  - **Unit test:** `test_side_by_side_letterhead_becomes_a_column_section` checks section order, both column contents, that widths plus gap fill the content width, and that a same-size tabbed row stays one paragraph.
+  - **Corpus:** the invoice's letterhead lines land within 0.3 mm of the source. Without DD-444 the invoice visual F1 regressed 0.946 -> 0.800, and the gate refused the baseline (see DD-444).
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [tests](../backend/tests/test_fidelity_phase_b.py), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-444 - Extend a table header row over a gap before the body; record header spacing as a gap
+
+- **Date:** 2026-10-02
+- **Status:** Accepted and Implemented; the header-row extension and the gap it recorded are superseded by DD-445 and DD-446 (the same day). This decision approves the re-baselined corpus scores
+- **Affected stories:** E16-04, E16-09, E2-02; evidence for DD-443
+- **Context:** After DD-443 the invoice's body rows rendered 1.6 mm high. The invoice's shaded header bar (67.0-73.4 mm) ends 1.4 mm above its first body row: the first rule is at 81.8 mm, and the body pitch is 7.06 mm. With `header_row_height` equal to the bar, body rows started too early. Before DD-443 the letterhead's downward drift happened to cancel this, which is why the invoice scored 0.946. A table has no spacing between header and body.
+- **Choice:**
+  - **Header row:** when a shaded bar marks the header, the table's top is the bar's top. The header row runs to where the first body row must start for its text to sit on the source baseline. The shading then covers the gap too.
+  - **New gap:** when the extension exceeds 0.5 mm, a `table.header_spacing_after` [missing-property] gap is recorded.
+  - **No bar:** tables without a header bar keep the previous geometry.
+- **Alternatives:**
+  - Keep the header at the bar height; rejected because every body row and the following totals table then sit 1.4 mm high.
+  - Centre the header row on the header text; rejected because the shading would spill both above and below the bar.
+- **Consequences:**
+  - The invoice's header shading is about 1.4 mm taller than the source, and the header text sits about 0.6 mm low.
+  - The new gap ranks second (share 0.071, invoice only) and is a candidate editor property.
+- **Results (`corpus --check`, 0 regressions):**
+  - **Invoice:** visual F1 0.946 -> 0.973.
+  - **Others:** unchanged (letter 0.998, form 1.000, report 1.000, statement 0.994, contract 0.974, ISDA 0.979).
+- **Validation:** backend `316 passed, 10 skipped, 2 warnings`. Ruff is clean for the mapper. The corpus passes the check, and the baseline is re-approved with `--decision DD-444`.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-445 - Add header-to-body spacing to tables
+
+- **Date:** 2026-10-02
+- **Status:** Accepted by the project owner ("ok add the table property to the renderer") and Implemented. Supersedes the header-row extension in DD-444
+- **Affected stories:** E2-02, E6-01; E16 gap `table.header_spacing_after` [missing-property] (DD-444, share 0.071, invoice)
+- **Context:** Shaded table headers often end before the first body row, as with the invoice's 1.4 mm gap. A table had no way to leave that space, so DD-444 stretched the header row and its shading over it.
+- **Choice:**
+  - **Property:** a table property `header_spacing_after` (0-240 px) leaves space between the header row and the first body row. Zero, out-of-range and non-numeric values are ignored, and it has no effect without a header.
+  - **Rendering:** the space is a spacer row inside `<thead>`: one cell spanning all columns, with that height, no padding, no border and no background, marked `aria-hidden`. Inside the header group it repeats with the header on each printed page and leaves collapsed borders untouched.
+  - **Editor:** the manifest declares the property as an editor control, and the table panel edits it as "Space after header".
+- **Alternatives:**
+  - Bottom padding on header cells; rejected because the header shading would cover the padding.
+  - A margin on the first body row; rejected because table rows take no margins under `border-collapse`, and it would not repeat on continuation pages.
+  - `border-spacing`; rejected because it requires separated borders and spaces every row.
+- **Consequences:**
+  - The spacer row is an extra table row in the HTML; it is hidden from assistive technology. No tagged-PDF or accessibility conformance is claimed.
+  - Tables without the property render unchanged.
+- **Validation:**
+  - **Unit tests:** the spacer row with colspan and height; no spacer by default; 0, negative, over-range, string and boolean values are ignored; and no spacer without a header.
+  - **Suites:** backend `316 passed, 10 skipped, 2 warnings`. Ruff reports no findings in the changed code (four pre-existing findings in the untouched lines of `rendering.py` and `test_template_logic.py` remain). The frontend build passes.
+  - **Stack:** rebuilt, and `GET /api/editor/capabilities` serves the property.
+  - **Not run:** no new Playwright test for the panel control; the manifest-reference test covers its presence.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [table panel](../frontend/src/TableStylePanel.tsx), [contract](template-contract.md), [tests](../backend/tests/test_template_logic.py).
+
+## DD-446 - Map the header-to-body gap to `header_spacing_after`
+
+- **Date:** 2026-10-02
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores and supersedes the mapping in DD-444
+- **Affected stories:** E16-04, E16-09; evidence for DD-445
+- **Choice:**
+  - **Header row:** the header row height is the shaded bar's height again.
+  - **Spacing:** when the first body row must start more than 0.5 mm below the bar, the difference becomes `header_spacing_after`, and the table's computed bottom includes it.
+  - **Gap removed:** the `table.header_spacing_after` gap is no longer emitted.
+- **Results (`corpus --check`, 0 regressions):**
+  - **Invoice:** visual F1 0.9731 -> 0.9746. Every left-column line and table row is within 0.5 mm of the source; the header text is the largest offset at 0.44 mm high.
+  - **Others:** unchanged.
+  - **Ranking:** `table.row_styles` (invoice) now ranks first, followed by the ISDA tab and leader cases.
+- **Validation:** All fidelity tests pass. The corpus passes the check, and the baseline is re-approved with `--decision DD-446`.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-447 - Add per-row styles to tables
+
+- **Date:** 2026-10-02
+- **Status:** Accepted by the project owner ("start with per row styling now") and Implemented
+- **Affected stories:** E2-02, E6-01; E16 gap `table.row_styles` [missing-property] (DD-442, invoice)
+- **Context:** Tables styled the header and all body cells alike. A totals row ("Total due" in bold) or a shaded subtotal could not be expressed, so the mapper recorded the invoice's bold totals row as a gap.
+- **Choice:**
+  - **Property:** a table property `row_styles`, an array of at most 50 entries `{row, bold?, italic?, background?, color?}`. `row` is a 0-based body-row index; a negative index counts from the end (-1 is the last row), so a bound table's totals row can be styled whatever its length. Colours are `#RRGGBB`.
+  - **Validation:** like other table properties, invalid input is ignored rather than rejected: non-integer or boolean rows, rows outside the table, bad colours and non-boolean flags. Later entries for the same row override earlier ones per property.
+  - **Rendering:** the styles are appended to each cell's style in that row, not to the `<tr>`, so they combine with the cell borders, padding and column alignment. The header row is never affected.
+  - **Editor:** the manifest declares the property as an editor control. The table panel has a "Row styles" list: row number, bold, italic, shading, text colour, reset buttons, remove, and "Add row style" (defaulting to the last row, bold).
+  - **Reconstruction validator:** array items that are objects are checked against the manifest's `item_properties`, so unknown row-style keys are reported.
+- **Alternatives:**
+  - Styles keyed by data condition (`path`/`equals`, like `row_condition`); deferred because no current gap needs it, and an index covers static tables and bound totals rows.
+  - Per-cell styles; rejected for now as a larger contract change with no ranked gap.
+  - Styling the `<tr>`; rejected because a row background under collapsed borders and inheritance is less predictable than cell styles.
+- **Consequences:**
+  - Tables without the property render unchanged.
+  - Rows are addressed by position, so inserting a fixed row can shift which row a style applies to; the editor shows the index next to each style.
+  - The manifest limitation now reads "no per-cell or per-column styling (other than alignment)".
+- **Validation:**
+  - **Unit tests:** `test_table_row_styles_style_one_body_row_each` checks last-row and first-row styling, override order, ignored invalid entries, an unstyled header, a bound table and a non-array value. `test_bold_totals_row_becomes_a_row_style` checks the validator rejects an unknown item key.
+  - **Suites:** backend `318 passed, 10 skipped, 2 warnings`. Ruff reports no findings in the mapper and manifest; the four pre-existing findings in untouched lines of `rendering.py` and `test_template_logic.py` remain. The frontend build passes.
+  - **Stack:** rebuilt, and `GET /api/editor/capabilities` serves the property.
+  - **Not run:** no Playwright test for the row-styles panel; the manifest-reference test covers its presence.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [manifest](../backend/app/capabilities.py), [validator](../backend/fidelity/reconstruct.py), [table panel](../frontend/src/TableStylePanel.tsx), [panel styles](../frontend/src/tableEditor.css), [contract](template-contract.md), [renderer tests](../backend/tests/test_template_logic.py).
+
+## DD-448 - Map wholly bold table body rows to `row_styles`
+
+- **Date:** 2026-10-02
+- **Status:** Accepted and Implemented. This decision approves the re-baselined corpus scores and supersedes the `table.row_styles` gap in DD-442
+- **Affected stories:** E16-04, E16-09; evidence for DD-447
+- **Choice:**
+  - **Mapping:** when some body rows are wholly bold and others are not, each wholly bold row becomes `{"row": index, "bold": true}`. Tables whose body rows are all bold, or none, are unchanged.
+  - **Gap:** the missing-property gap is no longer emitted. If more than 50 rows would need a style, the first 50 are styled and a `value-out-of-range` gap is recorded.
+- **Results (`corpus --check`, 0 regressions):**
+  - **Invoice:** visual F1 0.9746 -> 0.9748. "Total due" now renders bold, as in the source, at the same baseline (129.12 mm).
+  - **Others:** unchanged.
+  - **Ranking:** `table.row_styles` left the ranking; it is now led by the ISDA tab-stop and leader cases and its first-page footer.
+- **Validation:** `test_bold_totals_row_becomes_a_row_style` builds a synthetic table with a bold totals row and checks the style, the absence of the gap and a clean contract validation. All fidelity tests pass. The corpus passes the check, and the baseline is re-approved with `--decision DD-448`.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [tests](../backend/tests/test_fidelity_phase_b.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).

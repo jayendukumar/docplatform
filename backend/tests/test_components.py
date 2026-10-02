@@ -29,3 +29,18 @@ def test_component_expansion_allows_repeated_siblings_but_rejects_cycles():
             "a": {"blocks": [{"type": "component", "component_id": "b"}]},
             "b": {"blocks": [{"type": "component", "component_id": "a"}]},
         })
+
+
+def test_page_chrome_can_reference_text_components():
+    definition = {"page": {"header_component_id": "header", "footer_component_id": "footer"}, "blocks": []}
+    expanded = expand_definition(definition, {
+        "header": {"blocks": [{"type": "text", "text": "{{title}}"}]},
+        "footer": {"blocks": [{"type": "text", "text": "Confidential"}]},
+    })
+    assert expanded["page"]["header"] == "{{title}}"
+    assert expanded["page"]["footer"] == "Confidential"
+
+    with pytest.raises(ComponentExpansionError, match="text blocks only"):
+        expand_definition({"page": {"header_component_id": "header"}, "blocks": []}, {
+            "header": {"blocks": [{"type": "table", "items": "rows"}]},
+        })

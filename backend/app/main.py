@@ -30,6 +30,7 @@ from app.auth import (
     new_session,
     verify_password,
 )
+from app.capabilities import capability_manifest
 from app.calibration import CalibrationProfileError, apply_profile, validate_profile
 from app.components import ComponentExpansionError, expand_definition
 from app.config import ConfigurationError, load_settings
@@ -86,7 +87,7 @@ from app.word_merge import WordMergeError, merge_docx
 from app.worker import WorkerExecutionError, run_isolated
 from app.renderer_adapter import default_command
 from app.pdf_background import PdfBackgroundError, merge_pdf_background
-from app.pdf_toc import PdfTocError, add_toc_page_numbers
+from app.pdf_toc import PdfPageNumberError, PdfTocError, add_toc_page_numbers
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
@@ -976,6 +977,11 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
             raise HTTPException(status_code=422, detail=str(exc)) from None
         return {"document_base64": encode_pdf(output), "report": report}
 
+    @app.get("/api/editor/capabilities", tags=["templates"])
+    def editor_capabilities():
+        """Return the editor capability manifest used by the E16 fidelity harness."""
+        return capability_manifest()
+
     @app.get("/api/starters", tags=["templates"])
     def starters():
         return {"items": [{"id": starter_id, "name": starter["name"],
@@ -1722,7 +1728,7 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                                                         payload.get("version_id"), bool(payload.get("draft")))
             definition = expand_components(connection, definition)
         block_count = len(definition.get("blocks", [])) if isinstance(definition.get("blocks", []), list) else 0
-        if block_count > settings.sync_render_max_blocks:
+        if block_count > settings.sync_pdf_render_max_blocks:
             raise HTTPException(status_code=413, detail="template exceeds the synchronous PDF render block limit")
         try:
             rendered = run_isolated("render", {"definition": render_definition_for_worker(definition),
@@ -1743,12 +1749,17 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                 memory_bytes=settings.job_memory_bytes,
                 max_output_bytes=settings.job_max_output_bytes)
             output = base64.b64decode(pdf_result["pdf_base64"], validate=True)
-            output = merge_page_background(definition, output)
+            editable_only = payload.get("comparison_mode") == "editable-only"
+            if not editable_only:
+                output = merge_page_background(definition, output)
+            # Page numbers come from @page margin boxes in the rendered HTML (DD-429); no PDF overlay is added.
             output = add_toc_page_numbers(output, settings.max_object_bytes)
-            report = {**pdf_result["report"], "output_bytes": len(output)}
+            has_locked_background = isinstance(definition.get("page"), dict) and bool(definition["page"].get("background_pdf"))
+            report = {**pdf_result["report"], "output_bytes": len(output),
+                      "locked_background": "omitted" if editable_only or not has_locked_background else "included"}
         except (TemplateDataError, TemplateEvaluationLimitError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from None
-        except (WorkerExecutionError, ValueError, PdfBackgroundError, PdfTocError) as exc:
+        except (WorkerExecutionError, ValueError, PdfBackgroundError, PdfPageNumberError, PdfTocError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from None
         report = {**report, "render_locale": rendered.get("locale")}
         return {"template_id": template_id, "version_id": version["id"] if version else None,

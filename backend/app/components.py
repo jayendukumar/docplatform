@@ -41,4 +41,21 @@ def expand_definition(definition: dict[str, Any], registry: dict[str, dict[str, 
         return output
 
     result["blocks"] = expand(result.get("blocks", []))
+    page = result.get("page")
+    if isinstance(page, dict):
+        for slot in ("header", "footer"):
+            component_id = page.get(f"{slot}_component_id")
+            if not component_id:
+                continue
+            if not isinstance(component_id, str):
+                raise ComponentExpansionError(f"Page {slot} component reference is invalid")
+            if component_id not in registry:
+                raise ComponentExpansionError(f"Reusable component not found: {component_id}")
+            component_blocks = expand(registry[component_id].get("blocks", []), (component_id,))
+            values: list[str] = []
+            for block in component_blocks:
+                if block.get("type", "text") != "text":
+                    raise ComponentExpansionError(f"Page {slot} components may contain text blocks only")
+                values.append(str(block.get("text", "")))
+            page[slot] = "\n".join(values)
     return result

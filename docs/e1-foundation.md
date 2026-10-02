@@ -74,7 +74,7 @@ For Compose, copy `.env.example` to `.env` when overrides are needed. `.env` is 
 | `max_image_pixels` | `DOCPLATFORM_MAX_IMAGE_PIXELS` | 100000000; declared raster pixel ceiling before ingestion storage/processing |
 | `max_pages_per_document` | `DOCPLATFORM_MAX_PAGES_PER_DOCUMENT` | 100; 1-10000; ingestion page-limit guard |
 | `job_timeout_seconds` | `DOCPLATFORM_JOB_TIMEOUT_SECONDS` | 30; wall-time limit for isolated document work |
-| `sync_render_max_blocks` | `DOCPLATFORM_SYNC_RENDER_MAX_BLOCKS` | 100; templates above this block count are queued instead of rendered synchronously |
+| `sync_render_max_blocks` | `DOCPLATFORM_SYNC_RENDER_MAX_BLOCKS` | 128; templates above this block count are queued instead of rendered synchronously |
 | `job_cpu_seconds` | `DOCPLATFORM_JOB_CPU_SECONDS` | 20; child CPU limit where the host supports resource limits |
 | `job_memory_bytes` | `DOCPLATFORM_JOB_MEMORY_BYTES` | 805306368 (768 MiB); child address-space limit where the host supports resource limits; sized for the packaged Chromium PDF candidate |
 | `job_max_output_bytes` | `DOCPLATFORM_JOB_MAX_OUTPUT_BYTES` | 5242880; serialized child-result limit |
