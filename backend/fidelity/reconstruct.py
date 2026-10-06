@@ -33,7 +33,8 @@ ASCENT_EM, DESCENT_EM = 0.891, 0.216
 # How each detected feature is handled by this mapper: None means expressed without a gap.
 FEATURE_GAPS: dict[str, tuple[str, str, str, str] | None] = {
     # Justified text, decimal sizes, numbered labels, positioned gaps and leaders are expressible since
-    # DD-424 to DD-426; remaining cases (leaders in centred or rich-text lines, out-of-range stops) are
+    # DD-424 to DD-426, and in rich-text first rows since DD-450; remaining cases (leaders in centred lines or
+    # later rich-text rows, out-of-range stops) are
     # recorded per paragraph below.
     # Tables are rebuilt as static tables with typography, alignment, rules and header shading (DD-432).
     # Rules and boxes become shape blocks (DD-434); only shapes in the clipped margin areas remain gaps.
@@ -45,6 +46,8 @@ FEATURE_GAPS: dict[str, tuple[str, str, str, str] | None] = {
 
 
 _LEADER_WORD = re.compile(r"^[.\u2026_\-]{3,}[.,;:]?$")
+_LEADER_TAIL = re.compile(r"^([.\u2026_\-]{5,})([\])*]{1,4})$")
+_TAIL_EM = {"]": 0.333, ")": 0.333, "*": 0.5}  # Times / Liberation Serif advances
 _NUMERIC = re.compile(r"^[\d.,%$\u20ac\u00a3()+\-]*\d[\d.,%$\u20ac\u00a3()+\-]*$")
 LEADER_KINDS = {".": "dot", "\u2026": "dot", "_": "underscore", "-": "hyphen"}
 MAX_STOPS = 16
@@ -72,11 +75,26 @@ def row_tabs(page: dict[str, Any], row: list[int], origin_mm: float) -> tuple[st
     Positions are px from ``origin_mm`` (the paragraph's left indent). Returns the text, the stops and
     whether the row was expressible (False when stops exceed bounds; the text then has no tabs).
     """
-    words = sorted((page["words"][i] for line in row for i in page["lines"][line].get("word_indices", [])),
-                   key=lambda w: w["x_mm"])
     plain = " ".join(page["lines"][line]["text"].replace("\t", " ") for line in row)
-    if not words:
+    segments, stops, expressible = row_segments(page, row, origin_mm)
+    if not expressible:
+        return plain, [], False
+    if not segments:
         return plain, [], True
+    return "\t".join(_join(words) for words in segments), stops, True
+
+
+def row_segments(page: dict[str, Any], row: list[int], origin_mm: float
+                 ) -> tuple[list[list[dict[str, Any]]], list[Any], bool]:
+    """The word segments between tabs and the stops behind ``row_tabs``.
+
+    Rich text builds its styled runs from the same segments, so leaders in mixed-style lines become
+    leader tab stops as in plain text (DD-450). Returns no segments for a row without words.
+    """
+    words = sorted((part for line in row for i in page["lines"][line].get("word_indices", [])
+                    for part in _split_leader_tail(page["words"][i])), key=lambda w: w["x_mm"])
+    if not words:
+        return [], [], True
     groups: list[dict[str, Any]] = []
     for word in words:
         kind = "leader" if _LEADER_WORD.match(word["text"]) else "text"
@@ -87,7 +105,7 @@ def row_tabs(page: dict[str, Any], row: list[int], origin_mm: float) -> tuple[st
                 continue
         groups.append({"kind": kind, "words": [word]})
     if len(groups) == 1 and groups[0]["kind"] == "text":
-        return _join(groups[0]["words"]), [], True
+        return [groups[0]["words"]], [], True
 
     def start(group: dict[str, Any]) -> float:
         return group["words"][0]["x_mm"]
@@ -98,7 +116,8 @@ def row_tabs(page: dict[str, Any], row: list[int], origin_mm: float) -> tuple[st
     def numeric(group: dict[str, Any]) -> bool:
         return group["kind"] == "text" and bool(_NUMERIC.match(_join(group["words"]).replace(" ", "")))
 
-    segments, stops = [""], []
+    segments: list[list[dict[str, Any]]] = [[]]
+    stops: list[dict[str, Any]] = []
     closed = False
     index = 0
     while index < len(groups):
@@ -109,22 +128,22 @@ def row_tabs(page: dict[str, Any], row: list[int], origin_mm: float) -> tuple[st
             em = group["words"][0]["size_pt"] * PT_TO_MM
             if following and numeric(following) and start(following) - end(group) <= 1.5 * em:
                 stops.append({"position": end(following), "align": "right", "leader": leader})
-                segments.append(_join(following["words"]))
+                segments.append(following["words"])
                 closed, index = True, index + 2
                 continue
             stops.append({"position": end(group), "align": "left", "leader": leader})
-            segments.append("")
+            segments.append([])
             closed, index = False, index + 1
             continue
-        if segments[-1] == "" and not closed:
-            segments[-1] = _join(group["words"])
+        if not segments[-1] and not closed:
+            segments[-1] = group["words"]
         elif numeric(group):
             stops.append({"position": end(group), "align": "right", "leader": "none"})
-            segments.append(_join(group["words"]))
+            segments.append(group["words"])
             closed = True
         else:
             stops.append({"position": start(group), "align": "left", "leader": "none"})
-            segments.append(_join(group["words"]))
+            segments.append(group["words"])
             closed = False
         index += 1
     for stop in stops:
@@ -132,8 +151,24 @@ def row_tabs(page: dict[str, Any], row: list[int], origin_mm: float) -> tuple[st
         stop["position"] = 0.0 if -0.5 < position < 0 else position  # a stop at the indent itself
     positions = [stop["position"] for stop in stops]
     if len(stops) > MAX_STOPS or any(not 0 <= p <= 2000 for p in positions) or positions != sorted(set(positions)):
-        return plain, [], False
-    return "\t".join(segments), [s if s["align"] == "right" or s["leader"] != "none" else s["position"] for s in stops], True
+        return [], [], False
+    return segments, [s if s["align"] == "right" or s["leader"] != "none" else s["position"] for s in stops], True
+
+
+def _split_leader_tail(word: dict[str, Any]) -> list[dict[str, Any]]:
+    """Split closing brackets and footnote stars off a leader word ("......]*"), so the leader still becomes a
+    stop (DD-450).
+
+    The source model has no glyph widths per word, so the tail takes the Times and Liberation Serif advances.
+    """
+    match = _LEADER_TAIL.match(word["text"])
+    if not match:
+        return [word]
+    em_mm = word["size_pt"] * PT_TO_MM
+    tail_mm = min(word["width_mm"] / 2, sum(_TAIL_EM[char] for char in match.group(2)) * em_mm)
+    leader = {**word, "text": match.group(1), "width_mm": word["width_mm"] - tail_mm}
+    tail = {**word, "text": match.group(2), "x_mm": word["x_mm"] + leader["width_mm"], "width_mm": tail_mm}
+    return [leader, tail]
 
 
 def _with_leading_stop(stops: list[Any], leading_px: float) -> list[Any] | None:
@@ -363,9 +398,22 @@ def reconstruct(model: dict[str, Any], features: dict[str, Any]) -> dict[str, An
             family = FONT_STACKS[lines[0]["family_class"]]
             paragraph_detections = [d for d in detections if d["page"] == number
                                     and {(p, i) for p, i in d["lines"]} & refs]
-            leaders_literal = paragraph["mixed_style"] or align in {"center", "right"}
+            # A rich-text first row holding a leader is segmented like plain text, so its leaders become leader
+            # stops and its words keep their run styles; other rich-text rows keep the gap-derived stops (DD-450).
+            first_refs = {(number, i) for i in paragraph["rows"][0]}
+            leader_segments = None
+            if paragraph["mixed_style"] and align in {"left", "justify"} and any(
+                    d["feature"] == "tab.dot_leader" and {(p, i) for p, i in d["lines"]} & first_refs
+                    for d in paragraph_detections):
+                segments, stops, expressible = row_segments(page, paragraph["rows"][0], paragraph["left_mm"])
+                if expressible and any(isinstance(s, dict) and s["leader"] != "none" for s in stops):
+                    leader_segments = segments
+                    layout["tab_stops"] = stops
             for detection in paragraph_detections:
-                if detection["feature"] == "tab.dot_leader" and leaders_literal:
+                if detection["feature"] != "tab.dot_leader":
+                    continue
+                if align in {"center", "right"} or (paragraph["mixed_style"] and not (
+                        leader_segments is not None and {(p, i) for p, i in detection["lines"]} & first_refs)):
                     gap("tab.dot_leader", "workaround-used", "rich_text" if paragraph["mixed_style"] else "text",
                         "tab_stops", "leader kept as literal characters in a centred, right-aligned or rich-text line",
                         detection["id"])
@@ -373,7 +421,7 @@ def reconstruct(model: dict[str, Any], features: dict[str, Any]) -> dict[str, An
                 first_row = paragraph["rows"][0]
                 positions = sorted([x for i in first_row for x in page["lines"][i].get("tabs_mm", [])]
                                    + [page["lines"][i]["x_mm"] for i in first_row[1:]])
-                if positions and align in {"left", "justify"}:
+                if leader_segments is None and positions and align in {"left", "justify"}:
                     stops = [max(0.0, p) if p > -0.5 else p for p in (_px(x - paragraph["left_mm"]) for x in positions)]
                     if stops and len(stops) <= MAX_STOPS and all(0 <= s <= 2000 for s in stops):
                         layout["tab_stops"] = stops
@@ -382,7 +430,7 @@ def reconstruct(model: dict[str, Any], features: dict[str, Any]) -> dict[str, An
                             if detection["feature"] in {"list.numbered_label", "tab.positioned_gap"}:
                                 gap(detection["feature"], "value-out-of-range", "rich_text", "tab_stops",
                                     "stop outside 0-2000 px or more than 16 stops", detection["id"])
-                runs = _runs(page, paragraph, family)
+                runs = _runs(page, paragraph, family, leader_segments)
                 if leading_px is not None and runs:
                     stops = _with_leading_stop(layout.get("tab_stops", []), leading_px)
                     if stops is not None:
@@ -641,9 +689,39 @@ def _map_furniture_rules(model: dict[str, Any], page_settings: dict[str, Any],
         used.update((p["page_number"], tuple(g["box_mm"])) for p, g in found)
 
 
-def _runs(page: dict[str, Any], paragraph: dict[str, Any], family: str) -> list[dict[str, Any]]:
+def _runs(page: dict[str, Any], paragraph: dict[str, Any], family: str,
+          first_row_segments: list[list[dict[str, Any]]] | None = None) -> list[dict[str, Any]]:
+    """Styled runs for a rich-text paragraph; ``first_row_segments`` replaces the first row with tab-separated
+    word segments from ``row_segments`` (DD-450)."""
     runs: list[dict[str, Any]] = []
+
+    def add(text: str, style: dict[str, Any]) -> None:
+        if runs and runs[-1]["style"] == style:
+            runs[-1]["text"] += text
+        else:
+            runs.append({"type": "text", "text": text, "style": style})
+
+    if first_row_segments is not None:
+        pending = ""  # a tab before the first word, carried into its run
+        for segment_index, words in enumerate(first_row_segments):
+            if segment_index:
+                if runs:
+                    runs[-1]["text"] += "\t"
+                else:
+                    pending += "\t"
+            for word_index, word in enumerate(words):
+                separator = ""
+                if word_index:
+                    previous = words[word_index - 1]
+                    gap = word["x_mm"] - (previous["x_mm"] + previous["width_mm"])
+                    separator = " " if gap > 0.1 * previous["size_pt"] * PT_TO_MM else ""
+                style = {"font_family": family, "font_size": round(word["size_pt"] * 4 / 3, 2),
+                         "bold": word["bold"], "italic": word["italic"]}
+                add(pending + separator + word["text"], style)
+                pending = ""
     for row_index, row in enumerate(paragraph["rows"]):
+        if row_index == 0 and first_row_segments is not None:
+            continue
         for segment_index, line_index in enumerate(row):
             prefix = " " if row_index and segment_index == 0 else "\t" if segment_index else ""
             if row_index and prefix == "\t":
@@ -652,10 +730,7 @@ def _runs(page: dict[str, Any], paragraph: dict[str, Any], family: str) -> list[
                 text = (prefix if run_index == 0 else "") + (run["text"].replace("\t", " ") if row_index else run["text"])
                 style = {"font_family": family, "font_size": round(run["size_pt"] * 4 / 3, 2),
                          "bold": run["bold"], "italic": run["italic"]}
-                if runs and runs[-1]["style"] == style:
-                    runs[-1]["text"] += text
-                else:
-                    runs.append({"type": "text", "text": text, "style": style})
+                add(text, style)
     return runs[:200]
 
 

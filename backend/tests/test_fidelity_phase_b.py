@@ -213,3 +213,23 @@ def test_wrapped_form_header_far_right_line_and_offset_table_cell():
     assert table["static_rows"][-1] == ["Total", "430.00"] and len(table["static_rows"]) + table["show_header"] == 4
     assert not [g for g in rebuilt["gaps"] if g["feature"] == "tab.positioned_gap"]
     assert validate_reconstruction(rebuilt, capability_manifest()) == []
+
+
+def test_rich_text_dot_leader_becomes_a_leader_stop():
+    # DD-450: a leader in a mixed-style line is a leader tab stop, like plain text, and the runs keep their styles.
+    page = ("BT /F2 10 Tf 72 700 Td (Party A:) Tj /F1 10 Tf ( Signed on ..............................) Tj ET "
+            "BT /F1 10 Tf 72 680 Td (Plain body text that continues across one line only here.) Tj ET "
+            "BT /F2 10 Tf 72 660 Td (Party B:) Tj /F1 10 Tf ( Jurisdiction ..............................]*) Tj ET")
+    model = analyse_pdf(make_document([page]), label="rich-leader.pdf")
+    rebuilt = reconstruct(model, detect_features(model))
+    first, second = [b for b in rebuilt["definition"]["blocks"] if b["type"] == "rich_text"]
+    runs = first["paragraphs"][0]["runs"]
+    assert [(r["text"], r["style"]["bold"]) for r in runs] == [("Party A:", True), (" Signed on\t", False)]
+    (stop,) = first["tab_stops"]
+    assert stop["align"] == "left" and stop["leader"] == "dot" and stop["position"] > 48
+    # A closing bracket attached to the leader follows the tab; the stop ends before it.
+    assert "".join(r["text"] for r in second["paragraphs"][0]["runs"]) == "Party B: Jurisdiction\t]*"
+    (stop,) = second["tab_stops"]
+    assert stop["leader"] == "dot"
+    assert not [g for g in rebuilt["gaps"] if g["feature"] == "tab.dot_leader"]
+    assert validate_reconstruction(rebuilt, capability_manifest()) == []

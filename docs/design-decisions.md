@@ -6422,3 +6422,33 @@ Supersedes/superseded by: [Decision ID when applicable]
   - **Suites:** backend `319 passed, 10 skipped, 2 warnings`; this local run includes the uncommitted ISDA scaffold tests. Ruff is clean for `backend/fidelity` and the test.
   - **Corpus:** passes the check; the baseline is re-approved with `--decision DD-449`.
 - **Implementation references:** [taxonomy](../backend/fidelity/taxonomy.py), [mapper](../backend/fidelity/reconstruct.py), [tests](../backend/tests/test_fidelity_phase_b.py), [baselines](../fidelity-corpus/baselines.json), [E16 epic](epic-e16-template-fidelity.md).
+
+## DD-450 - Express dot leaders in rich-text lines as leader tab stops
+
+- **Date:** 2026-10-05
+- **Status:** Accepted (project owner asked to fix the next ranked gap, rich-text dot leaders) and Implemented. The corpus baseline is not re-approved by this entry.
+- **Affected stories:** E16-04, E16-09; E16 gap `rich_text.tab_stops` [workaround-used] `tab.dot_leader` (ISDA, ranked first among tab gaps after DD-449)
+- **Context:**
+  - **Ranked gap:** the mapper kept leaders as literal dots in every mixed-style (rich-text) paragraph, because the rich-text path derived stops only from line gaps (`tabs_mm`), while the leader segmentation of DD-427 (`row_tabs`) produced a joined plain string without run styles. ISDA had 32 such detections: Schedule definitions ("**Specified Entity** means in relation to Party A, ......"), elections ending in "....]" and clause rows with labels.
+  - **Renderer:** rich-text paragraphs already accept `tab_stops` with leaders (DD-426), so no contract change is needed.
+  - **Hidden case found while measuring:** a leader word with a closing bracket attached ("......]") does not match the leader pattern. In rich text this would have counted as expressed while the dots stayed literal.
+- **Choice:**
+  - **Shared segmentation:** `row_segments` returns the word segments and stops behind `row_tabs`; `row_tabs` joins them for plain text, and the rich-text path builds styled runs from the same words (bold, italic and size per word), with a tab between segments. Later rows keep the existing run mapping.
+  - **Scope:** applies only when a `tab.dot_leader` detection lies on the paragraph's first row, the paragraph is left-aligned or justified, the stops are in bounds, and at least one stop actually carries a leader. Other rich-text paragraphs keep the gap-derived stops unchanged.
+  - **Bracket tails:** a leader word ending in up to four of `]`, `)` or `*` is split into the leader and a tail. The source model has no per-glyph widths, so the tail width uses Times/Liberation Serif advances (0.333 em for brackets, 0.5 em for `*`), capped at half the word. This applies to plain text and rich text.
+  - **Gap bookkeeping:** a rich-text leader gap is recorded unless the first row produced a leader stop, so unexpressed leaders stay visible.
+- **Alternatives:**
+  - Convert every rich-text first row through word segmentation; not chosen, because it would change the stop positions of all ISDA clause rows without a measured reason.
+  - Split leaders fused to preceding text ("applicable][......]"); deferred, because placing the stop needs the head's glyph widths, which the source model does not record.
+- **Consequences:**
+  - Two ISDA page-34 leaders remain as rich-text gaps, both fused to preceding text. Two centred plain-text leaders ("dated as of ......", pages 1 and 29) remain as text gaps, as before.
+  - The visual effect is small: a dotted border replaces literal dots in roughly the same place.
+- **Results (`corpus --check`, 0 regressions):**
+  - **ISDA:** visual F1 0.9820 -> 0.9821; text F1 0.9994 unchanged. Rich-text leader detections recorded as gaps: 32 -> 2.
+  - **Others:** unchanged.
+  - **Ranking:** led by the different first-page footer, then the two remaining rich-text leaders and the two centred text leaders.
+- **Validation:**
+  - **Unit test:** `test_rich_text_dot_leader_becomes_a_leader_stop` covers a bold label followed by a regular leader line (runs keep styles; one dot leader stop; no leader gap) and a leader with an attached "]*" tail. Before this change the test failed because the gap was recorded and no stops were set.
+  - **Suites:** backend `320 passed, 10 skipped, 2 warnings`; this local run includes the uncommitted ISDA scaffold tests. Ruff is clean for `backend/fidelity` and the test.
+  - **Corpus:** `corpus --check` passes with 0 regressions against the DD-449 baseline. The baseline is not updated.
+- **Implementation references:** [mapper](../backend/fidelity/reconstruct.py), [tests](../backend/tests/test_fidelity_phase_b.py), [E16 epic](epic-e16-template-fidelity.md).

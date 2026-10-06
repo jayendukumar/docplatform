@@ -122,6 +122,8 @@ DD-447 added per-row styles to tables (`row_styles`: bold, italic, shading and t
 
 DD-449 closed the ISDA positioned-gap case. A wrapped four-column form header on page 33 had been merged into one paragraph with a 166 mm indent. Single lines beyond the 63.5 mm indent range now start with a tab to a left stop rather than a silently clamped indent (three page-30 elections). Table cells within a third of an em share a row. ISDA rose from 0.979 to 0.982 (page 33 0.71 -> 0.97). The ranking is now led by rich-text dot leaders and the different first-page footer.
 
+DD-450 expresses leaders in rich-text first rows as leader tab stops, with each word keeping its run style. It also splits closing brackets off a leader word ("......]"). ISDA rich-text leader gaps fell from 32 to 2; the two left are fused to preceding text. ISDA visual F1 is 0.9821, with 0 regressions. The ranking is now led by the different first-page footer.
+
 ## Loop
 
 1. Run the harness on the corpus and produce the gap report.
