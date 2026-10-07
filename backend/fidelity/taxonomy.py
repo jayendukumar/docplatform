@@ -34,6 +34,7 @@ FEATURES = {
     "page.margins": "Content-area margins",
     "page.running_header": "Text repeated in the top band of most pages",
     "page.running_footer": "Text repeated in the bottom band of most pages",
+    "page.first_page_footer": "One-off footer text on the first page",
     "page.page_number": "Sequential page number in a header or footer band",
     "text.paragraph": "Multi-line flowing paragraph",
     "text.heading": "Short line larger or bolder than body text",
@@ -82,7 +83,8 @@ def body_size(model: dict[str, Any]) -> float:
 
 def furniture_lines(model: dict[str, Any], band_mm: float = 25.0) -> dict[str, set[tuple[int, int]]]:
     """Lines in top/bottom bands whose digit-normalised text recurs on at least half the pages."""
-    result: dict[str, set[tuple[int, int]]] = {"header": set(), "footer": set(), "page_number": set()}
+    result: dict[str, set[tuple[int, int]]] = {"header": set(), "footer": set(), "page_number": set(),
+                                               "first_footer": set()}
     pages = model["pages"]
     if len(pages) < 3:
         return result
@@ -106,6 +108,12 @@ def furniture_lines(model: dict[str, Any], band_mm: float = 25.0) -> dict[str, s
                 page_label = re.search(r"\bpage\s*#(\s*of\s*#)?\s*$", key.strip(), re.IGNORECASE)
                 target = "page_number" if key.strip("# ") == "" or page_label else band
                 result[target].update(members[key])
+        if band == "footer":
+            recurring = result["footer"] | result["page_number"]
+            first_page = pages[0]
+            for index, line in enumerate(first_page["lines"]):
+                if line["y_mm"] >= first_page["height_mm"] - band_mm and (1, index) not in recurring:
+                    result["first_footer"].add((1, index))
     return result
 
 
@@ -227,7 +235,7 @@ def detect_features(model: dict[str, Any]) -> dict[str, Any]:
         add("page.size", 1, [0, 0, first["width_mm"], first["height_mm"]],
             width_mm=first["width_mm"], height_mm=first["height_mm"])
     for kind, feature in (("header", "page.running_header"), ("footer", "page.running_footer"),
-                          ("page_number", "page.page_number")):
+                          ("page_number", "page.page_number"), ("first_footer", "page.first_page_footer")):
         by_page: dict[int, list[int]] = {}
         for page_number, index in furniture[kind]:
             by_page.setdefault(page_number, []).append(index)

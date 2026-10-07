@@ -1,0 +1,129 @@
+{
+  "starter_id": "wealth-plan",
+  "category": "Wealth Management",
+  "language": "en",
+  "definition": {
+    "name": "Wealth plan (en)",
+    "locale": "en",
+    "sample_data": {
+      "primary": "Jordan and Taylor Morgan",
+      "primary_label": "Client",
+      "summary": [
+        {
+          "label": "Review date",
+          "value": "2026-01-15"
+        },
+        {
+          "label": "Lead adviser",
+          "value": "Priya Shah"
+        },
+        {
+          "label": "Risk profile",
+          "value": "Balanced"
+        },
+        {
+          "label": "Review status",
+          "value": "Ready for discussion"
+        }
+      ],
+      "line_items": [
+        {
+          "label": "Investable assets",
+          "value": "2,450,000"
+        },
+        {
+          "label": "Annual income",
+          "value": "285,000"
+        },
+        {
+          "label": "Target retirement age",
+          "value": "60"
+        }
+      ],
+      "notes": "Recommendations must be confirmed against the client's current circumstances and suitability record.",
+      "recipient": {
+        "name": "Jordan and Taylor Morgan"
+      },
+      "prepared_by": "Priya Shah",
+      "review_date": "2026-01-15",
+      "risk_profile": "Balanced",
+      "status": "Ready for discussion"
+    },
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Wealth plan",
+        "translation_key": "title",
+        "bold": true,
+        "font_size": 24
+      },
+      {
+        "type": "text",
+        "text": "Client: {{primary}}",
+        "translation_key": "body"
+      },
+      {
+        "type": "text",
+        "text": "Client review",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "summary",
+        "columns": [
+          {
+            "header": "Field",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Value",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Planning snapshot",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "line_items",
+        "columns": [
+          {
+            "header": "Item",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Details",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Notes: {{notes}}"
+      }
+    ],
+    "translations": {
+      "en": {
+        "title": "Wealth plan",
+        "body": "Prepared for Jordan and Taylor Morgan."
+      }
+    },
+    "schema_version": 1
+  },
+  "verification": {
+    "missing_fields": [],
+    "missing_translations": [],
+    "scripts": [
+      "latin"
+    ]
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "starter_id": "certificate",
+  "category": "Human Resources",
+  "language": "fr",
+  "definition": {
+    "name": "Certificate (fr)",
+    "locale": "fr",
+    "sample_data": {
+      "primary": "Alex Morgan",
+      "primary_label": "Employee",
+      "summary": [
+        {
+          "label": "Department",
+          "value": "Operations"
+        },
+        {
+          "label": "Manager",
+          "value": "Priya Shah"
+        },
+        {
+          "label": "Effective date",
+          "value": "2026-01-15"
+        },
+        {
+          "label": "Status",
+          "value": "For approval"
+        }
+      ],
+      "line_items": [
+        {
+          "label": "Role",
+          "value": "Operations Analyst"
+        },
+        {
+          "label": "Work location",
+          "value": "Singapore"
+        },
+        {
+          "label": "Employment type",
+          "value": "Permanent"
+        }
+      ],
+      "notes": "This sample is not an employment contract and must be reviewed against local requirements.",
+      "recipient": {
+        "name": "Alex Morgan"
+      },
+      "prepared_by": "Document team",
+      "department": "Operations",
+      "manager": "Priya Shah",
+      "effective_date": "2026-01-15",
+      "status": "For approval"
+    },
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Certificate",
+        "translation_key": "title",
+        "bold": true,
+        "font_size": 24
+      },
+      {
+        "type": "text",
+        "text": "Employee: {{primary}}",
+        "translation_key": "body"
+      },
+      {
+        "type": "text",
+        "text": "Employee details",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "summary",
+        "columns": [
+          {
+            "header": "Field",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Value",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Role summary",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "line_items",
+        "columns": [
+          {
+            "header": "Item",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Details",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Notes: {{notes}}"
+      }
+    ],
+    "translations": {
+      "fr": {
+        "title": "Certificat de réussite",
+        "body": "Ce certificat est remis à {{recipient.name}}."
+      }
+    },
+    "schema_version": 1
+  },
+  "verification": {
+    "missing_fields": [],
+    "missing_translations": [],
+    "scripts": [
+      "latin"
+    ]
+  }
+}

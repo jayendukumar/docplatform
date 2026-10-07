@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import json
 from unittest.mock import Mock
 
 from alembic import command
@@ -8,7 +9,7 @@ from sqlalchemy import text
 
 from app.bootstrap import seed
 from app.config import Settings
-from app.main import create_app
+from app.main import STARTER_CATALOG, create_app
 from app.migrations import expected_revision, migrate, migration_config
 from app.storage import LocalStore
 
@@ -18,6 +19,17 @@ def frontend(tmp_path):
     path.mkdir()
     (path / "index.html").write_text("<!doctype html><title>Foundation</title>", encoding="utf-8")
     return path
+
+
+def test_starter_catalog_covers_industry_categories():
+    grouped = {}
+    for starter in STARTER_CATALOG.values():
+        grouped.setdefault(starter["category"], []).append(starter)
+    expected = {"Investment Banking", "Asset Management", "Insurance", "Wealth Management",
+                "Finance Operations", "Scheduling & Calendars", "Human Resources",
+                "Legal & Compliance", "Sales & Marketing", "General & Communications"}
+    assert expected <= grouped.keys()
+    assert all(len(items) >= 3 for items in grouped.values())
 
 
 def test_liveness_does_not_require_dependencies_and_readiness_sanitizes(tmp_path):
@@ -52,6 +64,26 @@ def test_fresh_install_seed_and_api(postgres_engine, tmp_path):
         assert sample["sample_data"]["recipient"]["name"] == "Alex"
         assert sample["blocks"][2]["text"] == "\u0645\u0631\u062d\u0628\u0627 \u00b7 \u4f60\u597d"
         assert client.get("/api/templates/no-such-template").status_code == 404
+
+
+@pytest.mark.integration
+def test_isda_seed_removes_locked_background_from_editable_template(postgres_engine, tmp_path):
+    migrate(postgres_engine)
+    store = LocalStore(tmp_path / "objects", 10_000)
+    with postgres_engine.begin() as connection:
+        connection.execute(text("""
+            INSERT INTO templates (id, name, object_key, schema_version)
+            VALUES ('isda-template', 'ISDA Template', 'templates/isda.json', 3)
+        """))
+        connection.execute(text("""
+            INSERT INTO template_versions (id, template_id, version, status, definition_json)
+            VALUES ('isda-template-v1', 'isda-template', 1, 'draft', :definition)
+        """), {"definition": '{"name":"ISDA Template","page":{"background_pdf":"data:application/pdf;base64,JVBERi0="},"blocks":[{"type":"text","text":"u{200B}"}]}'})
+    store.put("templates/isda.json", b'{"name":"ISDA Template","page":{"background_pdf":"data:application/pdf;base64,JVBERi0="},"blocks":[{"type":"text","text":"u{200B}"}]}')
+    seed(postgres_engine, store)
+    with postgres_engine.connect() as connection:
+        row = connection.execute(text("SELECT definition_json FROM template_versions WHERE template_id = 'isda-template' AND status = 'draft'")).scalar_one()
+    assert "background_pdf" not in json.loads(row).get("page", {})
 
 
 @pytest.mark.integration

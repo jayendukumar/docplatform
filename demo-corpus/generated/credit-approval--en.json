@@ -1,0 +1,129 @@
+{
+  "starter_id": "credit-approval",
+  "category": "Investment Banking",
+  "language": "en",
+  "definition": {
+    "name": "Credit approval memo (en)",
+    "locale": "en",
+    "sample_data": {
+      "primary": "Project Atlas acquisition",
+      "primary_label": "Transaction",
+      "summary": [
+        {
+          "label": "Client",
+          "value": "Northstar Holdings"
+        },
+        {
+          "label": "Prepared by",
+          "value": "Alex Morgan"
+        },
+        {
+          "label": "As of",
+          "value": "2026-01-15"
+        },
+        {
+          "label": "Status",
+          "value": "Draft for review"
+        }
+      ],
+      "line_items": [
+        {
+          "label": "Enterprise value",
+          "value": "1,250,000,000"
+        },
+        {
+          "label": "Net debt",
+          "value": "210,000,000"
+        },
+        {
+          "label": "Equity value",
+          "value": "1,040,000,000"
+        }
+      ],
+      "notes": "Illustrative figures require transaction-team confirmation before circulation.",
+      "recipient": {
+        "name": "Project Atlas acquisition"
+      },
+      "prepared_by": "Alex Morgan",
+      "client_name": "Northstar Holdings",
+      "as_of": "2026-01-15",
+      "status": "Draft for review"
+    },
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Credit approval memo",
+        "translation_key": "title",
+        "bold": true,
+        "font_size": 24
+      },
+      {
+        "type": "text",
+        "text": "Transaction: {{primary}}",
+        "translation_key": "body"
+      },
+      {
+        "type": "text",
+        "text": "Transaction summary",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "summary",
+        "columns": [
+          {
+            "header": "Field",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Value",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Key figures",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "line_items",
+        "columns": [
+          {
+            "header": "Item",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Details",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Notes: {{notes}}"
+      }
+    ],
+    "translations": {
+      "en": {
+        "title": "Credit approval memo",
+        "body": "Prepared for Project Atlas acquisition."
+      }
+    },
+    "schema_version": 1
+  },
+  "verification": {
+    "missing_fields": [],
+    "missing_translations": [],
+    "scripts": [
+      "latin"
+    ]
+  }
+}

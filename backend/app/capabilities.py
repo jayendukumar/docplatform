@@ -290,12 +290,17 @@ _MANIFEST: dict[str, Any] = {
                                                          for align in ("left", "center", "right")],
                               properties={"font_size": "number 6-48 px", "bold": "boolean", "italic": "boolean"},
                               notes="Per-zone overrides of header_footer_font_size, weight and style (DD-439)."),
+            **{f"first_page_footer_{align}": _p("string", "control", max_length=500)
+               for align in ("left", "center", "right")},
+            "first_page_show_page_numbers": _p("boolean", "control"),
+            "first_page_footer_distance_mm": _p("number", "control", range=[0, 100], unit="mm"),
+            "first_page_footer_font_size": _p("number", "control", range=[6, 48], unit="px", precision=2),
             "background": _p("string", "json"),
             "background_pdf": _p("object", "control", fidelity="excluded",
                                  notes="Locked source background; excluded from E16 reconstruction."),
         },
-        "limitations": [("Header and footer zones are plain text; zone_styles set size, bold and italic per zone, but "
-                         "there is no mixed styling within a zone and no first-page-different chrome."),
+        "limitations": [("Header and footer zones are plain text; zone_styles set size, bold and italic per zone, and "
+                         "first_page_footer_* provides a first-page footer override, but there is no first-page header override."),
                         "Rules span the full content width; partial-width rules in the margins are not supported."],
     },
     "definition": {

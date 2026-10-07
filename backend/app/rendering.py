@@ -310,6 +310,13 @@ def _page_settings(page: Any) -> dict[str, Any]:
             and _HEX_COLOR.fullmatch(page["furniture_rule_color"]) else "#000000",
             "rule_width": _bounded_number(page.get("furniture_rule_width", 0.75), 0, 4) or 0.75,
             "zone_styles": _zone_styles(page.get("zone_styles")),
+            "first_page": {"zones": {align: str(page.get(f"first_page_footer_{align}", ""))[:500]
+                                      for align in BOX_ALIGNMENTS
+                                      if isinstance(page.get(f"first_page_footer_{align}"), str)
+                                      and page.get(f"first_page_footer_{align}")},
+                           "show_page_numbers": page.get("first_page_show_page_numbers", True) is True,
+                           "footer_distance_mm": _bounded_number(page.get("first_page_footer_distance_mm"), 0, 100),
+                           "font_size": _bounded_number(page.get("first_page_footer_font_size"), 6, 48)},
             "background": page.get("background", "") if isinstance(page.get("background", ""), str) else ""}
 
 
@@ -397,7 +404,23 @@ def margin_boxes_css(page: dict[str, Any], zones: dict[str, dict[str, str]], fon
             style.append(f"border-bottom:{border};margin-bottom:{offset:g}mm" if side == "top"
                          else f"border-top:{border};margin-top:{offset:g}mm")
         rules.append(f"@{box}{{{';'.join(style)};}}")
-    return "".join(rules)
+    output = "".join(rules)
+    first_page = page["first_page"]
+    if first_page.get("zones") or first_page.get("show_page_numbers") is False:
+        first_rules = []
+        for align in BOX_ALIGNMENTS:
+            value = first_page.get("zones", {}).get(align, "")
+            parts = [css_string(value)] if value else []
+            if first_page.get("show_page_numbers") is True and page["page_number_position"] == f"footer-{align}":
+                parts.append(page_number_content(page["page_number_format"]))
+            style = [f"content:{' \" \" '.join(parts) if parts else '\"\"'}", f"font-family:{font_family}",
+                     f"font-size:{first_page.get('font_size') or page['header_footer_font_size']:g}px", f"text-align:{align}"]
+            distance = first_page.get("footer_distance_mm")
+            if distance is not None:
+                style.append(f"vertical-align:bottom;padding-bottom:{distance:g}mm")
+            first_rules.append(f"@bottom-{align}{{{';'.join(style)};}}")
+        output += "@page:first{" + "".join(first_rules) + "}"
+    return output
 
 
 def page_number_preview(number_format: str) -> str:

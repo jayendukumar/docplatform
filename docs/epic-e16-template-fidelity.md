@@ -124,6 +124,8 @@ DD-449 closed the ISDA positioned-gap case. A wrapped four-column form header on
 
 DD-450 expresses leaders in rich-text first rows as leader tab stops, with each word keeping its run style. It also splits closing brackets off a leader word ("......]"). ISDA rich-text leader gaps fell from 32 to 2; the two left are fused to preceding text. ISDA visual F1 is 0.9821, with 0 regressions. The ranking is now led by the different first-page footer.
 
+DD-451 maps a one-off first-page footer override. The ISDA first page now uses its centered copyright footer, suppresses the recurring page number on that page, and keeps the source footer distance and font size. The first-page footer gap is closed; the ISDA corpus run reports text F1 0.9986, visual F1 0.9866, expected-feature recall 1.0 and 0 regressions. The remaining ranked gaps are the two fused dot leaders and a zero-impact paragraph-spacing workaround.
+
 ## Loop
 
 1. Run the harness on the corpus and produce the gap report.
@@ -140,3 +142,4 @@ DD-450 expresses leaders in rich-text first rows as leader tab stops, with each 
 ## Still open
 
 - Raster comparison uses `pypdfium2==5.13.0` as fidelity tooling only (DD-419, DD-420). It is a single engine, so it is not second-engine or native-reader evidence.
+- The remaining ISDA editor gaps are two leaders fused to preceding text; first-page-different footer chrome is now represented by the editor contract (DD-451).

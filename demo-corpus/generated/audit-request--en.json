@@ -1,0 +1,129 @@
+{
+  "starter_id": "audit-request",
+  "category": "Legal & Compliance",
+  "language": "en",
+  "definition": {
+    "name": "Audit request (en)",
+    "locale": "en",
+    "sample_data": {
+      "primary": "Project Atlas",
+      "primary_label": "Matter",
+      "summary": [
+        {
+          "label": "Parties",
+          "value": "Northstar Holdings and Acme Manufacturing"
+        },
+        {
+          "label": "Effective date",
+          "value": "2026-01-15"
+        },
+        {
+          "label": "Owner",
+          "value": "Legal Operations"
+        },
+        {
+          "label": "Status",
+          "value": "Draft for review"
+        }
+      ],
+      "line_items": [
+        {
+          "label": "Review area",
+          "value": "Confidentiality and permitted use"
+        },
+        {
+          "label": "Review area",
+          "value": "Records retention"
+        },
+        {
+          "label": "Review area",
+          "value": "Approval authority"
+        }
+      ],
+      "notes": "This template is a drafting aid and does not replace legal advice or an approved policy.",
+      "recipient": {
+        "name": "Project Atlas"
+      },
+      "prepared_by": "Legal Operations",
+      "parties": "Northstar Holdings and Acme Manufacturing",
+      "effective_date": "2026-01-15",
+      "status": "Draft for review"
+    },
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Audit request",
+        "translation_key": "title",
+        "bold": true,
+        "font_size": 24
+      },
+      {
+        "type": "text",
+        "text": "Matter: {{primary}}",
+        "translation_key": "body"
+      },
+      {
+        "type": "text",
+        "text": "Matter details",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "summary",
+        "columns": [
+          {
+            "header": "Field",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Value",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Review checklist",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "line_items",
+        "columns": [
+          {
+            "header": "Item",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Details",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Notes: {{notes}}"
+      }
+    ],
+    "translations": {
+      "en": {
+        "title": "Audit request",
+        "body": "Prepared for Project Atlas."
+      }
+    },
+    "schema_version": 1
+  },
+  "verification": {
+    "missing_fields": [],
+    "missing_translations": [],
+    "scripts": [
+      "latin"
+    ]
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "starter_id": "memo",
+  "category": "General & Communications",
+  "language": "en",
+  "definition": {
+    "name": "Business memo (en)",
+    "locale": "en",
+    "sample_data": {
+      "primary": "Operations leadership team",
+      "primary_label": "Audience",
+      "summary": [
+        {
+          "label": "Author",
+          "value": "Alex Morgan"
+        },
+        {
+          "label": "Date",
+          "value": "2026-01-15"
+        },
+        {
+          "label": "Subject",
+          "value": "Quarterly operating update"
+        },
+        {
+          "label": "Status",
+          "value": "For information"
+        }
+      ],
+      "line_items": [
+        {
+          "label": "Headline",
+          "value": "Operating plan approved"
+        },
+        {
+          "label": "Owner",
+          "value": "Operations team"
+        },
+        {
+          "label": "Next update",
+          "value": "2026-02-15"
+        }
+      ],
+      "notes": "Confirm recipients, confidentiality classification and approval before distribution.",
+      "recipient": {
+        "name": "Operations leadership team"
+      },
+      "prepared_by": "Alex Morgan",
+      "issue_date": "2026-01-15",
+      "subject": "Quarterly operating update",
+      "status": "For information"
+    },
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Business memo",
+        "translation_key": "title",
+        "bold": true,
+        "font_size": 24
+      },
+      {
+        "type": "text",
+        "text": "Audience: {{primary}}",
+        "translation_key": "body"
+      },
+      {
+        "type": "text",
+        "text": "Communication details",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "summary",
+        "columns": [
+          {
+            "header": "Field",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Value",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Key messages",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "line_items",
+        "columns": [
+          {
+            "header": "Item",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Details",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Notes: {{notes}}"
+      }
+    ],
+    "translations": {
+      "en": {
+        "title": "Business memo",
+        "body": "Prepared for Operations leadership team."
+      }
+    },
+    "schema_version": 1
+  },
+  "verification": {
+    "missing_fields": [],
+    "missing_translations": [],
+    "scripts": [
+      "latin"
+    ]
+  }
+}

@@ -9,6 +9,11 @@ Planning baseline created on 2026-09-22 from [the supplied backlog](Backlog_DocG
 | [Licence scan](docs/dependencies.md#strict-scan) | Strict allow-list scan and generated SBOM workflow |
 | [All epics and stories](docs/epics.md) | All 15 epics and 218 stories, with original acceptance criteria, priority, size and release |
 | [E16 template fidelity tuning (proposed)](docs/epic-e16-template-fidelity.md) | Proposed internal epic: rebuild reference PDFs with the editor, compare and rank editor component gaps |
+| [E17 reusable component library (proposed)](docs/epic-e17-reusable-component-library.md) | Proposed scope addition: create, browse, insert and maintain declarative reusable component trees |
+| [E18 template gallery and workspace organization (proposed)](docs/epic-e18-template-gallery-and-workspace-organization.md) | Proposed scope addition: categorized starter rows, broad industry coverage, blank templates and folders |
+| [Demo-template verification corpus](demo-corpus/README.md) | Generated structural samples for every starter and exposed language |
+| [E19 identity, organization workspaces and entitlements (proposed)](docs/epic-e19-identity-organization-workspaces-and-entitlements.md) | Proposed scope addition: ordered personal/org template views, workspace isolation, guest access and SSO placeholders |
+| [Fictitious identity seed](docs/demo-identity-seed.md) | Explicit local seed for organization admins, members and membership-free individual accounts |
 | [Technology stack](docs/tech-stack.md) | Recommended architecture, alternatives, dependency constraints and research sources |
 | [Implementation plan](docs/implementation-plan.md) | Epic dependencies, milestones, validation gates and unresolved requirements |
 | [Design decisions](docs/design-decisions.md) | Living decision register; proposed choices remain distinct from accepted or implemented choices |

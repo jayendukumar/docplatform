@@ -1,6 +1,6 @@
 import pytest
 
-from app.components import ComponentExpansionError, expand_definition
+from app.components import ComponentDefinitionError, ComponentExpansionError, expand_definition, validate_component_definition
 
 
 def test_component_update_is_visible_to_every_template_reference():
@@ -44,3 +44,13 @@ def test_page_chrome_can_reference_text_components():
         expand_definition({"page": {"header_component_id": "header"}, "blocks": []}, {
             "header": {"blocks": [{"type": "table", "items": "rows"}]},
         })
+
+
+def test_component_definition_is_bounded_and_declarative():
+    validate_component_definition({"blocks": [{"type": "code", "code_type": "code128", "value": "{{id}}"},
+                                               {"type": "component", "component_id": "badge"}]})
+
+    with pytest.raises(ComponentDefinitionError, match="Unsupported"):
+        validate_component_definition({"blocks": [{"type": "script", "source": "alert(1)"}]})
+    with pytest.raises(ComponentDefinitionError, match="too many"):
+        validate_component_definition({"blocks": [{"type": "text", "text": str(index)} for index in range(101)]})

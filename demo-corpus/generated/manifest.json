@@ -1,0 +1,710 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-06T16:40:23.677846+00:00",
+  "catalog_size": 50,
+  "document_count": 58,
+  "documents": [
+    {
+      "id": "letter--en",
+      "starter_id": "letter",
+      "category": "General & Communications",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "letter--ar",
+      "starter_id": "letter",
+      "category": "General & Communications",
+      "language": "ar",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "arabic",
+        "latin"
+      ]
+    },
+    {
+      "id": "letter--zh",
+      "starter_id": "letter",
+      "category": "General & Communications",
+      "language": "zh",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "cjk",
+        "latin"
+      ]
+    },
+    {
+      "id": "invoice--en",
+      "starter_id": "invoice",
+      "category": "Finance Operations",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "invoice--de",
+      "starter_id": "invoice",
+      "category": "Finance Operations",
+      "language": "de",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "invoice--ja",
+      "starter_id": "invoice",
+      "category": "Finance Operations",
+      "language": "ja",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "cjk",
+        "latin"
+      ]
+    },
+    {
+      "id": "certificate--en",
+      "starter_id": "certificate",
+      "category": "Human Resources",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "certificate--hi",
+      "starter_id": "certificate",
+      "category": "Human Resources",
+      "language": "hi",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "devanagari",
+        "latin"
+      ]
+    },
+    {
+      "id": "certificate--fr",
+      "starter_id": "certificate",
+      "category": "Human Resources",
+      "language": "fr",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "receipt--en",
+      "starter_id": "receipt",
+      "category": "Finance Operations",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "receipt--th",
+      "starter_id": "receipt",
+      "category": "Finance Operations",
+      "language": "th",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin",
+        "thai"
+      ]
+    },
+    {
+      "id": "receipt--zh",
+      "starter_id": "receipt",
+      "category": "Finance Operations",
+      "language": "zh",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "cjk",
+        "latin"
+      ]
+    },
+    {
+      "id": "deal-summary--en",
+      "starter_id": "deal-summary",
+      "category": "Investment Banking",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "term-sheet--en",
+      "starter_id": "term-sheet",
+      "category": "Investment Banking",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "credit-approval--en",
+      "starter_id": "credit-approval",
+      "category": "Investment Banking",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "cashflow-forecast--en",
+      "starter_id": "cashflow-forecast",
+      "category": "Investment Banking",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "covenant-compliance--en",
+      "starter_id": "covenant-compliance",
+      "category": "Investment Banking",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "investment-fact-sheet--en",
+      "starter_id": "investment-fact-sheet",
+      "category": "Asset Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "portfolio-review--en",
+      "starter_id": "portfolio-review",
+      "category": "Asset Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "fund-quarterly-report--en",
+      "starter_id": "fund-quarterly-report",
+      "category": "Asset Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "kpi-dashboard--en",
+      "starter_id": "kpi-dashboard",
+      "category": "Asset Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "client-performance--en",
+      "starter_id": "client-performance",
+      "category": "Asset Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "insurance-quote--en",
+      "starter_id": "insurance-quote",
+      "category": "Insurance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "policy-schedule--en",
+      "starter_id": "policy-schedule",
+      "category": "Insurance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "claims-summary--en",
+      "starter_id": "claims-summary",
+      "category": "Insurance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "renewal-notice--en",
+      "starter_id": "renewal-notice",
+      "category": "Insurance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "underwriting-review--en",
+      "starter_id": "underwriting-review",
+      "category": "Insurance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "client-review--en",
+      "starter_id": "client-review",
+      "category": "Wealth Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "suitability-assessment--en",
+      "starter_id": "suitability-assessment",
+      "category": "Wealth Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "wealth-plan--en",
+      "starter_id": "wealth-plan",
+      "category": "Wealth Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "beneficiary-review--en",
+      "starter_id": "beneficiary-review",
+      "category": "Wealth Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "family-office-brief--en",
+      "starter_id": "family-office-brief",
+      "category": "Wealth Management",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "purchase-order--en",
+      "starter_id": "purchase-order",
+      "category": "Finance Operations",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "expense-report--en",
+      "starter_id": "expense-report",
+      "category": "Finance Operations",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "accounts-payable--en",
+      "starter_id": "accounts-payable",
+      "category": "Finance Operations",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "calendar-invite--en",
+      "starter_id": "calendar-invite",
+      "category": "Scheduling & Calendars",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "meeting-agenda--en",
+      "starter_id": "meeting-agenda",
+      "category": "Scheduling & Calendars",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "room-booking--en",
+      "starter_id": "room-booking",
+      "category": "Scheduling & Calendars",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "event-runbook--en",
+      "starter_id": "event-runbook",
+      "category": "Scheduling & Calendars",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "appointment-reminder--en",
+      "starter_id": "appointment-reminder",
+      "category": "Scheduling & Calendars",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "offer-letter--en",
+      "starter_id": "offer-letter",
+      "category": "Human Resources",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "payslip--en",
+      "starter_id": "payslip",
+      "category": "Human Resources",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "performance-review--en",
+      "starter_id": "performance-review",
+      "category": "Human Resources",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "onboarding-checklist--en",
+      "starter_id": "onboarding-checklist",
+      "category": "Human Resources",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "nda--en",
+      "starter_id": "nda",
+      "category": "Legal & Compliance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "compliance-attestation--en",
+      "starter_id": "compliance-attestation",
+      "category": "Legal & Compliance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "board-resolution--en",
+      "starter_id": "board-resolution",
+      "category": "Legal & Compliance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "audit-request--en",
+      "starter_id": "audit-request",
+      "category": "Legal & Compliance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "kyc-review--en",
+      "starter_id": "kyc-review",
+      "category": "Legal & Compliance",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "proposal--en",
+      "starter_id": "proposal",
+      "category": "Sales & Marketing",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "sales-quote--en",
+      "starter_id": "sales-quote",
+      "category": "Sales & Marketing",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "campaign-brief--en",
+      "starter_id": "campaign-brief",
+      "category": "Sales & Marketing",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "sales-order--en",
+      "starter_id": "sales-order",
+      "category": "Sales & Marketing",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "case-study--en",
+      "starter_id": "case-study",
+      "category": "Sales & Marketing",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "memo--en",
+      "starter_id": "memo",
+      "category": "General & Communications",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "executive-brief--en",
+      "starter_id": "executive-brief",
+      "category": "General & Communications",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "newsletter--en",
+      "starter_id": "newsletter",
+      "category": "General & Communications",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    },
+    {
+      "id": "announcement--en",
+      "starter_id": "announcement",
+      "category": "General & Communications",
+      "language": "en",
+      "blocks": 7,
+      "missing_fields": [],
+      "missing_translations": [],
+      "scripts": [
+        "latin"
+      ]
+    }
+  ]
+}

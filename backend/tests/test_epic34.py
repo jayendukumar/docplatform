@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
 from app.exports import extraction_xlsx
-from app.main import create_app
+from app.main import STARTER_CATALOG, create_app
 from app.models import Base
 from app.rendering import render_definition
 from app.storage import LocalStore
@@ -97,8 +97,10 @@ def test_multilingual_starter_catalog_is_launchable_and_renderable(tmp_path):
         catalog = client.get("/api/starters")
         assert catalog.status_code == 200
         items = catalog.json()["items"]
-        assert {item["id"] for item in items} == {"letter", "invoice", "certificate", "receipt"}
-        assert all(len(item["languages"]) >= 3 for item in items)
+        assert {"letter", "invoice", "certificate", "receipt"} <= {item["id"] for item in items}
+        assert {item["id"] for item in items} == set(STARTER_CATALOG)
+        multilingual = {"letter", "invoice", "certificate", "receipt"}
+        assert all(len(item["languages"]) >= 3 for item in items if item["id"] in multilingual)
         for item in items:
             assert set(item["languages"]) == set(item["definitions"])
             for language, definition in item["definitions"].items():

@@ -9,6 +9,48 @@ class ComponentExpansionError(ValueError):
     """Raised when a component reference cannot be safely expanded."""
 
 
+class ComponentDefinitionError(ValueError):
+    """Raised when a saved component is not a bounded declarative block tree."""
+
+
+ALLOWED_COMPONENT_BLOCKS = {
+    "text", "rich_text", "table", "loop", "if", "image", "code", "chart", "toc",
+    "component", "shape", "columns", "column_break", "columns_end",
+}
+MAX_COMPONENT_BLOCKS = 100
+MAX_COMPONENT_DEPTH = 8
+
+
+def validate_component_definition(definition: dict[str, Any]) -> None:
+    """Validate the safe subset accepted by the component-library API."""
+    if not isinstance(definition, dict) or not isinstance(definition.get("blocks"), list):
+        raise ComponentDefinitionError("definition.blocks must be an array")
+    seen = 0
+
+    def visit(blocks: Any, depth: int) -> None:
+        nonlocal seen
+        if depth > MAX_COMPONENT_DEPTH:
+            raise ComponentDefinitionError("Component nesting is too deep")
+        if not isinstance(blocks, list):
+            raise ComponentDefinitionError("Nested component blocks must be arrays")
+        for block in blocks:
+            if not isinstance(block, dict):
+                raise ComponentDefinitionError("Component blocks must be objects")
+            kind = block.get("type", "text")
+            if kind not in ALLOWED_COMPONENT_BLOCKS:
+                raise ComponentDefinitionError(f"Unsupported component block type: {kind}")
+            seen += 1
+            if seen > MAX_COMPONENT_BLOCKS:
+                raise ComponentDefinitionError("Component contains too many blocks")
+            if kind == "component" and (not isinstance(block.get("component_id"), str) or not block["component_id"]):
+                raise ComponentDefinitionError("Nested component references require component_id")
+            for key in ("blocks", "then", "else"):
+                if key in block:
+                    visit(block[key], depth + 1)
+
+    visit(definition["blocks"], 0)
+
+
 def expand_definition(definition: dict[str, Any], registry: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """Return a deep-copied definition with component references expanded.
 

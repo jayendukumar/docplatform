@@ -1,0 +1,129 @@
+{
+  "starter_id": "insurance-quote",
+  "category": "Insurance",
+  "language": "en",
+  "definition": {
+    "name": "Insurance quote (en)",
+    "locale": "en",
+    "sample_data": {
+      "primary": "Acme Manufacturing Ltd.",
+      "primary_label": "Insured",
+      "summary": [
+        {
+          "label": "Policy number",
+          "value": "POL-2026-00421"
+        },
+        {
+          "label": "Effective date",
+          "value": "2026-02-01"
+        },
+        {
+          "label": "Expiry date",
+          "value": "2027-01-31"
+        },
+        {
+          "label": "Underwriter",
+          "value": "Jordan Lee"
+        }
+      ],
+      "line_items": [
+        {
+          "label": "Property cover",
+          "value": "2,000,000"
+        },
+        {
+          "label": "Business interruption",
+          "value": "500,000"
+        },
+        {
+          "label": "Annual premium",
+          "value": "18,750"
+        }
+      ],
+      "notes": "Coverage is subject to the policy wording, endorsements and applicable exclusions.",
+      "recipient": {
+        "name": "Acme Manufacturing Ltd."
+      },
+      "prepared_by": "Jordan Lee",
+      "policy_number": "POL-2026-00421",
+      "effective_date": "2026-02-01",
+      "expiry_date": "2027-01-31"
+    },
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Insurance quote",
+        "translation_key": "title",
+        "bold": true,
+        "font_size": 24
+      },
+      {
+        "type": "text",
+        "text": "Insured: {{primary}}",
+        "translation_key": "body"
+      },
+      {
+        "type": "text",
+        "text": "Policy details",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "summary",
+        "columns": [
+          {
+            "header": "Field",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Value",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Coverage schedule",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "line_items",
+        "columns": [
+          {
+            "header": "Item",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Details",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Notes: {{notes}}"
+      }
+    ],
+    "translations": {
+      "en": {
+        "title": "Insurance quote",
+        "body": "Prepared for Acme Manufacturing Ltd.."
+      }
+    },
+    "schema_version": 1
+  },
+  "verification": {
+    "missing_fields": [],
+    "missing_translations": [],
+    "scripts": [
+      "latin"
+    ]
+  }
+}

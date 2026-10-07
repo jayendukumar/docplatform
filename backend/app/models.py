@@ -17,6 +17,9 @@ class Template(Base):
     folder: Mapped[str] = mapped_column(String(200), default="", server_default="")
     tags_json: Mapped[str] = mapped_column(Text, default="[]", server_default="[]")
     published_version_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    owner_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    workspace_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    visibility: Mapped[str] = mapped_column(String(20), default="workspace", server_default="workspace")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -28,6 +31,15 @@ class TemplateVersion(Base):
     status: Mapped[str] = mapped_column(String(20), default="draft", server_default="draft")
     change_summary: Mapped[str] = mapped_column(String(500), default="", server_default="")
     definition_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TemplateAlias(Base):
+    __tablename__ = "template_aliases"
+    duplicate_template_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    canonical_template_id: Mapped[str] = mapped_column(String(64), index=True)
+    definition_hash: Mapped[str] = mapped_column(String(64), index=True)
+    reason: Mapped[str] = mapped_column(String(200), default="exact-definition-duplicate", server_default="exact-definition-duplicate")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -100,6 +112,9 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(30), default="admin", server_default="admin")
     failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    account_type: Mapped[str] = mapped_column(String(20), default="member", server_default="member")
+    status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
+    entitlements_json: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -120,6 +135,37 @@ class ApiKey(Base):
     key_hash: Mapped[str] = mapped_column(String(64), unique=True)
     scopes_json: Mapped[str] = mapped_column(Text)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    slug: Mapped[str] = mapped_column(String(120), unique=True)
+    parent_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    entitlements_json: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    slug: Mapped[str] = mapped_column(String(120))
+    entitlements_json: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class OrganizationMembership(Base):
+    __tablename__ = "organization_memberships"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    organization_id: Mapped[str] = mapped_column(String(64), index=True)
+    workspace_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    role: Mapped[str] = mapped_column(String(30), default="member", server_default="member")
+    entitlements_json: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

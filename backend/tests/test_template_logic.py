@@ -2,7 +2,460 @@ import base64
 
 import pytest
 
+from app.isda_template import editable_isda_blocks, is_placeholder_isda, isda_data_schema, isda_sample_data
 from app.rendering import render_definition
+
+
+def test_isda_scaffold_is_editable_and_page_owned():
+    blocks = editable_isda_blocks()
+    assert len(blocks) > 36
+    assert blocks[0]["page_number"] == 1
+    assert blocks[-1]["page_number"] == 36
+    assert any(block.get("field_path") == "agreement_date" for block in blocks if block.get("page_number") == 1)
+    assert any("1. Interpretation" in block["text"] for block in blocks if block.get("page_number") == 1)
+    assert any(block.get("field_role") == "Multiple Transaction Payment Netting election" for block in blocks)
+    assert any("Events of Default" in block["text"] for block in blocks if block.get("page_number") == 7)
+    assert any("6. Early Termination; Close-Out Netting" in block["text"] for block in blocks if block.get("page_number") == 11)
+    assert any("Contractual Currency" in block["text"] for block in blocks if block.get("page_number") == 15)
+    assert any("Interest and Compensation" in block["text"] for block in blocks if block.get("page_number") == 17)
+    assert any("10. Offices; Multibranch Parties" in block["text"] for block in blocks if block.get("page_number") == 19)
+    assert any("14. Definitions" in block["text"] for block in blocks if block.get("page_number") == 21)
+    assert any("Market Quotation" in block["text"] for block in blocks if block.get("page_number") == 25)
+    assert any("Potential Event of Default" in block["text"] for block in blocks if block.get("page_number") == 26)
+    assert any("SCHEDULE to the 2002 Master Agreement" in block["text"] for block in blocks if block.get("page_number") == 29)
+    assert any("Cross-Default" in block["text"] for block in blocks if block.get("page_number") == 30)
+    assert any(block.get("field_role", "").startswith("Payer Tax Representation") for block in blocks if block.get("page_number") == 31)
+    assert any(block.get("field_path") == "schedule.agreements.document_delivery_party_x" for block in blocks if block.get("page_number") == 32)
+    assert next(block for block in blocks if block.get("semantic_id") == "schedule-documents")["type"] == "table"
+    assert any(block.get("semantic_kind") == "field" and block.get("field_path") == "schedule.process_agent.party_x" for block in blocks)
+    assert any(block.get("semantic_kind") == "field" and block.get("field_path") == "schedule.payment_netting.multiple_transaction" for block in blocks)
+    assert any(block.get("semantic_kind") == "signature" and block.get("field_path") == "signatures.party_x.by" for block in blocks)
+    assert any(block.get("semantic_kind") == "signature" and block.get("field_path") == "signatures.party_y.by" for block in blocks)
+    assert all(block["text"].strip() for block in blocks)
+    assert is_placeholder_isda({"blocks": [{"type": "text", "text": "u{200B}"}]})
+    assert not is_placeholder_isda({"blocks": blocks})
+
+
+def test_isda_scaffold_schema_describes_bound_fields():
+    schema = isda_data_schema()
+    assert schema["$id"] == "isda-master-agreement"
+    assert schema["properties"]["agreement_date"]["title"] == "Agreement date"
+    assert schema["properties"]["schedule_documents"]["items"]["properties"]["delivery_date"]["format"] == "date"
+    assert schema["properties"]["definitions"]["properties"]["market_quotation"]["title"] == "Market Quotation definition"
+
+
+def test_isda_schedule_documents_use_a_bound_repeatable_table():
+    blocks = editable_isda_blocks()
+    documents = next(block for block in blocks if block.get("semantic_id") == "schedule-documents")
+    assert documents["type"] == "table"
+    assert documents["semantic_kind"] == "schedule"
+    assert documents["position_mode"] == "flow"
+    assert documents["position_unit"] == "mm"
+    assert documents["anchor_id"] == "isda-schedule-documents"
+    assert documents["items"] == "schedule_documents"
+    assert [column["path"] for column in documents["columns"]] == [
+        "party_required", "form_document", "delivery_date", "covered_by_section_3d"
+    ]
+    assert len(isda_sample_data()["schedule_documents"]) == 2
+    assert isda_sample_data()["schedule_documents"][0]["party_required"] == "Party X"
+    assert isda_data_schema()["properties"]["schedule_documents"]["items"]["properties"]["form_document"]["type"] == "string"
+    tax_documents = next(block for block in editable_isda_blocks() if block.get("semantic_id") == "schedule-tax-documents")
+    assert tax_documents["page_number"] == 32
+    assert tax_documents["position_mode"] == "flow"
+    assert tax_documents["position_unit"] == "mm"
+    assert tax_documents["anchor_id"] == "isda-schedule-tax-documents"
+    assert tax_documents["items"] == "schedule_tax_documents"
+    assert [column["path"] for column in tax_documents["columns"]] == ["party_required", "form_document", "delivery_date"]
+    assert len(isda_sample_data()["schedule_tax_documents"]) == 2
+
+
+def test_every_isda_repeatable_table_column_is_projected_in_array_item_schema():
+    schema = isda_data_schema()["properties"]
+    for block in editable_isda_blocks():
+        if block.get("type") != "table":
+            continue
+        item_schema = schema[block["items"]]["items"]["properties"]
+        for column in block["columns"]:
+            assert column["path"] in item_schema, (block["semantic_id"], column["path"])
+            assert item_schema[column["path"]].get("type") in {"string", "number", "boolean"}, column["path"]
+
+
+def test_isda_schedule_and_execution_objects_are_semantic_and_page_owned():
+    blocks = editable_isda_blocks()
+    by_id = {block["semantic_id"]: block for block in blocks if block.get("semantic_id")}
+    assert by_id["schedule-intro"]["page_number"] == 29
+    assert by_id["schedule-intro"]["semantic_kind"] == "schedule"
+    assert by_id["schedule-agreement-date"]["page_number"] == 29
+    assert by_id["schedule-agreement-date"]["field_path"] == "agreement_date"
+    assert by_id["schedule-cross-default"]["semantic_kind"] == "clause"
+    assert by_id["process-agent-party-x"]["field_path"] == "schedule.process_agent.party_x"
+    assert by_id["signature-party-x-by"]["semantic_kind"] == "signature"
+    assert by_id["signature-party-y-date"]["field_role"] == "Party B execution date"
+    assert {block["page_number"] for block in blocks if block.get("semantic_id") and block["page_number"] >= 29} == set(range(29, 37))
+
+
+def test_isda_schema_covers_schedule_and_execution_bindings():
+    schema = isda_data_schema()
+    fields = str(schema)
+    for path in ("process_agent", "offices", "payment_netting", "notices", "signatures"):
+        assert path in fields
+    sample = isda_sample_data()
+    assert sample["schedule"]["process_agent"]["party_x"] == "Process Agent A"
+    assert sample["signatures"]["party_y"]["date"] == "31 December 2002"
+
+
+def test_every_bound_isda_field_path_is_projected_in_schema_and_sample_data():
+    schema = isda_data_schema()
+    sample = isda_sample_data()
+
+    def lookup_sample(root, path):
+        value = root
+        for part in path.split("."):
+            assert isinstance(value, dict) and part in value, path
+            value = value[part]
+        return value
+
+    def lookup_schema(root, path):
+        value = root
+        for part in path.split("."):
+            assert isinstance(value, dict) and part in value, path
+            value = value[part]
+            if part != path.split(".")[-1]:
+                value = value["properties"]
+        return value
+
+    for block in editable_isda_blocks():
+        path = block.get("field_path")
+        if not path:
+            continue
+        schema_node = lookup_schema(schema["properties"], path)
+        assert schema_node.get("type") in {"string", "object"}, path
+        assert lookup_sample(sample, path) not in (None, ""), path
+
+
+def test_every_scalar_isda_schema_field_is_bound_to_an_editable_object():
+    schema = isda_data_schema()
+    bound = {block["field_path"] for block in editable_isda_blocks() if block.get("field_path")}
+    scalar_paths = set()
+
+    def collect(node, prefix=""):
+        if not isinstance(node, dict):
+            return
+        properties = node.get("properties", {})
+        if not isinstance(properties, dict):
+            return
+        for name, child in properties.items():
+            path = f"{prefix}.{name}" if prefix else name
+            if child.get("type") == "object":
+                collect(child, path)
+            elif child.get("type") != "array":
+                scalar_paths.add(path)
+
+    collect(schema)
+    assert scalar_paths <= bound
+
+
+def test_isda_definitions_are_semantic_and_page_owned():
+    blocks = editable_isda_blocks()
+    by_id = {block["semantic_id"]: block for block in blocks if block.get("semantic_id")}
+    assert by_id["definition-market-quotation"]["page_number"] == 25
+    assert by_id["definition-indemnifiable-tax"]["field_path"] == "definitions.indemnifiable_tax"
+    assert by_id["definition-office"]["field_path"] == "definitions.office"
+    assert by_id["definition-non-defaulting-party"]["page_number"] == 26
+    assert by_id["definition-termination-event"]["page_number"] == 27
+    assert by_id["definition-specified-entity"]["page_number"] == 27
+    assert by_id["definition-unpaid-amounts"]["field_path"] == "definitions.unpaid_amounts"
+    assert all(by_id[semantic_id]["semantic_kind"] == "clause" for semantic_id in (
+        "definitions-indemnifiable-tax", "definitions-law", "definitions-local-business-day", "definitions-loss", "definitions-market-quotation",
+        "definitions-non-defaulting-party", "definitions-notice", "definitions-office", "definitions-potential-event-of-default", "definitions-proceedings",
+        "definitions-specified-entity", "definitions-specified-indebtedness", "definitions-tax", "definitions-termination-event", "definitions-transaction-term", "definitions-unpaid-amounts",
+    ))
+    assert all(by_id[semantic_id]["page_number"] == page for semantic_id in (
+        "definitions-indemnifiable-tax", "definitions-law", "definitions-local-business-day", "definitions-loss", "definitions-market-quotation",
+    ) for page in (25,))
+    assert all(by_id[semantic_id]["page_number"] == 26 for semantic_id in (
+        "definitions-non-defaulting-party", "definitions-notice", "definitions-office", "definitions-potential-event-of-default", "definitions-proceedings",
+    ))
+    assert all(by_id[semantic_id]["page_number"] == 27 for semantic_id in (
+        "definitions-specified-entity", "definitions-specified-indebtedness", "definitions-tax", "definitions-termination-event", "definitions-transaction", "definitions-unpaid-amounts",
+    ))
+    assert by_id["section-1-definitions"]["page_number"] == 1
+    assert by_id["section-2-payment-obligations"]["page_number"] == 2
+    assert by_id["section-2-tax-withholding"]["page_number"] == 3
+    assert by_id["section-3-binding-obligations"]["page_number"] == 4
+    assert by_id["section-3-absence-litigation"]["page_number"] == 5
+    assert by_id["section-4-stamp-tax"]["page_number"] == 6
+    assert by_id["section-5-failure-pay-deliver"]["page_number"] == 7
+    assert by_id["section-5-merger-consequence"]["page_number"] == 8
+    assert by_id["section-5-waiting-period-deferrals"]["page_number"] == 9
+    assert by_id["section-5-designated-event"]["page_number"] == 10
+    assert by_id["section-5-designated-event-control"]["semantic_kind"] == "clause"
+    assert by_id["section-5-hierarchy-illegality-default"]["page_number"] == 10
+    assert by_id["section-5-deferral-event-ceases"]["page_number"] == 10
+    assert by_id["section-6-designation-notice"]["page_number"] == 11
+    assert by_id["section-7-corporate-asset-transfers"]["page_number"] == 15
+    assert by_id["section-7-early-termination-interest-transfers"]["page_number"] == 15
+    assert by_id["section-6-right-to-terminate-illegality"]["page_number"] == 12
+    assert by_id["section-6-early-termination-two-affected-parties"]["page_number"] == 13
+    assert by_id["section-6-set-off-conversion"]["page_number"] == 14
+    assert by_id["section-9-illegality-force-majeure-interest"]["page_number"] == 17
+    assert by_id["section-10-multibranch-offices"]["page_number"] == 19
+    assert by_id["section-13-process-agent-replacement"]["page_number"] == 20
+    assert by_id["definitions-affected-transactions-other"]["page_number"] == 21
+    assert by_id["definitions-applicable-deferral-rate-mean"]["page_number"] == 22
+    assert by_id["definitions-close-out-amount-information"]["semantic_kind"] == "clause"
+    assert by_id["definitions-close-out-market-information"]["page_number"] == 23
+    assert by_id["definitions-consent"]["page_number"] == 23
+    assert by_id["definitions-cross-default"]["page_number"] == 24
+    assert by_id["definitions-general-business-day"]["semantic_kind"] == "clause"
+    assert by_id["section-9-counterparts-confirmations"]["page_number"] == 16
+    assert by_id["definitions-additional-representation"]["page_number"] == 21
+    assert by_id["definitions-contractual-currency"]["page_number"] == 22
+    assert by_id["definitions-close-out-good-faith"]["page_number"] == 23
+    assert by_id["definitions-illegality"]["page_number"] == 24
+    assert by_id["schedule-part1-termination-purpose"]["page_number"] == 29
+    assert by_id["schedule-tax-purpose"]["page_number"] == 31
+    assert by_id["schedule-process-agent-purpose"]["page_number"] == 34
+    assert by_id["signature-attestation"]["page_number"] == 36
+    assert by_id["section-5-force-majeure"]["page_number"] == 9
+    assert by_id["section-5-tax-event-upon-merger"]["page_number"] == 9
+    assert by_id["section-5-additional-termination-event"]["page_number"] == 10
+    assert by_id["section-6-termination-event-notice"]["page_number"] == 11
+    assert by_id["section-6-force-majeure-notice"]["page_number"] == 11
+    assert by_id["section-6-transfer-to-avoid-event"]["page_number"] == 11
+    assert by_id["section-6-right-to-terminate"]["page_number"] == 12
+    assert by_id["section-6-effect-designation"]["page_number"] == 12
+    assert by_id["section-6-payments-early-termination"]["page_number"] == 13
+    assert by_id["section-6-mid-market-events"]["page_number"] == 14
+    assert by_id["section-6-adjustments"]["page_number"] == 14
+    assert by_id["section-6-pre-estimate"]["page_number"] == 14
+    assert by_id["section-7-transfer-exceptions"]["page_number"] == 15
+    assert by_id["section-8-payment-currency"]["page_number"] == 15
+    assert by_id["section-8-separate-indemnities"]["page_number"] == 16
+    assert by_id["section-8-evidence-of-loss"]["page_number"] == 16
+    assert by_id["section-9-entire-agreement"]["page_number"] == 16
+    assert by_id["section-9-amendments"]["page_number"] == 16
+    assert by_id["definitions-affected-transactions"]["page_number"] == 21
+    assert by_id["definitions-automatic-early-termination"]["page_number"] == 22
+    assert by_id["definitions-confirmation-consent"]["page_number"] == 23
+    assert by_id["definitions-credit-support-provider"]["page_number"] == 24
+    assert by_id["section-9-defaulted-payments"]["page_number"] == 17
+    assert by_id["section-9-defaulted-deliveries"]["page_number"] == 17
+    assert by_id["section-9-interest-calculation"]["page_number"] == 18
+    assert by_id["section-10-office-recourse"]["page_number"] == 19
+    assert by_id["section-12-change-details"]["page_number"] == 20
+    assert by_id["section-13-service-process"]["page_number"] == 20
+    assert by_id["execution-agreement-date"]["field_path"] == "agreement_date"
+    assert isda_data_schema()["x-docplatform-schema-version"] == 3
+
+
+def test_isda_master_and_schedule_execution_signatures_follow_source_page_ownership():
+    blocks = {block["semantic_id"]: block for block in editable_isda_blocks() if block.get("semantic_id")}
+    assert blocks["master-signature-party-x-by"]["page_number"] == 28
+    assert blocks["master-signature-party-y-date"]["page_number"] == 28
+    assert blocks["master-signature-party-x-name-of-party"]["field_path"] == "master_signatures.party_x.name_of_party"
+    assert blocks["schedule-other-provisions"]["page_number"] == 36
+    assert blocks["signature-party-x-by"]["page_number"] == 36
+    assert blocks["signature-party-y-name-of-party"]["field_path"] == "signatures.party_y.name_of_party"
+    schema = isda_data_schema()
+    assert "master_signatures" in schema["properties"]
+    assert isda_sample_data()["master_signatures"]["party_x"]["name"] == "Master signatory A"
+    assert blocks["master-execution-clause"]["semantic_kind"] == "signature"
+    assert blocks["execution-attestation"]["page_number"] == 28
+
+
+def test_schedule_notice_fields_follow_source_page_ownership():
+    blocks = {block["semantic_id"]: block for block in editable_isda_blocks() if block.get("semantic_id")}
+    assert blocks["schedule-notice-party-x"]["page_number"] == 33
+    assert blocks["schedule-notice-party-y"]["page_number"] == 33
+    assert blocks["notice-address-party-x"]["page_number"] == 33
+    assert blocks["notice-attention-party-x"]["page_number"] == 33
+    assert blocks["notice-telex-party-x"]["page_number"] == 33
+    assert blocks["notice-telephone-party-y"]["field_path"] == "schedule.notices.telephone_party_y"
+    assert blocks["notice-email-party-x"]["page_number"] == 33
+    assert blocks["notice-messaging-party-y"]["field_path"] == "schedule.notices.electronic_messaging_party_y"
+    assert blocks["notice-instructions-party-x"]["page_number"] == 33
+    assert blocks["offices-application"]["page_number"] == 34
+    assert blocks["credit-support-provider-party-y"]["field_path"] == "schedule.agreements.credit_support_provider_party_y"
+    assert blocks["credit-support-provider-party-x"]["page_number"] == 34
+    assert blocks["credit-support-document-party-x"]["page_number"] == 34
+    assert blocks["governing-law"]["page_number"] == 34
+    assert blocks["additional-representation"]["page_number"] == 35
+    assert blocks["absence-litigation-specified-entity-party-x"]["page_number"] == 35
+    assert blocks["absence-litigation-specified-entity-party-y"]["field_path"] == "schedule.additional_provisions.absence_of_litigation_party_y"
+    assert blocks["additional-representation-detail"]["field_path"] == "schedule.additional_provisions.additional_representation_detail"
+    assert blocks["recording-conversations"]["page_number"] == 35
+    assert blocks["specified-indebtedness"]["page_number"] == 30
+    assert blocks["additional-termination-event"]["page_number"] == 30
+    assert blocks["specified-entity-5a-v-party-x"]["page_number"] == 29
+    assert blocks["specified-entity-5b-v-party-y"]["field_path"] == "schedule.elections.specified_entity_5b_v_party_y"
+    assert blocks["tax-jurisdiction-party-y"]["page_number"] == 31
+    assert blocks["specified-treaty-party-x"]["field_path"] == "schedule.tax.specified_treaty_party_x"
+    assert blocks["specified-jurisdiction-party-y"]["page_number"] == 31
+    assert blocks["grace-period-party-x"]["field_path"] == "schedule.termination.cross_default.grace_period_party_x"
+    assert blocks["automatic-early-termination-party-y"]["page_number"] == 30
+    assert blocks["payer-representation-choice-party-x"]["field_path"] == "schedule.tax.payer_representation_choice_party_x"
+    assert blocks["payee-representation-choice-party-y"]["page_number"] == 31
+    assert not any(block.get("page_number") == 35 and block.get("field_path", "").startswith("schedule.notices")
+                   for block in editable_isda_blocks())
+
+
+def test_schedule_other_provisions_and_execution_share_page_36_without_extra_break():
+    blocks = {block["semantic_id"]: block for block in editable_isda_blocks() if block.get("semantic_id")}
+    assert blocks["schedule-other-provisions"]["page_number"] == 36
+    assert blocks["execution-clause"]["page_number"] == 36
+    assert blocks["schedule-other-provisions"]["break_before"] is True
+    assert blocks["execution-clause"]["break_before"] is False
+
+
+def test_isda_render_emits_one_owned_surface_per_page_and_keeps_page_36_execution_together():
+    rendered = render_definition({
+        "page": {"size": "Letter", "orientation": "portrait", "margin_mm": 0},
+        "blocks": editable_isda_blocks(),
+        "data_schema": isda_data_schema(),
+    }, isda_sample_data())
+    artifact = rendered["artifact"]
+    assert rendered["missing_fields"] == []
+    assert artifact.count('class="page-surface') == 36
+    assert all(f'data-page-number="{page}"' in artifact for page in range(1, 37))
+    assert "height:279mm;overflow:hidden;box-sizing:border-box;" in artifact
+    page_36 = artifact.split('data-page-number="36"', 1)[1].split("</section>", 1)[0]
+    assert 'isda-schedule-other-provisions' in page_36
+    assert 'isda-execution-clause' in page_36
+    assert 'data-page-number="37"' not in artifact
+
+
+def test_isda_semantic_inventory_has_unique_ids_and_bounded_kind_ownership():
+    blocks = editable_isda_blocks()
+    semantic_blocks = [block for block in blocks if block.get("semantic_id")]
+    ids = [block["semantic_id"] for block in semantic_blocks]
+    assert len(semantic_blocks) == len(blocks) == 381
+    assert len(ids) == len(set(ids))
+    assert {block["semantic_kind"] for block in semantic_blocks} <= {"clause", "field", "schedule", "signature"}
+    assert all(1 <= block["page_number"] <= 36 for block in semantic_blocks)
+    assert all(block["semantic_kind"] == "signature" for block in semantic_blocks
+               if block["semantic_id"].startswith(("master-signature-", "signature-party-"))
+               and block["semantic_id"].endswith("-by"))
+    assert all(block["page_number"] == 28 for block in semantic_blocks
+               if block["semantic_id"].startswith("master-signature-"))
+    assert all(block["page_number"] == 36 for block in semantic_blocks
+               if block["semantic_id"].startswith("signature-party-"))
+
+
+def test_early_page_container_clauses_do_not_duplicate_their_child_prose():
+    blocks = {block["semantic_id"]: block for block in editable_isda_blocks() if block.get("semantic_id")}
+    assert blocks["section-1-interpretation"]["text"] == "1. Interpretation"
+    assert blocks["section-2-general-conditions"]["text"] == "(a) General Conditions"
+    assert blocks["section-2-netting-tax"]["text"] == "(c) Netting of Payments; (d) Deduction or Withholding for Tax"
+    assert blocks["section-3-tax-no-agency"]["text"].startswith("(e) Payer Tax Representation")
+    assert blocks["section-5-event-categories"]["text"] == "Event of Default categories"
+    assert blocks["section-5-consequences"]["text"] == "Consequences for specified Events of Default"
+    assert blocks["section-6-early-termination"]["text"] == "6. Early Termination; Close-Out Netting"
+    assert blocks["section-6-designation"]["text"] == "Designation mechanics"
+    assert blocks["section-6-terminated-transactions"]["text"] == "Effects for Terminated Transactions"
+    assert blocks["section-7-transfer-exceptions"]["text"] == "Transfer exceptions"
+    assert blocks["schedule-cross-default"]["text"] == "PART 1. TERMINATION PROVISIONS (continued)"
+    assert blocks["section-3-basic-representations"]["text"] == "(a) Basic Representations"
+    assert blocks["section-9-interest"]["text"] == "(h) Interest and Compensation"
+    assert blocks["section-10-offices"]["text"] == "10. Offices; Multibranch Parties"
+
+
+def test_mid_agreement_container_clauses_do_not_duplicate_their_child_prose():
+    blocks = {block["semantic_id"]: block for block in editable_isda_blocks() if block.get("semantic_id")}
+    assert blocks["section-6-calculations"]["text"] == "(d) Calculations; Payment Date"
+    assert "Each party provides a statement" in blocks["section-6-calculation-delivery"]["text"]
+    assert blocks["section-6-set-off"]["text"] == "(f) Set-Off"
+    assert "reduced by set-off" in blocks["section-6-set-off-right"]["text"]
+    assert blocks["section-8-currency-judgment"]["text"] == "8. Contractual Currency (continued)"
+    assert "converted using commercially reasonable procedures" in blocks["section-8-judgment-conversion"]["text"]
+def test_isda_measured_schedule_fields_are_unique_page_owned_and_bound():
+    blocks = editable_isda_blocks()
+    by_id = {block["semantic_id"]: block for block in blocks if block.get("semantic_id")}
+    assert len(by_id) == len(blocks)
+    expected_pages = {
+        29: {"counterparty-type-party-x", "counterparty-type-party-y", "specified-entity-5a-v-party-x", "specified-entity-5b-v-party-y"},
+        30: {"specified-transaction", "cross-default-party-x", "grace-period-party-y", "automatic-early-termination-party-x", "termination-currency"},
+        31: {"payer-tax-party-x", "payer-tax-party-y", "specified-treaty-party-x", "specified-jurisdiction-party-y", "payee-representation-choice-party-y"},
+        32: {"tax-representation-party-x", "tax-representation-party-y", "document-delivery-party-x", "document-delivery-party-y"},
+        33: {"notice-address-party-x", "notice-attention-party-y", "notice-email-party-x", "notice-messaging-party-y", "notice-instructions-party-x"},
+        34: {"multibranch-party-x", "multibranch-party-y", "calculation-agent", "credit-support-provider-party-y", "governing-law"},
+        35: {"netting-transactions", "netting-start-date", "affiliate", "absence-litigation-specified-entity-party-y", "additional-representation-detail"},
+    }
+    for page_number, semantic_ids in expected_pages.items():
+        for semantic_id in semantic_ids:
+            block = by_id[semantic_id]
+            assert block["page_number"] == page_number
+            assert block["semantic_kind"] == "field"
+            assert block["field_path"]
+
+
+def test_every_isda_page_has_a_semantic_clause_owner():
+    blocks = editable_isda_blocks()
+    page_clauses = {page: [block for block in blocks if block.get("page_number") == page and block.get("semantic_kind") == "clause"] for page in range(1, 25)}
+    assert all(page_clauses.values())
+
+
+def test_later_agreement_pages_are_split_into_stable_clause_objects():
+    blocks = editable_isda_blocks()
+    by_id = {block["semantic_id"]: block for block in blocks if block.get("semantic_id")}
+    assert by_id["section-9-interest"]["page_number"] == 17
+    assert by_id["section-9-deferred-delivery"]["page_number"] == 17
+    assert by_id["section-12-notice-effectiveness"]["page_number"] == 20
+    assert by_id["definitions-credit-support"]["page_number"] == 24
+    assert all(by_id[semantic_id]["semantic_kind"] == "clause" for semantic_id in (
+        "section-9-interest", "section-9-deferred-delivery", "section-12-notice-effectiveness",
+        "definitions-credit-support",
+    ))
+
+
+def test_opening_agreement_pages_are_split_into_stable_clause_objects():
+    blocks = editable_isda_blocks()
+    by_id = {block["semantic_id"]: block for block in blocks if block.get("semantic_id")}
+    assert by_id["agreement-opening"]["page_number"] == 1
+    assert by_id["section-1-interpretation"]["page_number"] == 1
+    assert by_id["section-2-general-conditions"]["page_number"] == 2
+    assert by_id["section-5-event-categories"]["page_number"] == 7
+    assert all(by_id[semantic_id]["semantic_kind"] == "clause" for semantic_id in (
+        "agreement-opening", "section-1-interpretation", "section-2-general-conditions",
+        "section-5-event-categories",
+    ))
+
+
+def test_termination_and_miscellaneous_pages_are_split_into_stable_clause_objects():
+    blocks = editable_isda_blocks()
+    by_id = {block["semantic_id"]: block for block in blocks if block.get("semantic_id")}
+    assert by_id["section-5-illegality"]["page_number"] == 9
+    assert by_id["section-6-early-termination"]["page_number"] == 11
+    assert by_id["section-6-set-off"]["page_number"] == 14
+    assert by_id["section-8-contractual-currency"]["page_number"] == 15
+    assert by_id["section-9-miscellaneous"]["page_number"] == 16
+    assert all(by_id[semantic_id]["semantic_kind"] == "clause" for semantic_id in (
+        "section-5-illegality", "section-6-early-termination", "section-6-set-off",
+        "section-8-contractual-currency", "section-9-miscellaneous",
+    ))
+
+
+def test_isda_measured_schedule_fields_have_sample_values_and_no_missing_bindings():
+    blocks = editable_isda_blocks()
+    measured = [block for block in blocks if block.get("semantic_id") in {"counterparty-type-party-x", "specified-transaction", "payer-tax-party-y", "notice-attention-party-x", "notice-email-party-x", "calculation-agent", "governing-law", "netting-start-date"}]
+    assert len(measured) == 8
+    assert all(block["field_path"].startswith("schedule.") for block in measured)
+    rendered = render_definition({"blocks": blocks, "data_schema": isda_data_schema()}, isda_sample_data())
+    assert rendered["missing_fields"] == []
+
+
+def test_isda_measured_fields_use_bounded_mm_positions_for_source_calibration():
+    blocks = {block["semantic_id"]: block for block in editable_isda_blocks() if block.get("semantic_id")}
+    absolute = [block for block in blocks.values() if block.get("position_mode") == "absolute"]
+    assert absolute
+    for block in absolute:
+        assert block["position_mode"] == "absolute"
+        assert block["position_unit"] == "mm"
+        assert 0 <= block["position_x"] <= 215.9
+        assert 0 <= block["position_y"] <= 279.4
+        assert block["position_provenance"] == "provisional-source-region"
+        assert block["calibration_source"] == "isda-source-measurements"
+        assert 1 <= block["page_number"] <= 36
 
 
 def test_page_owned_surfaces_fill_the_content_area_inside_page_margins():
@@ -812,3 +1265,15 @@ def test_comparisons_dates_and_evaluation_limits_are_bounded():
     with pytest.raises(TemplateEvaluationLimitError, match="Loop exceeds"):
         render_definition({"blocks": [{"type": "loop", "items": "rows", "blocks": []}]},
                          {"rows": list(range(1001))})
+
+
+def test_first_page_footer_override_clears_running_page_number():
+    result = render_definition({"page": {
+        "size": "Letter", "show_page_numbers": True, "page_number_position": "footer-center",
+        "first_page_footer_center": "Copyright", "first_page_show_page_numbers": False,
+        "first_page_footer_distance_mm": 18.95, "first_page_footer_font_size": 10.72,
+    }, "blocks": [{"type": "text", "text": "Hello"}]}, {})
+    artifact = result["artifact"]
+    assert "@page:first{" in artifact
+    assert '@bottom-center{content:"Copyright"' in artifact
+    assert "counter(page)" in artifact

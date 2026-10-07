@@ -1,0 +1,130 @@
+{
+  "starter_id": "calendar-invite",
+  "category": "Scheduling & Calendars",
+  "language": "en",
+  "definition": {
+    "name": "Calendar invitation (en)",
+    "locale": "en",
+    "sample_data": {
+      "primary": "Quarterly operating review",
+      "primary_label": "Event",
+      "summary": [
+        {
+          "label": "Organizer",
+          "value": "Alex Morgan"
+        },
+        {
+          "label": "Start",
+          "value": "2026-01-15 10:00"
+        },
+        {
+          "label": "End",
+          "value": "2026-01-15 11:00"
+        },
+        {
+          "label": "Location",
+          "value": "Boardroom / video conference"
+        }
+      ],
+      "line_items": [
+        {
+          "label": "Agenda item 1",
+          "value": "Operating results"
+        },
+        {
+          "label": "Agenda item 2",
+          "value": "Risk and controls"
+        },
+        {
+          "label": "Agenda item 3",
+          "value": "Actions and owners"
+        }
+      ],
+      "notes": "Please circulate papers at least one business day before the meeting.",
+      "recipient": {
+        "name": "Quarterly operating review"
+      },
+      "prepared_by": "Document team",
+      "organizer": "Alex Morgan",
+      "start_time": "2026-01-15 10:00",
+      "end_time": "2026-01-15 11:00",
+      "location": "Boardroom / video conference"
+    },
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Calendar invitation",
+        "translation_key": "title",
+        "bold": true,
+        "font_size": 24
+      },
+      {
+        "type": "text",
+        "text": "Event: {{primary}}",
+        "translation_key": "body"
+      },
+      {
+        "type": "text",
+        "text": "Event details",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "summary",
+        "columns": [
+          {
+            "header": "Field",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Value",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Agenda",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "line_items",
+        "columns": [
+          {
+            "header": "Item",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Details",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Notes: {{notes}}"
+      }
+    ],
+    "translations": {
+      "en": {
+        "title": "Calendar invitation",
+        "body": "Prepared for Quarterly operating review."
+      }
+    },
+    "schema_version": 1
+  },
+  "verification": {
+    "missing_fields": [],
+    "missing_translations": [],
+    "scripts": [
+      "latin"
+    ]
+  }
+}

@@ -32,7 +32,7 @@ from app.auth import (
 )
 from app.capabilities import capability_manifest
 from app.calibration import CalibrationProfileError, apply_profile, validate_profile
-from app.components import ComponentExpansionError, expand_definition
+from app.components import ComponentDefinitionError, ComponentExpansionError, expand_definition, validate_component_definition
 from app.config import ConfigurationError, load_settings
 from app.database import check_database, create_database
 from app.engines import ExtractionEngineError, engine_descriptors, extract_with_engine
@@ -65,9 +65,13 @@ from app.models import (
     Job,
     Session,
     Template,
+    TemplateAlias,
     TemplateVersion,
     ReusableComponent,
     User,
+    Organization,
+    OrganizationMembership,
+    Workspace,
 )
 from app.security import (
     UploadScanError,
@@ -94,7 +98,7 @@ FRONTEND = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 STARTER_CATALOG = {
     "letter": {
-        "name": "Letter",
+        "name": "Letter", "category": "General & Communications",
         "languages": {
             "en": {"title": "Welcome letter", "body": "Welcome to our service."},
             "ar": {"title": "رسالة ترحيب", "body": "مرحباً بكم في خدمتنا."},
@@ -105,7 +109,7 @@ STARTER_CATALOG = {
                    {"type": "text", "text": "Welcome to our service.", "translation_key": "body"}],
     },
     "invoice": {
-        "name": "Invoice",
+        "name": "Invoice", "category": "Finance Operations",
         "languages": {
             "en": {"title": "Invoice", "body": "Thank you for your business."},
             "de": {"title": "Rechnung", "body": "Vielen Dank für Ihren Auftrag."},
@@ -119,7 +123,7 @@ STARTER_CATALOG = {
                    {"type": "text", "text": "Thank you for your business.", "translation_key": "body"}],
     },
     "certificate": {
-        "name": "Certificate",
+        "name": "Certificate", "category": "Human Resources",
         "languages": {
             "en": {"title": "Certificate of completion", "body": "This certificate is presented to {{recipient.name}}."},
             "hi": {"title": "पूर्णता प्रमाणपत्र", "body": "यह प्रमाणपत्र {{recipient.name}} को प्रदान किया जाता है।"},
@@ -130,7 +134,7 @@ STARTER_CATALOG = {
                    {"type": "text", "text": "This certificate is presented to {{recipient.name}}.", "translation_key": "body"}],
     },
     "receipt": {
-        "name": "Receipt",
+        "name": "Receipt", "category": "Finance Operations",
         "languages": {
             "en": {"title": "Receipt", "body": "Payment received."},
             "th": {"title": "ใบเสร็จรับเงิน", "body": "ได้รับชำระเงินแล้ว"},
@@ -144,6 +148,201 @@ STARTER_CATALOG = {
                    {"type": "text", "text": "Payment received.", "translation_key": "body"}],
     },
 }
+
+
+_CATALOG_PROFILES = {
+    "Investment Banking": {
+        "primary": ("Transaction", "Project Atlas acquisition"),
+        "fields": [("Client", "client_name", "Northstar Holdings"), ("Prepared by", "prepared_by", "Alex Morgan"),
+                    ("As of", "as_of", "2026-01-15"), ("Status", "status", "Draft for review")],
+        "line_items": [("Enterprise value", "1,250,000,000"), ("Net debt", "210,000,000"), ("Equity value", "1,040,000,000")],
+        "notes": "Illustrative figures require transaction-team confirmation before circulation.",
+        "summary_label": "Transaction summary", "detail_label": "Key figures",
+    },
+    "Asset Management": {
+        "primary": ("Portfolio", "Northstar Global Equity Fund"),
+        "fields": [("Client", "client_name", "Northstar Pension Trust"), ("Portfolio", "portfolio_name", "Global Equity Fund"),
+                    ("Valuation date", "as_of", "2026-01-15"), ("Prepared by", "prepared_by", "Investment Team")],
+        "line_items": [("Opening value", "98,500,000"), ("Net contributions", "1,250,000"), ("Closing value", "103,240,000")],
+        "notes": "Past performance is not indicative of future results.",
+        "summary_label": "Portfolio overview", "detail_label": "Performance snapshot",
+    },
+    "Insurance": {
+        "primary": ("Insured", "Acme Manufacturing Ltd."),
+        "fields": [("Policy number", "policy_number", "POL-2026-00421"), ("Effective date", "effective_date", "2026-02-01"),
+                    ("Expiry date", "expiry_date", "2027-01-31"), ("Underwriter", "prepared_by", "Jordan Lee")],
+        "line_items": [("Property cover", "2,000,000"), ("Business interruption", "500,000"), ("Annual premium", "18,750")],
+        "notes": "Coverage is subject to the policy wording, endorsements and applicable exclusions.",
+        "summary_label": "Policy details", "detail_label": "Coverage schedule",
+    },
+    "Wealth Management": {
+        "primary": ("Client", "Jordan and Taylor Morgan"),
+        "fields": [("Review date", "review_date", "2026-01-15"), ("Lead adviser", "prepared_by", "Priya Shah"),
+                    ("Risk profile", "risk_profile", "Balanced"), ("Review status", "status", "Ready for discussion")],
+        "line_items": [("Investable assets", "2,450,000"), ("Annual income", "285,000"), ("Target retirement age", "60")],
+        "notes": "Recommendations must be confirmed against the client's current circumstances and suitability record.",
+        "summary_label": "Client review", "detail_label": "Planning snapshot",
+    },
+    "Finance Operations": {
+        "primary": ("Supplier", "Harbour Office Supplies"),
+        "fields": [("Document number", "document_number", "DOC-2026-0007"), ("Issue date", "issue_date", "2026-01-15"),
+                    ("Due date", "due_date", "2026-02-14"), ("Currency", "currency", "USD")],
+        "line_items": [("Office equipment", "4,250.00"), ("Software subscription", "1,200.00"), ("Tax", "545.00")],
+        "notes": "Amounts are illustrative and should be reconciled to the source transaction before posting.",
+        "summary_label": "Document details", "detail_label": "Amount summary",
+    },
+    "Scheduling & Calendars": {
+        "primary": ("Event", "Quarterly operating review"),
+        "fields": [("Organizer", "organizer", "Alex Morgan"), ("Start", "start_time", "2026-01-15 10:00"),
+                    ("End", "end_time", "2026-01-15 11:00"), ("Location", "location", "Boardroom / video conference")],
+        "line_items": [("Agenda item 1", "Operating results"), ("Agenda item 2", "Risk and controls"), ("Agenda item 3", "Actions and owners")],
+        "notes": "Please circulate papers at least one business day before the meeting.",
+        "summary_label": "Event details", "detail_label": "Agenda",
+    },
+    "Human Resources": {
+        "primary": ("Employee", "Alex Morgan"),
+        "fields": [("Department", "department", "Operations"), ("Manager", "manager", "Priya Shah"),
+                    ("Effective date", "effective_date", "2026-01-15"), ("Status", "status", "For approval")],
+        "line_items": [("Role", "Operations Analyst"), ("Work location", "Singapore"), ("Employment type", "Permanent")],
+        "notes": "This sample is not an employment contract and must be reviewed against local requirements.",
+        "summary_label": "Employee details", "detail_label": "Role summary",
+    },
+    "Legal & Compliance": {
+        "primary": ("Matter", "Project Atlas"),
+        "fields": [("Parties", "parties", "Northstar Holdings and Acme Manufacturing"), ("Effective date", "effective_date", "2026-01-15"),
+                    ("Owner", "prepared_by", "Legal Operations"), ("Status", "status", "Draft for review")],
+        "line_items": [("Review area", "Confidentiality and permitted use"), ("Review area", "Records retention"), ("Review area", "Approval authority")],
+        "notes": "This template is a drafting aid and does not replace legal advice or an approved policy.",
+        "summary_label": "Matter details", "detail_label": "Review checklist",
+    },
+    "Sales & Marketing": {
+        "primary": ("Customer", "Northstar Retail Group"),
+        "fields": [("Owner", "prepared_by", "Alex Morgan"), ("Date", "issue_date", "2026-01-15"),
+                    ("Validity", "valid_until", "2026-02-15"), ("Status", "status", "Draft")],
+        "line_items": [("Discovery and design", "12,500"), ("Implementation", "28,000"), ("Support", "6,000")],
+        "notes": "Commercial terms, tax treatment and approval limits must be checked before sending externally.",
+        "summary_label": "Opportunity details", "detail_label": "Commercial summary",
+    },
+    "General & Communications": {
+        "primary": ("Audience", "Operations leadership team"),
+        "fields": [("Author", "prepared_by", "Alex Morgan"), ("Date", "issue_date", "2026-01-15"),
+                    ("Subject", "subject", "Quarterly operating update"), ("Status", "status", "For information")],
+        "line_items": [("Headline", "Operating plan approved"), ("Owner", "Operations team"), ("Next update", "2026-02-15")],
+        "notes": "Confirm recipients, confidentiality classification and approval before distribution.",
+        "summary_label": "Communication details", "detail_label": "Key messages",
+    },
+}
+
+
+def _catalog_entry(starter_id: str, name: str, category: str) -> dict:
+    """Create a bounded, industry-shaped offline starter with complete sample data."""
+    profile = _CATALOG_PROFILES[category]
+    summary = [{"label": label, "value": value} for label, _path, value in profile["fields"]]
+    line_items = [{"label": label, "value": value} for label, value in profile["line_items"]]
+    primary_label, primary_value = profile["primary"]
+    sample_data = {
+        "primary": primary_value, "primary_label": primary_label, "summary": summary,
+        "line_items": line_items, "notes": profile["notes"],
+        # Kept for compatibility with the original multilingual certificate copy.
+        "recipient": {"name": primary_value},
+        "prepared_by": next(value for label, path, value in profile["fields"] if path == "prepared_by")
+        if any(path == "prepared_by" for _label, path, _value in profile["fields"]) else "Document team",
+    }
+    for _label, path, value in profile["fields"]:
+        sample_data[path] = value
+    properties = {key: ({"type": "object", "properties": {"name": {"type": "string"}},
+                         "required": ["name"]} if key == "recipient" else {"type": "string"})
+                  for key in sample_data if key not in {"summary", "line_items"}}
+    properties.update({"summary": {"type": "array", "items": {"type": "object", "properties": {
+        "label": {"type": "string"}, "value": {"type": "string"}}, "required": ["label", "value"]}},
+        "line_items": {"type": "array", "items": {"type": "object", "properties": {
+            "label": {"type": "string"}, "value": {"type": "string"}}, "required": ["label", "value"]}}})
+    return {
+        "name": name, "category": category,
+        "languages": {"en": {"title": name, "body": f"Prepared for {primary_value}."}},
+        "sample_data": sample_data, "data_schema": {"type": "object", "properties": properties,
+                                                        "required": ["primary", "summary", "line_items", "notes"]},
+        "blocks": [
+            {"type": "text", "text": name, "translation_key": "title", "bold": True, "font_size": 24},
+            {"type": "text", "text": f"{primary_label}: {{{{primary}}}}", "translation_key": "body"},
+            {"type": "text", "text": profile["summary_label"], "bold": True, "font_size": 16},
+            {"type": "table", "items": "summary", "columns": [
+                {"header": "Field", "path": "label", "format": "text"},
+                {"header": "Value", "path": "value", "format": "text"}]},
+            {"type": "text", "text": profile["detail_label"], "bold": True, "font_size": 16},
+            {"type": "table", "items": "line_items", "columns": [
+                {"header": "Item", "path": "label", "format": "text"},
+                {"header": "Details", "path": "value", "format": "text"}]},
+            {"type": "text", "text": "Notes: {{notes}}"},
+        ],
+        "page": {"size": "A4", "orientation": "portrait", "margin_mm": 20,
+                 "header": name, "footer": "Confidential · {{primary}}", "show_page_numbers": True},
+        "metadata": {"title": name, "author": "Document Platform starter catalog"},
+    }
+
+
+_CATALOG_GROUPS = {
+    "Investment Banking": [
+        ("deal-summary", "Deal summary"), ("term-sheet", "Term sheet"),
+        ("credit-approval", "Credit approval memo"), ("cashflow-forecast", "Cash-flow forecast"),
+        ("covenant-compliance", "Covenant compliance report"),
+    ],
+    "Asset Management": [
+        ("investment-fact-sheet", "Investment fact sheet"), ("portfolio-review", "Portfolio review"),
+        ("fund-quarterly-report", "Fund quarterly report"), ("kpi-dashboard", "Investment KPI dashboard"),
+        ("client-performance", "Client performance report"),
+    ],
+    "Insurance": [
+        ("insurance-quote", "Insurance quote"), ("policy-schedule", "Policy schedule"),
+        ("claims-summary", "Claims summary"), ("renewal-notice", "Renewal notice"),
+        ("underwriting-review", "Underwriting review"),
+    ],
+    "Wealth Management": [
+        ("client-review", "Client review pack"), ("suitability-assessment", "Suitability assessment"),
+        ("wealth-plan", "Wealth plan"), ("beneficiary-review", "Beneficiary review"),
+        ("family-office-brief", "Family office brief"),
+    ],
+    "Finance Operations": [
+        ("purchase-order", "Purchase order"), ("expense-report", "Expense report"),
+        ("accounts-payable", "Accounts payable approval"),
+    ],
+    "Scheduling & Calendars": [
+        ("calendar-invite", "Calendar invitation"), ("meeting-agenda", "Meeting agenda"),
+        ("room-booking", "Room booking"), ("event-runbook", "Event runbook"),
+        ("appointment-reminder", "Appointment reminder"),
+    ],
+    "Human Resources": [
+        ("offer-letter", "Offer letter"), ("payslip", "Payslip"),
+        ("performance-review", "Performance review"), ("onboarding-checklist", "Onboarding checklist"),
+    ],
+    "Legal & Compliance": [
+        ("nda", "Non-disclosure agreement"), ("compliance-attestation", "Compliance attestation"),
+        ("board-resolution", "Board resolution"), ("audit-request", "Audit request"),
+        ("kyc-review", "KYC review"),
+    ],
+    "Sales & Marketing": [
+        ("proposal", "Client proposal"), ("sales-quote", "Sales quote"),
+        ("campaign-brief", "Campaign brief"), ("sales-order", "Sales order"),
+        ("case-study", "Customer case study"),
+    ],
+    "General & Communications": [
+        ("memo", "Business memo"), ("executive-brief", "Executive brief"),
+        ("newsletter", "Newsletter"), ("announcement", "Company announcement"),
+    ],
+}
+for _category, _entries in _CATALOG_GROUPS.items():
+    for _starter_id, _name in _entries:
+        STARTER_CATALOG.setdefault(_starter_id, _catalog_entry(_starter_id, _name, _category))
+
+# The four original multilingual starters keep their language coverage, while sharing the
+# reviewed document structures above so every homepage demo has the same complete-data contract.
+for _starter_id, _name, _category in (("letter", "Letter", "General & Communications"),
+                                       ("invoice", "Invoice", "Finance Operations"),
+                                       ("certificate", "Certificate", "Human Resources"),
+                                       ("receipt", "Receipt", "Finance Operations")):
+    _languages = STARTER_CATALOG[_starter_id]["languages"]
+    STARTER_CATALOG[_starter_id] = _catalog_entry(_starter_id, _name, _category)
+    STARTER_CATALOG[_starter_id]["languages"] = _languages
 
 
 def starter_definition(starter_id: str, language: str) -> dict:
@@ -286,7 +485,8 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
             if not session_id:
                 raise HTTPException(status_code=401, detail="Authentication required")
             row = connection.execute(select(Session.user_id, Session.csrf_token, Session.expires_at,
-                                            User.email, User.role).join(User, User.id == Session.user_id).where(
+                                            User.email, User.role, User.account_type, User.status,
+                                            User.entitlements_json).join(User, User.id == Session.user_id).where(
                                                 Session.id == session_id)).mappings().one_or_none()
         if row is None:
             raise HTTPException(status_code=401, detail="Authentication required")
@@ -297,7 +497,65 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
             raise HTTPException(status_code=401, detail="Authentication required")
         if csrf and not hmac.compare_digest(request.headers.get("x-csrf-token", ""), row["csrf_token"]):
             raise HTTPException(status_code=403, detail="CSRF token required")
-        return {"id": row["user_id"], "email": row["email"], "role": row["role"]}
+        if row["status"] != "active":
+            raise HTTPException(status_code=403, detail="Account is not active")
+        return {"id": row["user_id"], "email": row["email"], "role": row["role"],
+                "account_type": row["account_type"],
+                "entitlements": json.loads(row["entitlements_json"] or "{}")}
+
+    def workspace_access(connection, user: dict) -> dict:
+        """Resolve workspace visibility centrally; the UI never performs authorization."""
+        if user.get("id") in {"local"} or user.get("role") == "api-key":
+            return {"workspace_ids": None, "organization_ids": None, "guest": False, "admin": True}
+        memberships = connection.execute(select(OrganizationMembership.organization_id,
+                                                  OrganizationMembership.workspace_id,
+                                                  OrganizationMembership.role,
+                                                  OrganizationMembership.entitlements_json).where(
+                                                      OrganizationMembership.user_id == user["id"])).mappings().all()
+        workspace_ids: set[str] = set()
+        organization_ids: set[str] = set()
+        admin_orgs: set[str] = set()
+        for membership in memberships:
+            organization_ids.add(membership["organization_id"])
+            if membership["workspace_id"]:
+                workspace_ids.add(membership["workspace_id"])
+            if membership["role"] in {"admin", "super_admin"} or user.get("role") in {"admin", "super_admin"}:
+                admin_orgs.add(membership["organization_id"])
+        if user.get("role") == "super_admin":
+            admin_orgs.update(connection.execute(select(Organization.id)).scalars().all())
+        else:
+            org_rows = connection.execute(select(Organization.id, Organization.parent_id)).mappings().all()
+            changed = True
+            while changed:
+                changed = False
+                for org in org_rows:
+                    if org["parent_id"] in admin_orgs and org["id"] not in admin_orgs:
+                        admin_orgs.add(org["id"]); changed = True
+        if admin_orgs:
+            workspace_ids.update(connection.execute(select(Workspace.id).where(
+                Workspace.organization_id.in_(admin_orgs))).scalars().all())
+        return {"workspace_ids": workspace_ids, "organization_ids": organization_ids,
+                "guest": user.get("account_type") == "guest", "admin": bool(admin_orgs)}
+
+    def template_is_accessible(connection, template_id: str, user: dict, *, write: bool = False) -> dict:
+        row = connection.execute(select(Template.id, Template.owner_user_id, Template.workspace_id,
+                                        Template.visibility).where(Template.id == template_id)).mappings().one_or_none()
+        if row is None:
+            alias = connection.execute(select(TemplateAlias.canonical_template_id).where(
+                TemplateAlias.duplicate_template_id == template_id)).scalar_one_or_none()
+            if alias:
+                row = connection.execute(select(Template.id, Template.owner_user_id, Template.workspace_id,
+                                               Template.visibility).where(Template.id == alias)).mappings().one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Template not found")
+        access = workspace_access(connection, user)
+        allowed = (row["visibility"] == "public" and not write) or row["owner_user_id"] == user.get("id") or (
+            access["workspace_ids"] is None or row["workspace_id"] in access["workspace_ids"])
+        if access["guest"] and (row["visibility"] != "public" or write):
+            allowed = False
+        if not allowed:
+            raise HTTPException(status_code=404, detail="Template not found")
+        return row
 
     def version_payload(row):
         return {"id": row["id"], "template_id": row["template_id"], "version": row["version"],
@@ -582,12 +840,103 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                 if connection.execute(select(func.count()).select_from(User)).scalar_one():
                     raise HTTPException(status_code=409, detail="Initial account already exists")
                 connection.execute(User.__table__.insert().values(
-                    id=user_id, email=email, password_hash=password_hash, role="admin"))
+                    id=user_id, email=email, password_hash=password_hash, role="admin",
+                    account_type="member", status="active",
+                    entitlements_json=json.dumps({"version": 1, "features": {"workspace.admin": True}})))
+                if connection.execute(select(Organization.id).where(Organization.id == "org-good-docs")).first() is None:
+                    connection.execute(Organization.__table__.insert().values(
+                        id="org-good-docs", name="Good docs", slug="good-docs",
+                        entitlements_json=json.dumps({"version": 1, "features": {"catalog": True, "guest": True}})))
+                if connection.execute(select(Workspace.id).where(Workspace.id == "workspace-good-docs")).first() is None:
+                    connection.execute(Workspace.__table__.insert().values(
+                        id="workspace-good-docs", organization_id="org-good-docs", name="Good docs", slug="good-docs",
+                        entitlements_json=json.dumps({"version": 1, "features": {"templates.read": True}})))
+                connection.execute(OrganizationMembership.__table__.insert().values(
+                    id=f"membership-{user_id}", user_id=user_id, organization_id="org-good-docs",
+                    workspace_id=None, role="super_admin", entitlements_json=json.dumps({"version": 1})))
         except HTTPException:
             raise
         except Exception:
             raise HTTPException(status_code=409, detail="Initial account already exists") from None
         return {"id": user_id, "email": email, "role": "admin"}
+
+    @app.get("/api/auth/config", tags=["auth"])
+    def auth_config():
+        with engine.connect() as connection:
+            users = connection.execute(select(func.count()).select_from(User)).scalar_one()
+        return {"setup_required": users == 0, "password_login": True, "guest_login": True,
+                "signup": True, "sso": {"enabled": False, "provider": None,
+                                          "start_url": "/api/auth/sso/start"}}
+
+    def create_restricted_session(connection, user_id: str, *, response_payload: dict):
+        session_id, csrf_token, expires = new_session()
+        connection.execute(Session.__table__.insert().values(
+            id=session_id, user_id=user_id, csrf_token=csrf_token, expires_at=expires))
+        response = JSONResponse({**response_payload, "csrf_token": csrf_token, "expires_at": expires.isoformat()})
+        response.set_cookie("docplatform_session", session_id, httponly=True, samesite="lax",
+                            secure=settings.secure_cookies, max_age=int(SESSION_TTL.total_seconds()))
+        return response
+
+    @app.post("/api/auth/guest", tags=["auth"])
+    def auth_guest():
+        user_id = f"guest-{uuid4().hex}"
+        email = f"{user_id}@guest.invalid"
+        password_hash = hash_password(uuid4().hex + uuid4().hex)
+        with engine.begin() as connection:
+            connection.execute(User.__table__.insert().values(
+                id=user_id, email=email, password_hash=password_hash, role="viewer",
+                account_type="guest", status="active",
+                entitlements_json=json.dumps({"version": 1, "features": {"catalog.read": True}})))
+            connection.execute(OrganizationMembership.__table__.insert().values(
+                id=f"membership-{user_id}", user_id=user_id, organization_id="org-good-docs",
+                workspace_id="workspace-good-docs", role="guest",
+                entitlements_json=json.dumps({"version": 1, "features": {"catalog.read": True}})))
+            return create_restricted_session(connection, user_id,
+                                            response_payload={"id": user_id, "email": email,
+                                                              "role": "viewer", "account_type": "guest"})
+
+    @app.post("/api/auth/signup", tags=["auth"])
+    def auth_signup(payload: dict):
+        email = str(payload.get("email", "")).strip().casefold()
+        if "@" not in email or len(email) > 320:
+            raise HTTPException(status_code=422, detail="A valid email address is required")
+        user_id = uuid4().hex
+        password_hash = hash_password(uuid4().hex + uuid4().hex)
+        with engine.begin() as connection:
+            if connection.execute(select(User.id).where(User.email == email)).first():
+                raise HTTPException(status_code=409, detail="An account already exists for this email")
+            connection.execute(User.__table__.insert().values(
+                id=user_id, email=email, password_hash=password_hash, role="viewer",
+                account_type="pending", status="active",
+                entitlements_json=json.dumps({"version": 1, "features": {"catalog.read": True}})))
+            connection.execute(OrganizationMembership.__table__.insert().values(
+                id=f"membership-{user_id}", user_id=user_id, organization_id="org-good-docs",
+                workspace_id="workspace-good-docs", role="guest",
+                entitlements_json=json.dumps({"version": 1, "features": {"catalog.read": True}})))
+            return create_restricted_session(connection, user_id,
+                                            response_payload={"id": user_id, "email": email,
+                                                              "role": "viewer", "account_type": "pending"})
+
+    @app.get("/api/auth/sso/start", tags=["auth"])
+    def auth_sso_start():
+        raise HTTPException(status_code=501, detail="SSO is not configured; use password, guest, or sign-up")
+
+    @app.get("/api/workspaces", tags=["workspaces"])
+    def workspaces(request: Request):
+        user = authenticated_user(request, scope="read")
+        with engine.connect() as connection:
+            access = workspace_access(connection, user)
+            query = select(Workspace.id, Workspace.organization_id, Workspace.name, Workspace.slug,
+                           Organization.name.label("organization_name"), Organization.parent_id).join(
+                               Organization, Organization.id == Workspace.organization_id).order_by(
+                                   Organization.name, Workspace.name)
+            if access["workspace_ids"] is not None:
+                query = query.where(Workspace.id.in_(access["workspace_ids"]))
+            rows = connection.execute(query).mappings().all()
+            return {"items": [{"id": row["id"], "organization_id": row["organization_id"],
+                               "organization_name": row["organization_name"], "name": row["name"],
+                               "slug": row["slug"], "parent_organization_id": row["parent_id"]}
+                              for row in rows]}
 
     @app.post("/api/auth/login", tags=["auth"])
     def auth_login(payload: dict):
@@ -597,6 +946,7 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         failure: str | None = None
         with engine.begin() as connection:
             row = connection.execute(select(User.id, User.email, User.password_hash, User.role,
+                                             User.account_type, User.status,
                                              User.failed_attempts, User.locked_until).where(
                                                  User.email == email)).mappings().one_or_none()
             if row is None:
@@ -626,6 +976,7 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         if failure == "invalid":
             raise HTTPException(status_code=401, detail="Invalid credentials")
         response = JSONResponse({"id": row["id"], "email": row["email"], "role": row["role"],
+                                 "account_type": row["account_type"],
                                  "csrf_token": csrf_token, "expires_at": expires.isoformat()})
         response.set_cookie("docplatform_session", session_id, httponly=True, samesite="lax",
                             secure=settings.secure_cookies, max_age=int(SESSION_TTL.total_seconds()))
@@ -689,15 +1040,30 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
 
     @app.get("/api/templates", tags=["templates"])
     def templates(q: str | None = None, folder: str | None = None, tag: str | None = None,
+                  scope: str = "all", limit: int = 24, offset: int = 0,
                   request: Request = None):
-        if request.headers.get("x-api-key"):
-            authenticated_user(request, scope="read")
+        user = authenticated_user(request, scope="read")
+        limit = min(100, max(1, limit)); offset = max(0, offset)
         with engine.connect() as connection:
+            access = workspace_access(connection, user)
             rows = connection.execute(select(Template.id, Template.name, Template.schema_version,
                                              Template.folder, Template.tags_json,
-                                             Template.published_version_id).order_by(Template.name)).mappings().all()
+                                             Template.published_version_id, Template.owner_user_id,
+                                             Template.workspace_id, Template.visibility,
+                                             Template.created_at).order_by(Template.created_at.desc(), Template.name)).mappings().all()
             items = []
             for row in rows:
+                mine = row["owner_user_id"] == user.get("id")
+                in_workspace = access["workspace_ids"] is None or row["workspace_id"] in access["workspace_ids"]
+                visible = row["visibility"] == "public" or mine or in_workspace
+                if access["guest"]:
+                    visible = row["visibility"] == "public"
+                if scope == "mine" and not mine:
+                    visible = False
+                if scope == "organization" and (not in_workspace or mine):
+                    visible = False
+                if not visible:
+                    continue
                 tags = json.loads(row["tags_json"] or "[]")
                 if folder is not None and row["folder"] != folder:
                     continue
@@ -710,13 +1076,21 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                     TemplateVersion.id == row["published_version_id"])).scalar_one_or_none()
                 items.append({"id": row["id"], "name": row["name"], "schema_version": row["schema_version"],
                               "folder": row["folder"], "tags": tags,
+                              "owner_user_id": row["owner_user_id"], "workspace_id": row["workspace_id"],
+                              "visibility": row["visibility"],
                               "published_version": published,
                               "published_version_id": row["published_version_id"]})
-            return {"items": items}
+            return {"items": items[offset:offset + limit], "offset": offset,
+                    "limit": limit, "total": len(items), "has_more": offset + limit < len(items),
+                    "next_offset": offset + limit if offset + limit < len(items) else None}
 
     @app.get("/api/templates/{template_id}", tags=["templates"])
-    def template(template_id: str, version: str | None = None, draft: bool = False):
+    def template(template_id: str, version: str | None = None, draft: bool = False,
+                 request: Request = None):
+        user = authenticated_user(request, scope="read")
         with engine.connect() as connection:
+            resolved = template_is_accessible(connection, template_id, user, write=False)
+            template_id = resolved["id"]
             _, version_row, definition = template_definition(connection, template_id, version, draft)
             definition = dict(definition)
             definition["version"] = version_row["version"] if version_row else 1
@@ -749,6 +1123,10 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         definition = payload.get("definition")
         if not name or len(name) > 200 or not isinstance(definition, dict) or not isinstance(definition.get("blocks"), list):
             raise HTTPException(status_code=422, detail="name and definition.blocks are required")
+        try:
+            validate_component_definition(definition)
+        except ComponentDefinitionError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
         component_id = str(payload.get("id") or uuid4().hex)
         with engine.begin() as connection:
             if connection.execute(select(ReusableComponent.id).where(
@@ -763,6 +1141,10 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         definition = payload.get("definition")
         if not isinstance(definition, dict) or not isinstance(definition.get("blocks"), list):
             raise HTTPException(status_code=422, detail="definition.blocks is required")
+        try:
+            validate_component_definition(definition)
+        except ComponentDefinitionError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
         with engine.begin() as connection:
             current = connection.execute(select(ReusableComponent.version).where(
                 ReusableComponent.id == component_id)).scalar_one_or_none()
@@ -775,7 +1157,8 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         return {"id": component_id, "version": current + 1}
 
     @app.post("/api/templates", status_code=201, tags=["templates"])
-    def create_template(payload: dict):
+    def create_template(payload: dict, request: Request):
+        user = authenticated_user(request, csrf=True, scope="write")
         definition = payload.get("definition") or payload
         name = str(payload.get("name") or definition.get("name") or "Untitled template").strip()
         if not name or len(name) > 200:
@@ -783,6 +1166,9 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         template_id = str(payload.get("id") or uuid4().hex)
         version_id = f"{template_id}-v1"
         folder = str(payload.get("folder", ""))[:200]
+        visibility = str(payload.get("visibility", "workspace"))
+        if visibility not in {"private", "workspace", "public"}:
+            raise HTTPException(status_code=422, detail="visibility must be private, workspace, or public")
         tags = sorted({str(tag) for tag in payload.get("tags", [])})
         definition = dict(definition); definition["name"] = name; definition.setdefault("schema_version", 1)
         encoded = json.dumps(definition, ensure_ascii=False, sort_keys=True).encode("utf-8")
@@ -791,13 +1177,24 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         with engine.begin() as connection:
             if connection.execute(select(Template.id).where(Template.id == template_id)).first():
                 raise HTTPException(status_code=409, detail="Template id already exists")
+            access = workspace_access(connection, user)
+            workspace_id = str(payload.get("workspace_id") or "").strip() or None
+            if user.get("id") == "local":
+                workspace_id = workspace_id or "workspace-good-docs"
+            else:
+                workspace_id = workspace_id or next(iter(access["workspace_ids"] or set()), None)
+            if user.get("id") != "local" and workspace_id not in (access["workspace_ids"] or set()):
+                raise HTTPException(status_code=403, detail="You do not have access to this workspace")
+            if user.get("account_type") in {"guest", "pending"}:
+                raise HTTPException(status_code=403, detail="Guest accounts cannot create templates")
             connection.execute(Template.__table__.insert().values(
                 id=template_id, name=name, object_key=key, schema_version=1, folder=folder,
-                tags_json=json.dumps(tags), published_version_id=None))
+                tags_json=json.dumps(tags), published_version_id=None, owner_user_id=None if user.get("id") == "local" else user.get("id"),
+                workspace_id=workspace_id, visibility=visibility))
             connection.execute(TemplateVersion.__table__.insert().values(
                 id=version_id, template_id=template_id, version=1, status="draft",
                 change_summary="Initial draft", definition_json=encoded.decode("utf-8")))
-        return {"id": template_id, "version_id": version_id, "status": "draft"}
+        return {"id": template_id, "version_id": version_id, "status": "draft", "workspace_id": workspace_id}
 
     @app.get("/api/templates/{template_id}/versions", tags=["templates"])
     def versions(template_id: str):
@@ -873,13 +1270,13 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         return create_version(template_id, {"definition": definition, "change_summary": f"Restored from v{version['version']}"})
 
     @app.post("/api/templates/{template_id}/duplicate", status_code=201, tags=["templates"])
-    def duplicate(template_id: str, payload: dict | None = None):
+    def duplicate(template_id: str, payload: dict | None = None, request: Request = None):
         with engine.connect() as connection:
             source, _, definition = template_definition(connection, template_id)
             source_tags = json.loads(source["tags_json"] or "[]")
         body = {"name": (payload or {}).get("name") or f"{source['name']} copy", "folder": source["folder"],
                 "tags": source_tags, "definition": definition}
-        return create_template(body)
+        return create_template(body, request)
 
     @app.get("/api/templates/{template_id}/export", tags=["templates"])
     def export_template(template_id: str):
@@ -919,7 +1316,7 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         if not isinstance(definition, dict):
             raise HTTPException(status_code=422, detail="definition must be an object")
         return create_template({"name": payload.get("name") or definition.get("name"),
-                                "tags": payload.get("tags", []), "definition": definition})
+                                "tags": payload.get("tags", []), "definition": definition}, request)
 
     @app.post("/api/word/merge", tags=["output"])
     async def merge_word(request: Request):
@@ -985,6 +1382,7 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
     @app.get("/api/starters", tags=["templates"])
     def starters():
         return {"items": [{"id": starter_id, "name": starter["name"],
+                           "category": starter["category"],
                            "languages": list(starter["languages"]),
                            "definitions": {language: starter_definition(starter_id, language)
                                            for language in starter["languages"]}}

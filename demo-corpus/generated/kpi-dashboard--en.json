@@ -1,0 +1,129 @@
+{
+  "starter_id": "kpi-dashboard",
+  "category": "Asset Management",
+  "language": "en",
+  "definition": {
+    "name": "Investment KPI dashboard (en)",
+    "locale": "en",
+    "sample_data": {
+      "primary": "Northstar Global Equity Fund",
+      "primary_label": "Portfolio",
+      "summary": [
+        {
+          "label": "Client",
+          "value": "Northstar Pension Trust"
+        },
+        {
+          "label": "Portfolio",
+          "value": "Global Equity Fund"
+        },
+        {
+          "label": "Valuation date",
+          "value": "2026-01-15"
+        },
+        {
+          "label": "Prepared by",
+          "value": "Investment Team"
+        }
+      ],
+      "line_items": [
+        {
+          "label": "Opening value",
+          "value": "98,500,000"
+        },
+        {
+          "label": "Net contributions",
+          "value": "1,250,000"
+        },
+        {
+          "label": "Closing value",
+          "value": "103,240,000"
+        }
+      ],
+      "notes": "Past performance is not indicative of future results.",
+      "recipient": {
+        "name": "Northstar Global Equity Fund"
+      },
+      "prepared_by": "Investment Team",
+      "client_name": "Northstar Pension Trust",
+      "portfolio_name": "Global Equity Fund",
+      "as_of": "2026-01-15"
+    },
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Investment KPI dashboard",
+        "translation_key": "title",
+        "bold": true,
+        "font_size": 24
+      },
+      {
+        "type": "text",
+        "text": "Portfolio: {{primary}}",
+        "translation_key": "body"
+      },
+      {
+        "type": "text",
+        "text": "Portfolio overview",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "summary",
+        "columns": [
+          {
+            "header": "Field",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Value",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Performance snapshot",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "line_items",
+        "columns": [
+          {
+            "header": "Item",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Details",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Notes: {{notes}}"
+      }
+    ],
+    "translations": {
+      "en": {
+        "title": "Investment KPI dashboard",
+        "body": "Prepared for Northstar Global Equity Fund."
+      }
+    },
+    "schema_version": 1
+  },
+  "verification": {
+    "missing_fields": [],
+    "missing_translations": [],
+    "scripts": [
+      "latin"
+    ]
+  }
+}

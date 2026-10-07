@@ -1,0 +1,129 @@
+{
+  "starter_id": "case-study",
+  "category": "Sales & Marketing",
+  "language": "en",
+  "definition": {
+    "name": "Customer case study (en)",
+    "locale": "en",
+    "sample_data": {
+      "primary": "Northstar Retail Group",
+      "primary_label": "Customer",
+      "summary": [
+        {
+          "label": "Owner",
+          "value": "Alex Morgan"
+        },
+        {
+          "label": "Date",
+          "value": "2026-01-15"
+        },
+        {
+          "label": "Validity",
+          "value": "2026-02-15"
+        },
+        {
+          "label": "Status",
+          "value": "Draft"
+        }
+      ],
+      "line_items": [
+        {
+          "label": "Discovery and design",
+          "value": "12,500"
+        },
+        {
+          "label": "Implementation",
+          "value": "28,000"
+        },
+        {
+          "label": "Support",
+          "value": "6,000"
+        }
+      ],
+      "notes": "Commercial terms, tax treatment and approval limits must be checked before sending externally.",
+      "recipient": {
+        "name": "Northstar Retail Group"
+      },
+      "prepared_by": "Alex Morgan",
+      "issue_date": "2026-01-15",
+      "valid_until": "2026-02-15",
+      "status": "Draft"
+    },
+    "blocks": [
+      {
+        "type": "text",
+        "text": "Customer case study",
+        "translation_key": "title",
+        "bold": true,
+        "font_size": 24
+      },
+      {
+        "type": "text",
+        "text": "Customer: {{primary}}",
+        "translation_key": "body"
+      },
+      {
+        "type": "text",
+        "text": "Opportunity details",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "summary",
+        "columns": [
+          {
+            "header": "Field",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Value",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Commercial summary",
+        "bold": true,
+        "font_size": 16
+      },
+      {
+        "type": "table",
+        "items": "line_items",
+        "columns": [
+          {
+            "header": "Item",
+            "path": "label",
+            "format": "text"
+          },
+          {
+            "header": "Details",
+            "path": "value",
+            "format": "text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Notes: {{notes}}"
+      }
+    ],
+    "translations": {
+      "en": {
+        "title": "Customer case study",
+        "body": "Prepared for Northstar Retail Group."
+      }
+    },
+    "schema_version": 1
+  },
+  "verification": {
+    "missing_fields": [],
+    "missing_translations": [],
+    "scripts": [
+      "latin"
+    ]
+  }
+}

@@ -40,8 +40,8 @@ FEATURE_GAPS: dict[str, tuple[str, str, str, str] | None] = {
     # Rules and boxes become shape blocks (DD-434); only shapes in the clipped margin areas remain gaps.
     "image.raster": ("harness-limitation", "image", "src", "mapper does not extract source images yet"),
     # Two-column pages become column sections (DD-436).
-    # Running headers, footers and page numbers are mapped by _map_furniture (DD-430); only multi-zone bands,
-    # first-page differences and off-centre vertical placement remain gaps.
+    # Running headers, footers and page numbers are mapped by _map_furniture (DD-430); first-page overrides
+    # are mapped by the same public contract (DD-451).
 }
 
 
@@ -608,7 +608,22 @@ def _map_furniture(model: dict[str, Any], by_feature: dict[str, list[dict[str, A
             zone_lines.setdefault(key, line)
         sizes.extend(line["size_pt"] for line in lines)
         anchors[band] = (lines[0], page)
-        _first_page_gap(feature, band, detections, gap)
+        _first_page_gap(feature, band, detections, gap, bool(by_feature.get("page.first_page_footer")))
+    first_page = by_feature.get("page.first_page_footer", [])
+    if first_page:
+        page = pages[0]
+        right = page["width_mm"] - page_settings["margin_right_mm"]
+        first_lines = sorted((page["lines"][i] for _, i in first_page[0]["lines"]), key=lambda line: line["x_mm"])
+        for line in first_lines:
+            zone = _zone(line, page, left, right)
+            key = f"first_page_footer_{zone}"
+            page_settings[key] = (page_settings.get(key, "") + " " + line["text"].replace("\t", " ")).strip()[:500]
+            page_settings["first_page_footer_font_size"] = max(6.0, min(48.0, round(line["size_pt"] * 4 / 3, 2)))
+            size_mm = line["size_pt"] * PT_TO_MM
+            page_settings["first_page_footer_distance_mm"] = round(max(0.0, min(100.0,
+                page["height_mm"] - line["y_mm"] - FURNITURE_DESCENT_EM * size_mm)), 2)
+        if page_settings.get("show_page_numbers"):
+            page_settings["first_page_show_page_numbers"] = False
     numbers = by_feature.get("page.page_number", [])
     if numbers:
         sample = numbers[len(numbers) // 2]
@@ -625,7 +640,7 @@ def _map_furniture(model: dict[str, Any], by_feature: dict[str, list[dict[str, A
         sizes.append(line["size_pt"])
         zone_lines.setdefault(page_settings["page_number_position"].replace("-", "_"), line)
         anchors.setdefault(band, (line, page))
-        _first_page_gap("page.page_number", band, numbers, gap)
+        _first_page_gap("page.page_number", band, numbers, gap, bool(by_feature.get("page.first_page_footer")))
     for band, (line, page) in anchors.items():
         size_mm = line["size_pt"] * PT_TO_MM
         distance = (line["y_mm"] - FURNITURE_ASCENT_EM * size_mm if band == "header"
@@ -649,8 +664,9 @@ def _map_furniture(model: dict[str, Any], by_feature: dict[str, list[dict[str, A
             page_settings["zone_styles"] = styles  # DD-440
 
 
-def _first_page_gap(feature: str, band: str, detections: list[dict[str, Any]], gap: Any) -> None:
-    if len(detections) > 1 and 1 not in {d["page"] for d in detections}:
+def _first_page_gap(feature: str, band: str, detections: list[dict[str, Any]], gap: Any,
+                    has_override: bool = False) -> None:
+    if len(detections) > 1 and 1 not in {d["page"] for d in detections} and not has_override:
         gap(feature, "missing-property", "page", f"{band}_first_page",
             f"page 1 has no running {band}; a different first page is not supported", detections[0]["id"])
 
