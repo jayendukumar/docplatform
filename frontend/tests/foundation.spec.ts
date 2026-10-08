@@ -66,18 +66,33 @@ test('multilingual starter gallery launches a language-specific draft', async ({
   await expect(page.locator('article.detail').getByRole('heading', { name: 'Invoice (ja)' })).toBeVisible()
 })
 
-test('homepage groups industry templates and creates a foldered blank template', async ({ page }) => {
+test('homepage groups industry templates and saves a blank draft only after naming it', async ({ page }) => {
   await page.goto('/')
+  await page.waitForTimeout(500)
+  const signInHeading = page.getByRole('heading', { name: 'Sign in to your workspace' })
+  if (await signInHeading.isVisible().catch(() => false)) {
+    await page.getByLabel('Email address').fill('admin01@gooddocs-demo.test')
+    await page.getByLabel('Password').fill('OrgAdmin-2026!')
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  }
   const gallery = page.locator('.starter-gallery')
   const investmentBanking = gallery.locator('.starter-category').filter({ hasText: 'Investment Banking' })
   await expect(investmentBanking.locator('.starter-card')).toHaveCount(4)
   await investmentBanking.getByRole('button', { name: 'More templates' }).click()
   await expect(investmentBanking.locator('.starter-card')).toHaveCount(5)
   const blankName = `Blank client pack ${Date.now()}`
-  await page.getByLabel('Template name').fill(blankName)
-  await page.getByLabel('Folder').fill('Wealth / Client packs')
+  let templateCreateRequests = 0
+  page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/api/templates')) templateCreateRequests += 1 })
   await page.getByRole('button', { name: 'Create blank template' }).click()
+  await expect(page.locator('article.detail').getByRole('heading', { name: 'Untitled draft' })).toBeVisible()
+  await expect(page.getByLabel('Template name')).toHaveCount(0)
+  await expect(page.getByLabel('Folder')).toHaveCount(0)
+  expect(templateCreateRequests).toBe(0)
+  let promptIndex = 0
+  page.on('dialog', dialog => void dialog.accept(promptIndex++ === 0 ? blankName : 'Wealth / Client packs'))
+  await page.getByRole('button', { name: 'Save template as' }).click()
   await expect(page.locator('article.detail').getByRole('heading', { name: blankName })).toBeVisible()
+  expect(templateCreateRequests).toBe(1)
 })
 
 test('editor saves a formatted draft and renders a server preview', async ({ page }) => {
@@ -364,6 +379,86 @@ test('editor authors rich text with data fields and conditions in the contextual
   await page.locator('.editor-command-bar').getByRole('button', { name: 'Save draft' }).click()
   await expect(page.locator('p.editor-feedback')).toContainText('server preview rendered', { timeout: 15000 })
   await expect(page.frameLocator('iframe[title="Server preview"]').locator('.rich-text-block')).toHaveCount(1)
+})
+
+test('editor text controls preserve focus, paragraph flow and removable rich-text runs', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForTimeout(500)
+  if (await page.getByRole('heading', { name: 'Sign in to your workspace' }).isVisible().catch(() => false)) {
+    await page.getByLabel('Email address').fill('admin01@gooddocs-demo.test')
+    await page.getByLabel('Password').fill('OrgAdmin-2026!')
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  }
+  const invoice = page.locator('.starter-card').filter({ hasText: 'Invoice' })
+  await invoice.getByRole('button', { name: /Use starter.*en/ }).click()
+  const addText = page.locator('.editor-left-panel').getByRole('button', { name: 'Add text block' })
+  await addText.scrollIntoViewIfNeeded()
+  const beforeScroll = await page.evaluate(() => window.scrollY)
+  await addText.click()
+  await expect(page.locator('.rich-text-contextual-panel')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(beforeScroll)
+  const panel = page.locator('.rich-text-contextual-panel')
+  await panel.getByRole('button', { name: 'Insert data field' }).click()
+  await expect(panel.getByLabel('Data path')).toHaveValue('field.path')
+  await panel.getByRole('button', { name: 'Insert condition' }).click()
+  await expect(panel.getByRole('button', { name: 'Condition', exact: true })).toBeVisible()
+  await panel.getByRole('button', { name: 'Remove selected run' }).click()
+  await expect(panel.getByRole('button', { name: 'Condition', exact: true })).toHaveCount(0)
+  await panel.getByRole('button', { name: /\{\{field\.path\}\}/ }).click()
+  await panel.getByRole('button', { name: 'Remove selected run' }).click()
+  await expect(panel.getByRole('button', { name: /\{\{field\.path\}\}/ })).toHaveCount(0)
+  await panel.getByRole('button', { name: 'Add paragraph' }).click()
+  await expect(panel.getByText('Paragraph 2')).toBeVisible()
+  const paragraphPreview = page.locator('.editor-page p').filter({ hasText: 'New text block' })
+  await expect(paragraphPreview).toContainText('New paragraph')
+  await expect(paragraphPreview).toHaveCSS('white-space', 'pre-line')
+})
+
+test('table column data paths remain editable while typing', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForTimeout(500)
+  if (await page.getByRole('heading', { name: 'Sign in to your workspace' }).isVisible().catch(() => false)) {
+    await page.getByLabel('Email address').fill('admin01@gooddocs-demo.test')
+    await page.getByLabel('Password').fill('OrgAdmin-2026!')
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  }
+  const invoice = page.locator('.starter-card').filter({ hasText: 'Invoice' })
+  await invoice.getByRole('button', { name: /Use starter.*en/ }).click()
+  await page.getByRole('button', { name: 'Add repeatable table' }).click()
+  const columns = page.getByRole('complementary', { name: 'Table columns' })
+  await columns.getByRole('button', { name: 'Add column' }).click()
+  const path = columns.getByLabel('Column 3 path')
+  await path.fill('')
+  await path.pressSequentially('line_items.total')
+  await expect(path).toHaveValue('line_items.total')
+  await expect(path).toBeFocused()
+})
+
+test('organization templates use compact links and keep audit metadata in version history', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForTimeout(500)
+  if (await page.getByRole('heading', { name: 'Sign in to your workspace' }).isVisible().catch(() => false)) {
+    await page.getByLabel('Email address').fill('admin01@gooddocs-demo.test')
+    await page.getByLabel('Password').fill('OrgAdmin-2026!')
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  }
+  const organization = page.locator('section.library')
+  await expect(organization.getByRole('heading', { name: 'Organization templates' })).toBeVisible()
+  await expect(organization).toHaveClass(/my-templates/)
+  await expect(organization.locator('.organization-template-list .template-quick-link').first()).toBeVisible()
+  await expect(organization.locator('.organization-template-list .template-quick-link-icon')).toHaveCount(0)
+  await expect(organization.locator('.organization-template-list .template-quick-link-copy')).toHaveCount(0)
+  await expect(organization.locator('.organization-template-list .template-audit-meta')).toHaveCount(0)
+  const editor = organization.getByLabel('Edited by')
+  await editor.fill('admin01@gooddocs-demo.test')
+  await organization.getByRole('button', { name: 'Filter', exact: true }).click()
+  await expect(organization.locator('.organization-template-list .template-quick-link')).not.toHaveCount(0)
+  await expect(organization.locator('.organization-template-list .template-quick-link-icon')).toHaveCount(0)
+  await expect(organization.locator('.organization-template-list .template-audit-meta')).toHaveCount(0)
+  await organization.locator('.organization-template-list .template-quick-link').first().click()
+  const history = page.getByRole('complementary', { name: 'Template version history' })
+  await expect(history).toBeVisible()
+  await expect(history.locator('.version-audit-meta').first()).toContainText(/System|@/)
 })
 
 test('editor applies a locked PDF page background in generated output', async ({ page }) => {

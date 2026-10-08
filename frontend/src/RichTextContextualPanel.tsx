@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { RichTextCondition, RichTextDocument, RichTextFormat, RichTextParagraph, RichTextRun, RichTextStyle } from './richText'
 
 type Props = {
@@ -17,6 +17,12 @@ export function RichTextContextualPanel({ document, update, align, move, remove 
   const [selection, setSelection] = useState({ paragraph: 0, run: 0 })
   const paragraph = document.paragraphs[selection.paragraph] || document.paragraphs[0]
   const run = paragraph?.runs[selection.run] || paragraph?.runs[0]
+  useEffect(() => {
+    const paragraphIndex = Math.min(selection.paragraph, Math.max(0, document.paragraphs.length - 1))
+    const runs = document.paragraphs[paragraphIndex]?.runs || []
+    const runIndex = Math.min(selection.run, Math.max(0, runs.length - 1))
+    if (paragraphIndex !== selection.paragraph || runIndex !== selection.run) setSelection({ paragraph: paragraphIndex, run: runIndex })
+  }, [document, selection.paragraph, selection.run])
   function edit(mutator: (next: RichTextDocument) => void) { const next = clone(document); mutator(next); update(next) }
   function updateParagraph(index: number, change: Partial<RichTextParagraph>) { edit(next => { next.paragraphs[index] = { ...next.paragraphs[index], ...change } }) }
   function updateRun(index: number, change: Partial<RichTextRun>) { edit(next => { next.paragraphs[selection.paragraph].runs[index] = { ...next.paragraphs[selection.paragraph].runs[index], ...change } }) }
@@ -26,7 +32,15 @@ export function RichTextContextualPanel({ document, update, align, move, remove 
     edit(next => { next.paragraphs[selection.paragraph].runs.push(nextRun) }); setSelection(current => ({ ...current, run: paragraph.runs.length }))
   }
   function addParagraph() { edit(next => next.paragraphs.push({ align: 'left', runs: [{ type: 'text', text: 'New paragraph', style: {} }] })); setSelection({ paragraph: document.paragraphs.length, run: 0 }) }
-  function deleteRun() { if (!run || paragraph.runs.length <= 1) return; edit(next => next.paragraphs[selection.paragraph].runs.splice(selection.run, 1)); setSelection(current => ({ ...current, run: Math.max(0, current.run - 1) })) }
+  function deleteRun() {
+    if (!run) return
+    edit(next => {
+      const runs = next.paragraphs[selection.paragraph].runs
+      if (runs.length <= 1) runs.splice(0, 1, { type: 'text', text: '', style: {} })
+      else runs.splice(selection.run, 1)
+    })
+    setSelection(current => ({ ...current, run: Math.max(0, current.run - 1) }))
+  }
   function updateCondition(change: Partial<RichTextCondition>) { if (run?.type !== 'condition' || !run.condition) return; updateRun(selection.run, { condition: { ...run.condition, ...change } }) }
   return <aside className="rich-text-contextual-panel" aria-label="Rich text contextual actions">
     <h4>Text content</h4>

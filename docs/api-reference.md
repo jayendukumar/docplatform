@@ -12,6 +12,8 @@ The generated specification covers the current template, ingestion, extraction/r
 1. `GET /api/templates` to find a template ID.
 2. `POST /api/templates/{template_id}/render` with a JSON body such as `{"data": {"name": "Ada"}}` for a synchronous candidate render.
 
+`GET /api/templates?scope=organization` returns only templates in workspaces accessible to the current user. Use `edited_by`, `edited_from` and `edited_to` to filter the organization audit view. Results are ordered by latest edit and include `edited_at`, `edited_by` and `edited_by_user_id`; version records include their creator identity and timestamp.
+
 `POST /api/templates/{template_id}/sample-data` returns deterministic preview data inferred from the template's `data_schema` or bounded field/table/condition bindings. Pass `locale` and `draft` to select the preview locale/version. This is preview data only; it is not persisted or treated as approved business data.
 3. For a durable job, `POST /api/jobs` with `{"kind":"render","template_id":"...","data":{"name":"Ada"}}`, then poll `GET /api/jobs/{job_id}` and run it through the configured worker trigger.
 

@@ -6537,3 +6537,86 @@ Supersedes/superseded by: [Decision ID when applicable]
 - **Consequences:** The demo database contains 100 organization members plus 10 individual accounts, in addition to any pre-existing Good docs system data. The seed is suitable for local authorization testing only. It does not provide email verification, password rotation, SSO, SCIM or production identity governance.
 - **Validation:** The focused test passes (`1 passed`) and verifies organization/workspace counts, one admin per seeded organization, ten members per organization, ten membership-free individual accounts and preserved existing passwords. The live Compose seed completed successfully and the database audit reports `organizations=10`, `workspaces=10`, `org_users=100`, `individuals=10` and `admin_memberships=10`; readiness remains healthy with database, storage and frontend ready.
 - **Implementation references:** [demo identity seed](../scripts/seed_demo_identity.py), [seed guide](../docs/demo-identity-seed.md), [seed tests](../backend/tests/test_demo_identity_seed.py), [E19 epic](epic-e19-identity-organization-workspaces-and-entitlements.md).
+
+## DD-458 - Defer blank-template naming and folder assignment until save
+
+- **Date:** 2026-10-07
+- **Status:** Accepted and Implemented
+- **Affected stories:** Proposed E18-03; E2-01 and E3-02 workflow enabler
+- **Context:** The homepage blank-template form required a name and folder before opening the editor. That makes users decide on document metadata before they have drafted the document and creates an empty persisted template even if they abandon the editor.
+- **Choice:** “Create blank template” now opens an in-memory, unsaved draft with an empty canvas. The draft has no template ID, version history or workspace record until the user chooses “Save template as”. At that point the existing name and optional folder prompts collect the logical organization metadata, then the complete current draft is persisted as the initial template version.
+- **Alternatives:** Keep the homepage name/folder form (rejected because it front-loads metadata and persists abandoned drafts); create a server-side temporary draft (deferred because it needs expiry, cleanup and authorization semantics not required for this workflow); save with an automatic name and folder (rejected because it creates misleading workspace entries).
+- **Consequences:** Unsaved blank drafts are browser-session state and are lost if the page is reloaded or the user navigates away. Save-draft/render/PDF actions that require a persisted template remain unavailable until the user saves; editing and local preview remain available.
+- **Validation:** Frontend production build and the updated browser workflow verify that blank creation does not call `POST /api/templates`, opens the editor, and persists the name/folder only after the save prompt. Existing backend template contracts are unchanged.
+- **Implementation references:** [homepage/editor workflow](../frontend/src/main.tsx), [translations](../frontend/src/i18n.ts), [gallery browser test](../frontend/tests/foundation.spec.ts), [E18 epic](epic-e18-template-gallery-and-workspace-organization.md).
+
+## DD-459 - Treat editor insertion and property editing as stable interaction contracts
+
+- **Date:** 2026-10-07
+- **Status:** Accepted and Implemented for the audited editor surface; broader accessibility, IME and native-reader review remain pending
+- **Affected stories:** E2-01 through E2-08, E3-02, E3-03, E5-01; proposed E18-03
+- **Context:** Human interaction checks found that the first rich-text insertion could move the page scroll position, single data-field/condition runs could not be removed, rich-text paragraph breaks collapsed in the local preview, table path inputs lost their caret during controlled updates, and several insert handlers bypassed shared undo/selection behavior.
+- **Choice:** Preserve viewport position across the first text-panel insertion; keep a paragraph structurally editable when its final removable run is deleted; preserve rich-text line breaks in the local preview; restore table-path caret focus across state updates; and require every insert handler to use the shared editor history and selection helper. Clamp contextual-panel selection when switching documents.
+- **Alternatives:** Accept browser scroll anchoring and ask users to scroll back (rejected because insertion is a primary action); disable deletion of the last run (rejected because it traps inserted fields/conditions); use uncontrolled table inputs without state synchronization (rejected because preview and persistence would lag); duplicate history logic per component (rejected because it caused the inconsistency being fixed).
+- **Consequences:** Empty text runs are valid temporary editor state and can be removed by deleting the parent block. Column widths continue to commit on blur because they are a comma-separated aggregate field. The audit improves editor interaction consistency but does not certify keyboard accessibility, IME behavior, touch behavior or native output readers.
+- **Validation:** Frontend build passes. Focused browser tests pass (`2 passed`) for scroll preservation, rich-text deletion/paragraph flow, and character-by-character table path editing. The audit matrix records the tested and remaining surfaces.
+- **Implementation references:** [editor workflow](../frontend/src/main.tsx), [rich-text panel](../frontend/src/RichTextContextualPanel.tsx), [editor styles](../frontend/src/editor.css), [focused tests](../frontend/tests/foundation.spec.ts), [audit matrix](editor-usability-audit.md).
+## DD-460 - Model organization template listings as audited workspace edits
+
+- **Date:** 2026-10-08
+- **Status:** Accepted and Implemented
+- **Affected stories:** E3-01, E3-02, E3-03, E7-01, E11-01, proposed E19-02
+- **Context:** Organization templates were grouped by folder and ordered by creation, while the product requirement is an organization workspace view equivalent to My Templates and capable of answering who edited a template and when. Filtering only in the browser would be incomplete and would not protect workspace boundaries.
+- **Choice:** Add `updated_at` and `updated_by_user_id` to templates, and `created_by_user_id` to template versions. Populate these fields on template creation and draft-version saves, expose the resolved editor email and ISO timestamp in the template API, sort organization results by most recent edit, and support API filters for editor, edited-from and edited-to. Render organization cards using the My Templates card pattern and show audit metadata on both personal and organization cards. Keep organization scope authorization server-side through accessible workspace IDs.
+- **Alternatives considered:** Keep creation timestamps only; rejected because they cannot represent later edits. Filter only in React; rejected because pagination and authorization would produce misleading results. Reuse version timestamps without a template-level latest-edit projection; rejected because the gallery needs a cheap sortable/filterable record list. Keep folder-grouped organization cards; rejected because the requested view is the same as My Templates.
+- **Consequences:** Existing rows are backfilled to their creation time and owner where available; legacy/system edits display as System. Date filters use inclusive start and inclusive end dates. Version creation now requires the authenticated write session's CSRF token in the browser. Restore/publish audit enrichment remains a follow-up for the broader governance audit surface.
+- **Validation:** Migration applied during Compose restart; authenticated API returned `edited_at`, `edited_by` and workspace-scoped organization results; editor/date query filters returned matching records; frontend build passed; focused Playwright tests for audit metadata/filtering plus prior editor regressions passed (3 passed).
+- **Implementation references:** [template model](../backend/app/models.py), [audit migration](../backend/migrations/versions/0014_template_edit_audit.py), [template API](../backend/app/main.py), [workspace UI](../frontend/src/main.tsx), [audit UI styles](../frontend/src/editor.css), [browser tests](../frontend/tests/foundation.spec.ts).
+
+## DD-461 - Keep organization templates visually consistent with My templates
+
+- **Date:** 2026-10-08
+- **Status:** Superseded by DD-462
+- **Affected stories:** E19-01, E19-02; proposed E18-04
+- **Context:** The organization section on the landing page had drifted into the workspace two-column layout and used a separate card rendering path, while the requested homepage experience treats it as the same template collection pattern as My templates.
+- **Choice:** Render organization templates with the same full-width section styling and shared template-card renderer as My templates. Preserve the organization-only audit filters, pagination/load-more behavior and API-side workspace authorization above the shared card grid.
+- **Alternatives:** Remove organization audit filters to make the markup identical; rejected because editor/date filtering remains a functional organization-workspace requirement. Keep the two-column organization layout; rejected because it makes the same landing-page collection appear as a different product surface.
+- **Consequences:** Both personal and organization collections now use the same card geometry, metadata placement and open action. Organization cards retain their shared-workspace note and audit controls; selected-template editor layout remains unchanged.
+- **Validation:** Frontend production build passed. The focused organization browser test verifies the organization section uses the My templates styling and shared cards, while audit filtering still returns matching templates.
+- **Implementation references:** [landing-page UI](../frontend/src/main.tsx), [homepage layout](../frontend/src/style.css), [translations](../frontend/src/i18n.ts), [browser test](../frontend/tests/foundation.spec.ts).
+
+## DD-462 - Restore the compact template quick-link presentation
+
+- **Date:** 2026-10-08
+- **Status:** Superseded by DD-463
+- **Affected stories:** E19-01, E19-02; proposed E18-04
+- **Context:** Git history shows that commit `2222e00` used a compact `recent-template-list` for My templates. The later card-based presentation was less concise, and the requested landing-page behavior is for both personal and organization templates to use the earlier compact presentation.
+- **Choice:** Restore small template quick links with a compact document icon, template name, folder and audit metadata. Use one shared renderer for My Templates and Organization Templates. Keep organization audit filters and load-more behavior outside the shared item, and keep server-side workspace authorization unchanged.
+- **Alternatives:** Restore the larger paper-preview cards; rejected because the requested historical presentation is compact. Remove audit metadata from quick links; rejected because organization edits must remain attributable.
+- **Consequences:** The two landing-page sections now have the same concise visual language and interaction. Long names are truncated within each quick link; the full template remains available after opening it.
+- **Validation:** Frontend production build passed. The focused organization browser test passed (`1 passed`) and verified the compact shared quick-link presentation and editor filtering result.
+- **Implementation references:** [landing-page UI](../frontend/src/main.tsx), [quick-link styles](../frontend/src/editor.css), [browser test](../frontend/tests/foundation.spec.ts), historical reference: Git commit `2222e00` (`Extend the editor and renderer toward Word-like authoring`).
+
+## DD-463 - Keep compact cards free of audit metadata
+
+- **Date:** 2026-10-08
+- **Status:** Accepted and Implemented
+- **Affected stories:** E3-03, E19-01, E19-02; proposed E18-04
+- **Context:** The compact My Templates and Organization Templates presentation should remain concise. Showing editor identity and timestamps on every landing-page item made the two collections visually heavier and duplicated version-history information.
+- **Choice:** Keep both sections on the shared compact quick-link renderer with only the document icon, name and folder. Remove editor/timestamp metadata from landing-page items. Show version creator identity and creation timestamp in the version-history panel, using `System` when legacy records have no actor.
+- **Alternatives:** Keep audit metadata on organization cards only; rejected because the two sections should remain visually identical. Remove attribution entirely; rejected because version governance still requires it at version history.
+- **Consequences:** Landing-page cards are concise, while audit detail is available after opening a template. Organization filters remain available and continue to query the server-side audit fields.
+- **Validation:** Frontend production build passed. The focused browser test passed (`1 passed`), verifying no audit metadata appears in organization quick links and version history displays attribution/timestamp data.
+- **Implementation references:** [landing-page and version history](../frontend/src/main.tsx), [compact/history styles](../frontend/src/editor.css), [browser test](../frontend/tests/foundation.spec.ts).
+
+## DD-464 - Match the confirmed historical compact template view
+
+- **Date:** 2026-10-08
+- **Status:** Accepted and Implemented
+- **Affected stories:** E19-01, E19-02; proposed E18-04
+- **Context:** The user-provided screenshot of the confirmed historical landing page shows template entries as plain compact text buttons. The previously restored implementation still added a document icon and folder subtitle, so it did not match the validated reference.
+- **Choice:** Use the historical plain text quick-link treatment for both My Templates and Organization Templates: template name only, with the existing compact button styling. Keep editor/date filters and version-history audit metadata unchanged.
+- **Alternatives:** Keep the icon and folder subtitle; rejected because the supplied reference disproves that geometry. Restore the larger preview cards; rejected because the supplied reference confirms the compact list.
+- **Consequences:** Both landing-page collections now match the confirmed historical visual more closely; folder and audit details remain available after opening the template and in version history.
+- **Validation:** Frontend build and the focused organization browser test are required after this change; visual reference is the user-provided screenshot `Screenshot 2026-10-08 120255.png`.
+- **Implementation references:** [landing-page UI](../frontend/src/main.tsx), [quick-link styles](../frontend/src/editor.css), [browser tests](../frontend/tests/foundation.spec.ts).

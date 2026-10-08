@@ -10,7 +10,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from io import BytesIO, StringIO
 from pathlib import Path
 from uuid import uuid4
@@ -560,7 +560,9 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
     def version_payload(row):
         return {"id": row["id"], "template_id": row["template_id"], "version": row["version"],
                 "status": row["status"], "change_summary": row["change_summary"],
-                "created_at": row["created_at"].isoformat() if row["created_at"] else None}
+                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                "created_by_user_id": row.get("created_by_user_id"),
+                "created_by_email": row.get("created_by_email")}
 
     def record_review_event(connection, result_id: str, from_status: str | None,
                             to_status: str, actor: str):
@@ -1041,16 +1043,31 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
     @app.get("/api/templates", tags=["templates"])
     def templates(q: str | None = None, folder: str | None = None, tag: str | None = None,
                   scope: str = "all", limit: int = 24, offset: int = 0,
+                  edited_by: str | None = None, edited_from: str | None = None,
+                  edited_to: str | None = None,
                   request: Request = None):
         user = authenticated_user(request, scope="read")
         limit = min(100, max(1, limit)); offset = max(0, offset)
         with engine.connect() as connection:
             access = workspace_access(connection, user)
+            edited_from_dt = None
+            edited_to_dt = None
+            try:
+                if edited_from:
+                    edited_from_dt = datetime.fromisoformat(edited_from).replace(tzinfo=UTC)
+                if edited_to:
+                    edited_to_dt = datetime.fromisoformat(edited_to).replace(tzinfo=UTC) + timedelta(days=1)
+            except ValueError:
+                raise HTTPException(status_code=422, detail="edited_from and edited_to must be ISO dates") from None
             rows = connection.execute(select(Template.id, Template.name, Template.schema_version,
                                              Template.folder, Template.tags_json,
                                              Template.published_version_id, Template.owner_user_id,
                                              Template.workspace_id, Template.visibility,
-                                             Template.created_at).order_by(Template.created_at.desc(), Template.name)).mappings().all()
+                                             Template.created_at, Template.updated_at,
+                                             Template.updated_by_user_id,
+                                             User.email.label("updated_by_email")).select_from(Template).outerjoin(
+                                                 User, User.id == Template.updated_by_user_id
+                                             ).order_by(Template.updated_at.desc(), Template.name)).mappings().all()
             items = []
             for row in rows:
                 mine = row["owner_user_id"] == user.get("id")
@@ -1060,7 +1077,7 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                     visible = row["visibility"] == "public"
                 if scope == "mine" and not mine:
                     visible = False
-                if scope == "organization" and (not in_workspace or mine):
+                if scope == "organization" and not in_workspace:
                     visible = False
                 if not visible:
                     continue
@@ -1072,12 +1089,23 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                 searchable = f"{row['name']} {row['folder']} {' '.join(tags)}".lower()
                 if q and q.lower() not in searchable:
                     continue
+                updated_at = row["updated_at"] or row["created_at"]
+                editor_search = f"{row['updated_by_email'] or ''} {row['updated_by_user_id'] or ''}".lower()
+                if edited_by and edited_by.lower() not in editor_search:
+                    continue
+                if edited_from_dt and (updated_at is None or updated_at.replace(tzinfo=UTC) < edited_from_dt):
+                    continue
+                if edited_to_dt and (updated_at is None or updated_at.replace(tzinfo=UTC) >= edited_to_dt):
+                    continue
                 published = connection.execute(select(TemplateVersion.version).where(
                     TemplateVersion.id == row["published_version_id"])).scalar_one_or_none()
                 items.append({"id": row["id"], "name": row["name"], "schema_version": row["schema_version"],
                               "folder": row["folder"], "tags": tags,
                               "owner_user_id": row["owner_user_id"], "workspace_id": row["workspace_id"],
                               "visibility": row["visibility"],
+                              "edited_at": updated_at.isoformat() if updated_at else None,
+                              "edited_by_user_id": row["updated_by_user_id"],
+                              "edited_by": row["updated_by_email"] or row["updated_by_user_id"] or "System",
                               "published_version": published,
                               "published_version_id": row["published_version_id"]})
             return {"items": items[offset:offset + limit], "offset": offset,
@@ -1187,13 +1215,14 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                 raise HTTPException(status_code=403, detail="You do not have access to this workspace")
             if user.get("account_type") in {"guest", "pending"}:
                 raise HTTPException(status_code=403, detail="Guest accounts cannot create templates")
+            editor_id = None if user.get("id") == "local" else user.get("id")
             connection.execute(Template.__table__.insert().values(
                 id=template_id, name=name, object_key=key, schema_version=1, folder=folder,
                 tags_json=json.dumps(tags), published_version_id=None, owner_user_id=None if user.get("id") == "local" else user.get("id"),
-                workspace_id=workspace_id, visibility=visibility))
+                workspace_id=workspace_id, visibility=visibility, updated_by_user_id=editor_id))
             connection.execute(TemplateVersion.__table__.insert().values(
                 id=version_id, template_id=template_id, version=1, status="draft",
-                change_summary="Initial draft", definition_json=encoded.decode("utf-8")))
+                change_summary="Initial draft", definition_json=encoded.decode("utf-8"), created_by_user_id=editor_id))
         return {"id": template_id, "version_id": version_id, "status": "draft", "workspace_id": workspace_id}
 
     @app.get("/api/templates/{template_id}/versions", tags=["templates"])
@@ -1203,12 +1232,16 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                 raise HTTPException(status_code=404, detail="Template not found")
             rows = connection.execute(select(TemplateVersion.id, TemplateVersion.template_id,
                                              TemplateVersion.version, TemplateVersion.status,
-                                             TemplateVersion.change_summary, TemplateVersion.created_at).where(
-                TemplateVersion.template_id == template_id).order_by(TemplateVersion.version.desc())).mappings().all()
+                                             TemplateVersion.change_summary, TemplateVersion.created_at,
+                                             TemplateVersion.created_by_user_id,
+                                             User.email.label("created_by_email")).select_from(TemplateVersion).outerjoin(
+                                                 User, User.id == TemplateVersion.created_by_user_id
+                                             ).where(TemplateVersion.template_id == template_id).order_by(TemplateVersion.version.desc())).mappings().all()
             return {"items": [version_payload(row) for row in rows]}
 
     @app.post("/api/templates/{template_id}/versions", status_code=201, tags=["templates"])
-    def create_version(template_id: str, payload: dict):
+    def create_version(template_id: str, payload: dict, request: Request):
+        user = authenticated_user(request, csrf=True, scope="write")
         definition = payload.get("definition")
         if not isinstance(definition, dict):
             raise HTTPException(status_code=422, detail="definition must be an object")
@@ -1225,8 +1258,10 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
             store.put(key, encoded.encode("utf-8"))
             connection.execute(TemplateVersion.__table__.insert().values(
                 id=version_id, template_id=template_id, version=number, status="draft",
-                change_summary=str(payload.get("change_summary", "Updated draft"))[:500], definition_json=encoded))
-            connection.execute(Template.__table__.update().where(Template.id == template_id).values(object_key=key))
+                change_summary=str(payload.get("change_summary", "Updated draft"))[:500], definition_json=encoded,
+                created_by_user_id=None if user.get("id") == "local" else user.get("id")))
+            connection.execute(Template.__table__.update().where(Template.id == template_id).values(
+                object_key=key, updated_at=func.now(), updated_by_user_id=None if user.get("id") == "local" else user.get("id")))
         return {"id": version_id, "version": number, "status": "draft"}
 
     @app.post("/api/templates/{template_id}/publish/{version_id}", tags=["templates"])
@@ -1260,14 +1295,14 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         return {"template_id": template_id, "version_id": version_id, "status": state}
 
     @app.post("/api/templates/{template_id}/restore/{version_id}", status_code=201, tags=["templates"])
-    def restore(template_id: str, version_id: str):
+    def restore(template_id: str, version_id: str, request: Request):
         with engine.connect() as connection:
             version = connection.execute(select(TemplateVersion.version, TemplateVersion.definition_json).where(and_(
                 TemplateVersion.id == version_id, TemplateVersion.template_id == template_id))).mappings().one_or_none()
             if version is None:
                 raise HTTPException(status_code=404, detail="Version not found")
             definition = json.loads(version["definition_json"])
-        return create_version(template_id, {"definition": definition, "change_summary": f"Restored from v{version['version']}"})
+        return create_version(template_id, {"definition": definition, "change_summary": f"Restored from v{version['version']}"}, request)
 
     @app.post("/api/templates/{template_id}/duplicate", status_code=201, tags=["templates"])
     def duplicate(template_id: str, payload: dict | None = None, request: Request = None):

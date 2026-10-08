@@ -14,6 +14,7 @@ Planning baseline created on 2026-09-22 from [the supplied backlog](Backlog_DocG
 | [Demo-template verification corpus](demo-corpus/README.md) | Generated structural samples for every starter and exposed language |
 | [E19 identity, organization workspaces and entitlements (proposed)](docs/epic-e19-identity-organization-workspaces-and-entitlements.md) | Proposed scope addition: ordered personal/org template views, workspace isolation, guest access and SSO placeholders |
 | [Fictitious identity seed](docs/demo-identity-seed.md) | Explicit local seed for organization admins, members and membership-free individual accounts |
+| [Editor usability audit](docs/editor-usability-audit.md) | Interaction findings, fixes and remaining validation boundaries for editor components |
 | [Technology stack](docs/tech-stack.md) | Recommended architecture, alternatives, dependency constraints and research sources |
 | [Implementation plan](docs/implementation-plan.md) | Epic dependencies, milestones, validation gates and unresolved requirements |
 | [Design decisions](docs/design-decisions.md) | Living decision register; proposed choices remain distinct from accepted or implemented choices |

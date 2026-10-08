@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useRef, useState } from 'react'
+import { StrictMode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, KeyboardEvent, PointerEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useTranslation } from 'react-i18next'
@@ -19,10 +19,10 @@ import { formatTabStops, parseTabStops, tabStopPosition, type TabStop } from './
 import { defaultRichText, richTextPlainText } from './richText'
 import type { RichTextDocument, RichTextParagraph } from './richText'
 
-type Template = { id: string; name: string; schema_version: number; folder?: string; tags?: string[]; owner_user_id?: string; workspace_id?: string; visibility?: string }
+type Template = { id: string; name: string; schema_version: number; folder?: string; tags?: string[]; owner_user_id?: string; workspace_id?: string; visibility?: string; edited_at?: string; edited_by?: string; edited_by_user_id?: string }
 type AuthUser = { id: string; email: string; role: string; account_type?: string; csrf_token?: string }
 type AuthConfig = { setup_required: boolean; password_login: boolean; guest_login: boolean; signup: boolean; sso: { enabled: boolean; start_url: string } }
-type TemplateVersion = { id: string; version: number; status: string; change_summary?: string; created_at?: string }
+type TemplateVersion = { id: string; version: number; status: string; change_summary?: string; created_at?: string; created_by_user_id?: string; created_by_email?: string }
 type ExtractionSchemaItem = { id: string; name: string; schema_version: number; sample_url: string }
 type Starter = { id: string; name: string; category: string; languages: string[]; definitions: Record<string, Record<string, unknown>> }
 type PageSettings = { size: 'A3' | 'A4' | 'A5' | 'Letter'; orientation: 'portrait' | 'landscape'; marginTopMm: number; marginRightMm: number; marginBottomMm: number; marginLeftMm: number; header: string; footer: string; headerComponentId: string; footerComponentId: string; showPageNumbers: boolean; headerAlign: BoxAlign; footerAlign: BoxAlign; pageNumberPosition: PageNumberPosition; pageNumberFormat: string; headerFooterFontSize: number; firstPageFooter: string; firstPageFooterAlign: BoxAlign; firstPageShowPageNumbers: boolean; firstPageFooterDistanceMm: number; firstPageFooterFontSize: number; furniture: FurnitureSettings }
@@ -277,6 +277,10 @@ function App() {
   const [organizationTemplates, setOrganizationTemplates] = useState<Template[]>([])
   const [organizationOffset, setOrganizationOffset] = useState(0)
   const [organizationHasMore, setOrganizationHasMore] = useState(false)
+  const [organizationEditorFilter, setOrganizationEditorFilter] = useState('')
+  const [organizationEditedFrom, setOrganizationEditedFrom] = useState('')
+  const [organizationEditedTo, setOrganizationEditedTo] = useState('')
+  const [organizationFilterVersion, setOrganizationFilterVersion] = useState(0)
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null)
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
@@ -286,9 +290,6 @@ function App() {
   const [authFeedback, setAuthFeedback] = useState<string | null>(null)
   const [starters, setStarters] = useState<Starter[]>([])
   const [expandedStarterCategories, setExpandedStarterCategories] = useState<string[]>([])
-  const [blankTemplateName, setBlankTemplateName] = useState('')
-  const [blankTemplateFolder, setBlankTemplateFolder] = useState('')
-  const [blankTemplateFeedback, setBlankTemplateFeedback] = useState<string | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
   const [selected, setSelected] = useState<Definition | null>(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
@@ -343,6 +344,8 @@ function App() {
   const [templateVersions, setTemplateVersions] = useState<TemplateVersion[]>([])
   const [previewPage, setPreviewPage] = useState(1)
   const [templateSettingsOpen, setTemplateSettingsOpen] = useState(false)
+  const draftDefinitionRef = useRef<Definition | null>(null)
+  const tablePathFocusRef = useRef<{ value: string; position: number } | null>(null)
   const [recentTemplateIds, setRecentTemplateIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('docplatform.recentTemplates') || '[]') as string[] } catch { return [] } })
   const authHeaders = (): Record<string, string> => {
     const csrf = localStorage.getItem('docplatform.csrf')
@@ -431,6 +434,26 @@ function App() {
     return () => page.removeEventListener('click', handleCanvasSelection)
   }, [editorBlocks])
   useEffect(() => {
+    const rememberTablePathCaret = (event: Event) => {
+      const input = event.target as HTMLInputElement
+      if (!input.matches('.table-column-editor input[aria-label$=" path"]')) return
+      tablePathFocusRef.current = { value: input.value, position: input.selectionStart ?? input.value.length }
+    }
+    document.addEventListener('input', rememberTablePathCaret, true)
+    return () => document.removeEventListener('input', rememberTablePathCaret, true)
+  }, [])
+  useLayoutEffect(() => {
+    const snapshot = tablePathFocusRef.current
+    if (!snapshot) return
+    const input = Array.from(document.querySelectorAll<HTMLInputElement>('.table-column-editor input[aria-label$=" path"]')).find(item => item.value === snapshot.value)
+    if (input) {
+      input.focus()
+      const position = Math.min(snapshot.position, input.value.length)
+      input.setSelectionRange(position, position)
+    }
+    tablePathFocusRef.current = null
+  }, [editorBlocks])
+  useEffect(() => {
     const page = document.querySelector('.editor-page')
     if (!page) return
     const content = Array.from(page.children).filter(element => !element.classList.contains('page-label') && !element.classList.contains('alignment-guide') && !element.classList.contains('locked-background-frame')) as HTMLElement[]
@@ -484,7 +507,7 @@ function App() {
     setLoading(true); setFailed(false)
     Promise.all([
       fetch('/api/templates?scope=mine&limit=50', { signal: controller.signal }).then(response => response.ok ? response.json() as Promise<{ items: Template[] }> : Promise.reject(new Error('unavailable'))),
-      fetch('/api/templates?scope=organization&limit=24&offset=0', { signal: controller.signal }).then(response => response.ok ? response.json() as Promise<{ items: Template[]; has_more?: boolean; next_offset?: number }> : Promise.reject(new Error('unavailable'))),
+      fetch(`/api/templates?scope=organization&limit=24&offset=0&edited_by=${encodeURIComponent(organizationEditorFilter)}&edited_from=${encodeURIComponent(organizationEditedFrom)}&edited_to=${encodeURIComponent(organizationEditedTo)}`, { signal: controller.signal }).then(response => response.ok ? response.json() as Promise<{ items: Template[]; has_more?: boolean; next_offset?: number }> : Promise.reject(new Error('unavailable'))),
     ]).then(([mine, organization]) => { setMyTemplates(mine.items); setOrganizationTemplates(organization.items); setOrganizationOffset(organization.next_offset || organization.items.length); setOrganizationHasMore(Boolean(organization.has_more)); setTemplates([...mine.items, ...organization.items].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index)) }).catch(() => {
       if (!controller.signal.aborted) setFailed(true)
     }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
@@ -503,7 +526,7 @@ function App() {
       return await response.json() as { items: ReusableComponent[] }
     }).then(result => setComponents(result.items)).catch(() => undefined)
     return () => controller.abort()
-  }, [attempt, authChecked, authRequired])
+  }, [attempt, authChecked, authRequired, organizationFilterVersion])
   useEffect(() => {
     const controller = new AbortController()
     fetch(`/api/extraction-schemas/${encodeURIComponent(schemaId)}`, { signal: controller.signal }).then(response => response.json())
@@ -603,15 +626,35 @@ function App() {
     setAttempt(value => value + 1)
     await openTemplate(created.id)
   }
-  async function createBlankTemplate() {
-    const name = blankTemplateName.trim()
-    if (!name) { setBlankTemplateFeedback(t('blankTemplateNameRequired')); return }
-    const folder = blankTemplateFolder.trim()
-    const definition = { name, schema_version: 1, locale: 'en', sample_data: {}, page: { size: 'A4', orientation: 'portrait', margin_mm: 20 }, blocks: [] }
-    const response = await fetch('/api/templates', { method: 'POST', headers: { ...authHeaders(), 'content-type': 'application/json' }, body: JSON.stringify({ name, folder, definition }) })
-    if (!response.ok) { setBlankTemplateFeedback(t('blankTemplateFailed')); return }
-    const body = await response.json() as { id?: string }
-    if (body.id) { setBlankTemplateName(''); setBlankTemplateFolder(''); setBlankTemplateFeedback(null); setAttempt(value => value + 1); await openTemplate(body.id) }
+  function createBlankTemplate() {
+    const definition: Definition = { name: 'Untitled draft', locale: 'en', sample_data: {}, page: { size: 'A4', orientation: 'portrait', margin_mm: 20 }, blocks: [] }
+    draftDefinitionRef.current = null
+    setSelected(definition)
+    setSelectedTemplateId(null)
+    setEditorBlocks([])
+    setHistory([[]])
+    setHistoryIndex(0)
+    historyReady.current = true
+    setSelectedBlockIds([])
+    setActiveBlockId(null)
+    setPageSettings({ size: 'A4', orientation: 'portrait', marginTopMm: 20, marginRightMm: 20, marginBottomMm: 20, marginLeftMm: 20, header: '', footer: '', headerComponentId: '', footerComponentId: '', showPageNumbers: false, headerAlign: 'left', footerAlign: 'left', pageNumberPosition: 'footer-right', pageNumberFormat: '{page}', headerFooterFontSize: 12, firstPageFooter: '', firstPageFooterAlign: 'center', firstPageShowPageNumbers: true, firstPageFooterDistanceMm: 0, firstPageFooterFontSize: 12, furniture: {} })
+    setDocumentMetadata({ title: '', author: '' })
+    setThemeAccent('#2f6f60')
+    setThemeFontFamily('Noto Sans')
+    setThemeSpacing('1.45')
+    setPageBackground('')
+    setPageBackgroundPdf('')
+    setTemplateSchema(null)
+    setTemplateSchemaFeedback(null)
+    setPageSettingsOpen(false)
+    setTemplateSettingsOpen(false)
+    setTemplateVersions([])
+    setEditorFeedback(null)
+    setEditorArtifact(null)
+    setEditorDiagnostics(null)
+    setPdfUrl(null)
+    setPdfReport(null)
+    setPdfFeedback(null)
   }
   function updateActiveBlock(change: Partial<EditorBlock>) {
     if (!activeBlockId) return
@@ -626,6 +669,12 @@ function App() {
       }
       return next
     })
+  }
+  function preservePageScroll(action: () => void) {
+    const top = window.scrollY
+    const left = window.scrollX
+    action()
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => window.scrollTo({ top, left, behavior: 'auto' })))
   }
   function undoEditor() {
     setHistoryIndex(index => { const next = Math.max(0, index - 1); const snapshot = history[next]; if (snapshot) setEditorBlocks(snapshot); return next })
@@ -669,7 +718,7 @@ function App() {
   function addTextBlock() {
     const richText = defaultRichText()
     const block = { id: `block-${Date.now()}`, text: richTextPlainText(richText), richText, bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left' as const, breakBefore: false, keepTogether: true, kind: 'text' as const }
-    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setActiveComponentPartId(null)
+    preservePageScroll(() => { updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setActiveComponentPartId(null) })
   }
   function addBoundField(path: string) {
     const cleanPath = path.trim()
@@ -680,42 +729,42 @@ function App() {
   }
   function addTableBlock() {
     const block = { id: `table-${Date.now()}`, text: 'Repeatable table', bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left' as const, breakBefore: false, keepTogether: true, kind: 'table' as const, items: 'rows', columns: [{ header: 'Description', path: 'description', format: 'text' as const }, { header: 'Amount', path: 'amount', format: 'currency' as const }] }
-    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelected(current => current ? { ...current, sample_data: { ...(current.sample_data as Record<string, unknown>), rows: [{ description: 'Example item', amount: 12.5 }, { description: 'Second item', amount: 7.5 }] } } : current)
+    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setSelected(current => current ? { ...current, sample_data: { ...(current.sample_data as Record<string, unknown>), rows: [{ description: 'Example item', amount: 12.5 }, { description: 'Second item', amount: 7.5 }] } } : current)
   }
   function addRepeatBlock() {
     const block = { id: `loop-${Date.now()}`, text: 'Repeating section', bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left' as const, breakBefore: false, keepTogether: true, kind: 'loop' as const, items: 'rows', as: 'row', repeatText: '{{row.description}} — {{currency(row.amount)}}' }
-    setEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelected(current => current ? { ...current, sample_data: { ...(current.sample_data as Record<string, unknown>), rows: [{ description: 'Example item', amount: 12.5 }, { description: 'Second item', amount: 7.5 }] } } : current)
+    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setSelected(current => current ? { ...current, sample_data: { ...(current.sample_data as Record<string, unknown>), rows: [{ description: 'Example item', amount: 12.5 }, { description: 'Second item', amount: 7.5 }] } } : current)
   }
   function addConditionalBlock() {
     const block = { id: `if-${Date.now()}`, text: 'Conditional section', bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left' as const, breakBefore: false, keepTogether: true, kind: 'if' as const, conditionPath: 'show_note', conditionValue: true, thenText: 'This note is enabled.', elseText: 'This note is disabled.' }
-    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelected(current => current ? { ...current, sample_data: { ...(current.sample_data as Record<string, unknown>), show_note: true } } : current)
+    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setSelected(current => current ? { ...current, sample_data: { ...(current.sample_data as Record<string, unknown>), show_note: true } } : current)
   }
   function addImageBlock() {
     const block = { id: `image-${Date.now()}`, text: 'Image', bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left' as const, breakBefore: false, keepTogether: true, kind: 'image' as const, source: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', alt: 'Image', width: 240 }
-    setEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setActiveComponentPartId(null)
+    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setActiveComponentPartId(null)
   }
   function addColumnMarker(kind: 'columns' | 'column_break' | 'columns_end') {
     const label = kind === 'columns' ? 'Start columns' : kind === 'column_break' ? 'Column break' : 'End columns'
     const block = { id: `${kind}-${Date.now()}`, text: label, bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left' as const, breakBefore: false, keepTogether: false, kind, ...(kind === 'columns' ? { columnsStyle: { count: 2, gap_mm: 6 } } : {}) }
-    setEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setActiveComponentPartId(null)
+    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setActiveComponentPartId(null)
   }
   function addShapeBlock() {
     const block = { id: `shape-${Date.now()}`, text: 'Shape', bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left' as const, breakBefore: false, keepTogether: false, kind: 'shape' as const, shapeStyle: { shape: 'line' as const, stroke_width: 1 } }
-    setEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setActiveComponentPartId(null)
+    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id]); setActiveComponentPartId(null)
   }
   function addCodeBlock() {
     const block = { id: `code-${Date.now()}`, text: 'QR code', bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left' as const, breakBefore: false, keepTogether: true, kind: 'code' as const, codeType: 'qr' as const, codeValue: '{{order.id}}', width: 220 }
-    setEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id)
+    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id])
     setSelected(current => current ? { ...current, sample_data: { ...(current.sample_data as Record<string, unknown>), order: { id: 'ORDER-001', code: 'ABC123', ean: '5901234123457' } } } : current)
   }
   function addChartBlock() {
     const block: EditorBlock = { id: `chart-${Date.now()}`, text: 'Chart', bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left', breakBefore: false, keepTogether: true, kind: 'chart', items: 'chart_rows', chartType: 'bar', chartOrientation: 'vertical', showLegend: true, showGrid: true, showPoints: true, donut: false, chartTitle: '', xAxisLabel: '', yAxisLabel: '', labelPath: 'label', valuePath: 'value', seriesPath: '', chartDataMode: 'bound', staticData: [{ label: 'A', value: 10 }, { label: 'B', value: 20 }], colors: ['#2f6f63', '#d97941', '#4d78a8'], backgroundColor: '#ffffff', gridColor: '#d9e2df', axisColor: '#203d37', showValues: false, stacked: false, alt: 'Data chart' }
-    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id)
+    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id])
     setSelected(current => current ? { ...current, sample_data: { ...(current.sample_data as Record<string, unknown>), chart_rows: [{ label: 'A', value: 10 }, { label: 'B', value: 20 }] } } : current)
   }
   function addTocBlock() {
     const block: EditorBlock = { id: `toc-${Date.now()}`, text: 'Table of contents', bold: false, italic: false, color: '#203d37', fontFamily: 'Noto Sans', fontSize: 16, align: 'left', breakBefore: false, keepTogether: true, kind: 'toc' }
-    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id)
+    updateEditorBlocks(blocks => [...blocks, block]); setActiveBlockId(block.id); setSelectedBlockIds([block.id])
   }
   async function generateSampleData() {
     if (!selectedTemplateId) return
@@ -727,13 +776,13 @@ function App() {
   }
   async function restoreTemplateVersion(versionId: string) {
     if (!selectedTemplateId) return
-    const response = await fetch(`/api/templates/${encodeURIComponent(selectedTemplateId)}/restore/${encodeURIComponent(versionId)}`, { method: 'POST' })
+    const response = await fetch(`/api/templates/${encodeURIComponent(selectedTemplateId)}/restore/${encodeURIComponent(versionId)}`, { method: 'POST', headers: authUser?.csrf_token ? { 'x-csrf-token': authUser.csrf_token } : {} })
     if (!response.ok) { setEditorFeedback('Unable to restore this version'); return }
     setEditorFeedback('Version restored as a new draft')
     await openTemplate(selectedTemplateId)
   }
   async function saveEditorDraft(): Promise<boolean> {
-    if (!selectedTemplateId || !selected) return false
+    if (!selected) return false
     const firstFooter = pageSettings.firstPageFooter ? { [`first_page_footer_${pageSettings.firstPageFooterAlign}`]: pageSettings.firstPageFooter } : {}
     const definition = { ...selected, data_schema: templateSchema || undefined, data_schema_id: templateSchema ? String(templateSchema.$id || selected.data_schema_id || 'template-schema') : undefined, data_schema_version: templateSchema ? Number(templateSchema['x-docplatform-schema-version'] || selected.data_schema_version || 1) : undefined, metadata: documentMetadata, theme: { ...(selected.theme || {}), accent: themeAccent, font_family: themeFontFamily, spacing: themeSpacing }, page: { size: pageSettings.size, orientation: pageSettings.orientation, margin_top_mm: pageSettings.marginTopMm, margin_right_mm: pageSettings.marginRightMm, margin_bottom_mm: pageSettings.marginBottomMm, margin_left_mm: pageSettings.marginLeftMm, margin_mm: pageSettings.marginTopMm, header: pageSettings.header, footer: pageSettings.footer, ...(pageSettings.headerComponentId ? { header_component_id: pageSettings.headerComponentId } : {}), ...(pageSettings.footerComponentId ? { footer_component_id: pageSettings.footerComponentId } : {}), show_page_numbers: pageSettings.showPageNumbers, header_align: pageSettings.headerAlign, footer_align: pageSettings.footerAlign, page_number_position: pageSettings.pageNumberPosition, page_number_format: pageSettings.pageNumberFormat, header_footer_font_size: pageSettings.headerFooterFontSize, ...pageSettings.furniture, ...(pageBackground ? { background: pageBackground } : {}) }, blocks: editorBlocks.filter(block => block.kind !== 'pdf_background' && block.kind !== 'page_background').map(({ id, fontFamily, fontSize, offsetX, offsetY, richText, kind, componentId, items, as, columns, rowConditionPath, rowConditionValue, repeatText, conditionPath, conditionValue, thenText, elseText, source, alt, width, codeType, codeValue, chartType, chartOrientation, showLegend, showGrid, showPoints, donut, chartTitle, xAxisLabel, yAxisLabel, labelPath, valuePath, seriesPath, chartDataMode, staticData, colors, backgroundColor, gridColor, axisColor, showValues, stacked, anchorId, tocLabel, tocLevel, breakBefore, keepTogether, ...block }) => kind === 'component' ? ({ type: 'component', component_id: componentId, offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether }) : kind === 'table' ? ({ type: 'table', items: items || 'rows', columns: columns || [], ...(block.tableStyle || {}), ...(rowConditionPath ? { row_condition: { path: rowConditionPath, equals: rowConditionValue || '' } } : {}), offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether }) : kind === 'loop' ? ({ type: 'loop', items: items || 'rows', as: as || 'row', blocks: [{ type: 'text', text: repeatText || '' }], offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether }) : kind === 'if' ? ({ type: 'if', condition: { path: conditionPath || 'show_note', equals: conditionValue === true }, then: [{ type: 'text', text: thenText || '' }], else: [{ type: 'text', text: elseText || '' }], offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether }) : kind === 'shape' ? ({ type: 'shape', shape: 'line', ...(block.shapeStyle || {}) }) : kind === 'columns' ? ({ type: 'columns', count: 2, ...(block.columnsStyle || {}) }) : kind === 'column_break' ? ({ type: 'column_break' }) : kind === 'columns_end' ? ({ type: 'columns_end' }) : kind === 'image' ? ({ type: 'image', src: source || '', alt: alt || 'Image', width: width || 240, align: block.align || 'left', offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether }) : kind === 'code' ? ({ type: 'code', code_type: codeType || 'qr', value: codeValue || '', width: width || 220, align: block.align || 'left', offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether }) : kind === 'chart' ? ({ type: 'chart', items: items || 'chart_rows', data_mode: chartDataMode || 'bound', static_data: staticData || [], chart_type: chartType || 'bar', chart_orientation: chartOrientation || 'vertical', show_legend: showLegend !== false, show_grid: showGrid !== false, show_points: showPoints !== false, donut: donut === true, chart_title: chartTitle || '', x_axis_label: xAxisLabel || '', y_axis_label: yAxisLabel || '', label_path: labelPath || 'label', value_path: valuePath || 'value', series_path: seriesPath || '', colors: colors || [], background_color: backgroundColor || '#ffffff', grid_color: gridColor || '#d9e2df', axis_color: axisColor || '#203d37', show_values: showValues === true, stacked: stacked === true, alt: alt || 'Data chart', offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether }) : kind === 'toc' ? ({ type: 'toc', offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether }) : richText ? ({ type: 'rich_text', paragraphs: richText.paragraphs, offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether }) : ({ ...block, type: 'text', ...(anchorId ? { anchor_id: anchorId, toc_label: tocLabel || block.text, toc_level: tocLevel || 1 } : {}), font_family: fontFamily, font_size: fontSize, offset_x: offsetX || 0, offset_y: offsetY || 0, break_before: breakBefore, keep_together: keepTogether })) }
     definition.page = { ...(definition.page || {}), ...(firstFooter as Record<string, unknown>), first_page_show_page_numbers: pageSettings.firstPageShowPageNumbers, first_page_footer_distance_mm: pageSettings.firstPageFooterDistanceMm, first_page_footer_font_size: pageSettings.firstPageFooterFontSize } as typeof definition.page
@@ -751,7 +800,13 @@ function App() {
     const pageDefinition = definition.page as Record<string, unknown>
     delete pageDefinition.background_pdf
     if (pageBackgroundPdf) pageDefinition.background_pdf = pageBackgroundPdf
-    const versionResponse = await fetch(`/api/templates/${encodeURIComponent(selectedTemplateId)}/versions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ definition, change_summary: 'Saved from workspace editor' }) })
+    if (!selectedTemplateId) {
+      draftDefinitionRef.current = definition as Definition
+      setSelected(definition as Definition)
+      setEditorFeedback(t('draftReadyToSave'))
+      return true
+    }
+    const versionResponse = await fetch(`/api/templates/${encodeURIComponent(selectedTemplateId)}/versions`, { method: 'POST', headers: { 'content-type': 'application/json', ...(authUser?.csrf_token ? { 'x-csrf-token': authUser.csrf_token } : {}) }, body: JSON.stringify({ definition, change_summary: 'Saved from workspace editor' }) })
     if (!versionResponse.ok) { setEditorFeedback(t('editorSaveFailed')); return false }
     const renderResponse = await fetch(`/api/templates/${encodeURIComponent(selectedTemplateId)}/render`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draft: true, data: selected.sample_data, locale: previewLocale }) })
     let rendered = await renderResponse.json() as RenderDiagnostics & { artifact?: string; id?: string; result?: (RenderDiagnostics & { artifact?: string }); error?: string }
@@ -937,9 +992,9 @@ function App() {
     const folder = window.prompt(t('templateFolderPrompt'), '')?.trim() || ''
     if (!(await saveEditorDraft())) return
     const currentResponse = selectedTemplateId ? await fetch(`/api/templates/${encodeURIComponent(selectedTemplateId)}?draft=true`) : null
-    const currentDefinition = currentResponse?.ok ? await currentResponse.json() as Definition : selected
+    const currentDefinition = currentResponse?.ok ? await currentResponse.json() as Definition : draftDefinitionRef.current || selected
     const definition = { ...currentDefinition, name, data_schema: templateSchema || undefined, data_schema_id: templateSchema ? String(templateSchema.$id || selected.data_schema_id || 'template-schema') : undefined, data_schema_version: templateSchema ? Number(templateSchema['x-docplatform-schema-version'] || selected.data_schema_version || 1) : undefined }
-    const response = await fetch('/api/templates', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, folder, definition }) })
+    const response = await fetch('/api/templates', { method: 'POST', headers: { ...authHeaders(), 'content-type': 'application/json' }, body: JSON.stringify({ name, folder, definition }) })
     if (!response.ok) { setEditorFeedback(t('templateSaveFailed')); return }
     const body = await response.json() as { id?: string }
     if (body.id) { setAttempt(value => value + 1); await openTemplate(body.id); setEditorFeedback(t('templateSaved')) }
@@ -1020,9 +1075,9 @@ function App() {
   const isVisualBlock = contextKind === 'image' || contextKind === 'code' || contextKind === 'chart'
   const filteredComponents = components.filter(component => component.name.toLowerCase().includes(componentSearch.trim().toLowerCase()))
   const starterCategories = Array.from(new Set(starters.map(starter => starter.category)))
-  const workspaceFolders = Array.from(new Set(organizationTemplates.map(template => template.folder?.trim() || 'Workspace')))
+  const workspaceFolders: string[] = []
   async function loadMoreOrganizationTemplates() {
-    const response = await fetch(`/api/templates?scope=organization&limit=24&offset=${organizationOffset}`)
+    const response = await fetch(`/api/templates?scope=organization&limit=24&offset=${organizationOffset}&edited_by=${encodeURIComponent(organizationEditorFilter)}&edited_from=${encodeURIComponent(organizationEditedFrom)}&edited_to=${encodeURIComponent(organizationEditedTo)}`)
     if (!response.ok) return
     const body = await response.json() as { items: Template[]; has_more?: boolean; next_offset?: number }
     setOrganizationTemplates(current => [...current, ...body.items.filter(item => !current.some(existing => existing.id === item.id))])
@@ -1035,6 +1090,14 @@ function App() {
     if (block.chartType === 'line') return <svg className="editor-chart-line" viewBox="0 0 180 52" aria-hidden="true"><polyline points="4,42 60,24 116,34 176,10" style={{ stroke: colors[0] }} />{block.showPoints !== false && <><circle cx="4" cy="42" r="3" style={{ fill: colors[0] }} /><circle cx="60" cy="24" r="3" style={{ fill: colors[0] }} /><circle cx="116" cy="34" r="3" style={{ fill: colors[0] }} /><circle cx="176" cy="10" r="3" style={{ fill: colors[0] }} /></>}</svg>
     if (block.chartType === 'pie') return <span className={`editor-chart-pie ${block.donut ? 'donut' : ''}`} style={{ background: `conic-gradient(${colors[0]} 0 34%, ${colors[1]} 34% 68%, ${colors[2]} 68% 100%)` }} aria-hidden="true" />
     return <div className={`editor-chart-bars ${block.chartOrientation === 'horizontal' ? 'horizontal' : ''}`} aria-hidden="true"><i style={{ background: colors[0] }} /><i style={{ background: colors[1] }} /><i style={{ background: colors[2] }} /></div>
+  }
+  function templateQuickLink(template: Template) {
+    return <button type="button" className="template-quick-link" key={template.id} onClick={() => void openTemplate(template.id)}>{template.name}</button>
+  }
+  function formatTimestamp(value?: string) {
+    if (!value) return '—'
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
   }
   function tablePreview(block: EditorBlock) {
     const source = selected?.sample_data && typeof selected.sample_data === 'object' ? selected.sample_data as Record<string, unknown> : {}
@@ -1064,7 +1127,7 @@ function App() {
   const tableFilterPalette = activeKind === 'table' && activeBlock ? <aside className="contextual-palette table-filter-palette" aria-label="Table row filter"><h4>Row filter</h4><p className="muted">Optionally include only rows whose field equals the value below.</p><label>Field path <input aria-label="Row filter path" value={activeTableFilter?.rowConditionPath || ''} placeholder="covered_by_section_3d" onChange={event => updateActiveBlock({ rowConditionPath: event.target.value } as Partial<EditorBlock>) } /></label><label>Equals <input aria-label="Row filter value" value={activeTableFilter?.rowConditionValue || ''} placeholder="Yes" onChange={event => updateActiveBlock({ rowConditionValue: event.target.value } as Partial<EditorBlock>) } /></label><button type="button" onClick={() => updateActiveBlock({ rowConditionPath: '', rowConditionValue: '' } as Partial<EditorBlock>)}>Clear filter</button></aside> : null
   const previewPageCount = Math.max(1, ...editorBlocks.map(block => (block as EditorBlock & PageFields).pageNumber || 1))
   const previewNavigator = previewPageCount > 1 ? <div className="preview-page-navigator" aria-label="Preview page navigation"><button type="button" aria-label="Previous preview page" disabled={previewPage <= 1} onClick={() => setPreviewPage(page => Math.max(1, page - 1))}>←</button><label>Page <select aria-label="Preview page" value={previewPage} onChange={event => setPreviewPage(Number(event.target.value))}>{Array.from({ length: previewPageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> of {previewPageCount}</label><button type="button" aria-label="Next preview page" disabled={previewPage >= previewPageCount} onClick={() => setPreviewPage(page => Math.min(previewPageCount, page + 1))}>→</button></div> : null
-  const versionHistoryPanel = <aside className="version-history-panel" aria-label="Template version history"><div className="version-history-heading"><h4>Version history</h4><span>{templateVersions.length}</span></div>{templateVersions.length ? <ol>{templateVersions.map(version => <li key={version.id}><div><strong>v{version.version}</strong><small>{version.status}{version.change_summary ? ` · ${version.change_summary}` : ''}</small></div><button type="button" onClick={() => void restoreTemplateVersion(version.id)}>Restore as draft</button></li>)}</ol> : <p className="muted">No saved versions yet.</p>}</aside>
+  const versionHistoryPanel = <aside className="version-history-panel" aria-label="Template version history"><div className="version-history-heading"><h4>Version history</h4><span>{templateVersions.length}</span></div>{templateVersions.length ? <ol>{templateVersions.map(version => <li key={version.id}><div><strong>v{version.version}</strong><small>{version.status}{version.change_summary ? ` · ${version.change_summary}` : ''}</small><small className="version-audit-meta">{version.created_by_email || version.created_by_user_id || 'System'} · {formatTimestamp(version.created_at)}</small></div><button type="button" onClick={() => void restoreTemplateVersion(version.id)}>Restore as draft</button></li>)}</ol> : <p className="muted">No saved versions yet.</p>}</aside>
   if (!authChecked) return <main className="auth-shell"><section className="auth-card"><p className="eyebrow">{t('brand')}</p><h1>{t('loading')}</h1></section></main>
   if (authRequired || authConfig?.setup_required) return <><header><a className="brand" href="/"><span className="mark" aria-hidden="true">D</span>{t('brand')}</a></header><main className="auth-shell"><section className="auth-card"><p className="eyebrow">{authConfig?.setup_required ? t('createAccount') : t('signIn')}</p><h1>{authConfig?.setup_required ? t('setupTitle') : t('signInTitle')}</h1><p>{t('authNote')}</p><form onSubmit={authConfig?.setup_required ? submitSetup : submitLogin}><label>{t('email')}<input type="email" required value={authEmail} onChange={event => setAuthEmail(event.target.value)} /></label><label>{t('password')}<input type="password" required minLength={12} value={authPassword} onChange={event => setAuthPassword(event.target.value)} /></label><button type="submit">{authConfig?.setup_required ? t('createAccount') : t('signIn')}</button></form><button type="button" className="secondary-auth-button" onClick={() => void continueAsGuest()}>{t('continueAsGuest')}</button><form className="signup-form" onSubmit={submitSignup}><label>{t('signUpEmail')}<input type="email" required value={authEmail} onChange={event => setAuthEmail(event.target.value)} /></label><button type="submit">{t('signUp')}</button></form><button type="button" className="secondary-auth-button" onClick={() => setAuthFeedback(t('ssoNotConfigured'))}>{t('ssoSignIn')}</button>{authFeedback && <p role="alert" className="error">{authFeedback}</p>}</section></main><footer>{t('footer')}</footer></>
   return <>
@@ -1093,15 +1156,29 @@ function App() {
          {Object.values(reviews).map(review => <article className="review-card" key={review.result_id} aria-labelledby={`review-${review.result_id}`}><div className="review-card-heading"><div><p className="eyebrow">{t('reviewEyebrow')}</p><h3 id={`review-${review.result_id}`}>{t('reviewTitle')}</h3></div><span className={`review-state ${review.status}`}>{review.status}</span></div><p className="review-note">{t('reviewNote')}</p><div className="review-fields">{Object.entries(review.fields).map(([name, field]) => <label key={name}><span>{name.replaceAll('_', ' ')}</span><input value={String(field.normalized_value ?? field.original_value ?? '')} onFocus={() => selectReviewSource(review.result_id, name)} onChange={event => changeReviewField(review.result_id, name, event.target.value)} onBlur={() => void saveReviewField(review.result_id, name)} /><small>{t('confidence')}: {field.confidence.toFixed(2)}{field.validation.length ? ` · ${field.validation[0].message}` : ''}</small><button type="button" className="review-absent" onClick={() => void saveReviewField(review.result_id, name, true)}>{t('markAbsent')}</button></label>)}</div>{Object.entries(review.tables ?? {}).map(([tableName, table]) => <section className="review-line-items" key={tableName} aria-label={`${tableName} extracted values`}><h4>{tableName.replaceAll('_', ' ')}</h4><table><thead><tr>{table.columns.map(column => <th scope="col" key={column}>{column.replaceAll('_', ' ')}</th>)}</tr></thead><tbody>{table.rows.map((row, rowIndex) => <tr key={`${tableName}-${rowIndex}`}>{table.columns.map(column => { const field = row.fields[column]; return <td key={column}><button type="button" className="review-source-value" onClick={() => selectReviewSourceValue(review.result_id, field?.source)}>{String(field?.normalized_value ?? field?.original_value ?? '')}</button></td> })}</tr>)}</tbody></table></section>)}<div className="review-actions"><button type="button" onClick={() => void changeReviewStatus(review.result_id, 'approved')}>{t('approve')}</button><button type="button" onClick={() => void changeReviewStatus(review.result_id, 'rejected')}>{t('reject')}</button>{review.status === 'approved' && <button type="button" onClick={() => void renderApproved(review.result_id)} disabled={!templates.length}>{t('sendToTemplate')}</button>}</div>{review.artifact && <pre className="review-artifact">{review.artifact}</pre>}{review.error && <p className="error" role="alert">{review.error}</p>}</article>)}
          {Object.values(reviews).map(review => <div className="review-source-stack" key={`${review.result_id}-source`}><SourcePreview review={review} activeElementId={activeSource[review.result_id]?.elementId} activePageNumber={activeSource[review.result_id]?.pageNumber} activeBox={activeSource[review.result_id]?.box} draftBox={draftSourceBoxes[review.result_id]} onSelect={(elementId, pageNumber, box) => setActiveSource(current => ({ ...current, [review.result_id]: { elementId, pageNumber, box: box ?? null } }))} onDrawBox={(box, pageNumber) => { setActiveSource(current => ({ ...current, [review.result_id]: { elementId: null, pageNumber, box: null } })); setDraftSourceBoxes(current => ({ ...current, [review.result_id]: box })) }} /><div><ReviewQueue review={review} onChange={(name, value) => changeReviewField(review.result_id, name, value)} onSave={name => void saveReviewField(review.result_id, name)} onSelect={name => selectReviewSource(review.result_id, name)} /><div className="review-manual-actions"><label>{t('newFieldName')}<input value={newFieldNames[review.result_id] || ''} onChange={event => setNewFieldNames(current => ({ ...current, [review.result_id]: event.target.value }))} /></label><button type="button" onClick={() => void addReviewField(review.result_id)}>{t('addMissingField')}</button><button type="button" onClick={() => void undoReviewField(review.result_id)}>{t('undoCorrection')}</button></div><div className="source-field-links" aria-label="Extracted field source links">{Object.entries(review.fields).map(([name, field]) => { const active = field.source?.element_id === activeSource[review.result_id]?.elementId && field.source?.page_number === activeSource[review.result_id]?.pageNumber; return <button type="button" aria-pressed={active} className={active ? 'active' : ''} key={name} onClick={() => selectReviewSource(review.result_id, name)}>{name.replaceAll('_', ' ')}{field.source?.element_id ? ` (${field.source.element_id})` : ' (no source region)'}</button> })}</div></div></div>)}
        </section>
-      {!selected && <section className="blank-template-panel" aria-labelledby="blank-template-title"><div><p className="eyebrow">{t('starterEyebrow')}</p><h2 id="blank-template-title">{t('createBlankTemplate')}</h2><p>{t('starterGalleryNote')}</p></div><div className="blank-template-form"><label>{t('blankTemplateName')}<input aria-label={t('blankTemplateName')} placeholder={t('blankTemplateNamePlaceholder')} value={blankTemplateName} onChange={event => { setBlankTemplateName(event.target.value); setBlankTemplateFeedback(null) }} /></label><label>{t('blankTemplateFolder')}<input aria-label={t('blankTemplateFolder')} placeholder={t('blankTemplateFolderPlaceholder')} value={blankTemplateFolder} onChange={event => setBlankTemplateFolder(event.target.value)} /></label><button type="button" onClick={() => void createBlankTemplate()}>{t('createBlankTemplate')}</button></div>{blankTemplateFeedback && <p role="status" className="blank-template-feedback">{blankTemplateFeedback}</p>}</section>}
+      {!selected && <section className="blank-template-panel" aria-labelledby="blank-template-title"><div><p className="eyebrow">{t('starterEyebrow')}</p><h2 id="blank-template-title">{t('createBlankTemplate')}</h2><p>{t('blankTemplateHint')}</p></div><div className="blank-template-form"><button type="button" onClick={createBlankTemplate}>{t('createBlankTemplate')}</button></div></section>}
       {!selected && <section className="starter-gallery" aria-labelledby="starter-gallery-title"><div className="section-title"><div><p className="eyebrow">{t('starterEyebrow')}</p><h2 id="starter-gallery-title">{t('starterGallery')}</h2></div></div><p className="starter-gallery-note">{t('starterGalleryNote')}</p>{starterCategories.map(category => { const categoryStarters = starters.filter(starter => starter.category === category); const expanded = expandedStarterCategories.includes(category); const visibleStarters = expanded ? categoryStarters : categoryStarters.slice(0, 4); return <section className="starter-category" key={category} aria-labelledby={`starter-category-${category.replaceAll(/[^a-z0-9]+/gi, '-').toLowerCase()}`}><div className="starter-category-heading"><h3 id={`starter-category-${category.replaceAll(/[^a-z0-9]+/gi, '-').toLowerCase()}`}>{category}</h3><span>{categoryStarters.length} templates</span></div><div className="starter-grid">{visibleStarters.map(starter => <article className="starter-card" key={starter.id}><h4>{starter.name}</h4><div className="starter-languages">{starter.languages.map(language => <button type="button" key={language} onClick={() => void useStarter(starter, language)}>{t('useStarter')} · {language}</button>)}</div></article>)}</div>{categoryStarters.length > 4 && <button type="button" className="more-templates-button" onClick={() => setExpandedStarterCategories(current => expanded ? current.filter(item => item !== category) : [...current, category])}>{expanded ? t('fewerTemplates') : t('moreTemplates')}</button>}</section> })}</section>}
-       {!selected && <section className="my-templates" aria-labelledby="my-templates-title"><div className="section-title"><h2 id="my-templates-title">{t('myTemplates')}</h2><span className="count">{myTemplates.length}</span></div><p className="muted">{t('myTemplatesNote')}</p>{myTemplates.length ? <div className="template-grid">{myTemplates.map(template => <article className="template-card" key={template.id}><div className="card-body"><span className="tag">{template.folder || t('workspaceFolder')}</span><h3>{template.name}</h3><button type="button" onClick={() => void openTemplate(template.id)}>{t('open')} <span aria-hidden="true">&rarr;</span></button></div></article>)}</div> : <p className="muted">{t('myTemplatesEmpty')}</p>}</section>}
-       <div className={`workspace-grid ${selected ? 'workspace-grid-selected' : ''}`}>
-        <section aria-labelledby="templates-title" className="library">
-           <div className="section-title"><h2 id="templates-title">{t('organizationTemplates')}</h2><span className="count">{organizationTemplates.length}</span></div>
+       {!selected && <section className="my-templates" aria-labelledby="my-templates-title"><div className="section-title"><h2 id="my-templates-title">{t('myTemplates')}</h2><span className="count">{myTemplates.length}</span></div><p className="muted">{t('myTemplatesNote')}</p>{myTemplates.length ? <div className="recent-template-list">{myTemplates.map(templateQuickLink)}</div> : <p className="muted">{t('myTemplatesEmpty')}</p>}</section>}
+       <div className={`workspace-grid ${selected ? 'workspace-grid-selected' : 'workspace-grid-library'}`}>
+        <section aria-labelledby="templates-title" className="library my-templates organization-templates">
+            <div className="section-title"><h2 id="templates-title">{t('organizationTemplates')}</h2><span className="count">{organizationTemplates.length}</span></div>
           {loading && <p role="status">{t('loading')}</p>}
           {failed && <div role="alert" className="error"><p>{t('error')}</p><button onClick={() => setAttempt(value => value + 1)}>{t('retry')}</button></div>}
           {!loading && !failed && !selected && templates.length === 0 && <p>{t('empty')}</p>}
+           {!selected && <>
+             <p className="muted">{t('organizationTemplatesNote')}</p>
+             <form className="template-audit-filters" onSubmit={event => { event.preventDefault(); setOrganizationOffset(0); setOrganizationFilterVersion(value => value + 1) }} aria-label="Organization template filters">
+              <label>Edited by <input value={organizationEditorFilter} onChange={event => setOrganizationEditorFilter(event.target.value)} placeholder="Name or email" /></label>
+              <label>Edited from <input type="date" value={organizationEditedFrom} onChange={event => setOrganizationEditedFrom(event.target.value)} /></label>
+              <label>Edited to <input type="date" value={organizationEditedTo} onChange={event => setOrganizationEditedTo(event.target.value)} /></label>
+              <button type="submit">Filter</button>
+              <button type="button" className="secondary-auth-button" onClick={() => { setOrganizationEditorFilter(''); setOrganizationEditedFrom(''); setOrganizationEditedTo(''); setOrganizationOffset(0); setOrganizationFilterVersion(value => value + 1) }}>Clear</button>
+            </form>
+            <div className="recent-template-list organization-template-list">
+              {organizationTemplates.map(templateQuickLink)}
+            </div>
+            {!loading && !organizationTemplates.length && <p className="muted">No organization templates match these filters.</p>}
+          </>}
           {selected ? <article className="detail">
     {textLayoutPalette}
     {bindingPalette}

@@ -21,6 +21,8 @@ class Template(Base):
     workspace_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     visibility: Mapped[str] = mapped_column(String(20), default="workspace", server_default="workspace")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_by_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
 
 class TemplateVersion(Base):
@@ -32,6 +34,7 @@ class TemplateVersion(Base):
     change_summary: Mapped[str] = mapped_column(String(500), default="", server_default="")
     definition_json: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_by_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
 
 class TemplateAlias(Base):
