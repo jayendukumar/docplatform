@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next'
 import './i18n'
 import './style.css'
 import './editor.css'
+
+const TEMPLATE_DISPLAY_LIMIT = Math.min(100, Math.max(1, Number(import.meta.env.VITE_TEMPLATE_DISPLAY_LIMIT) || 12))
 import './reviewQueue.css'
 import './tableEditor.css'
 import { epicStories } from './epicStories'
@@ -275,12 +277,11 @@ function App() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [myTemplates, setMyTemplates] = useState<Template[]>([])
   const [organizationTemplates, setOrganizationTemplates] = useState<Template[]>([])
+  const [myTemplatesOffset, setMyTemplatesOffset] = useState(0)
+  const [myTemplatesHasMore, setMyTemplatesHasMore] = useState(false)
   const [organizationOffset, setOrganizationOffset] = useState(0)
   const [organizationHasMore, setOrganizationHasMore] = useState(false)
-  const [organizationEditorFilter, setOrganizationEditorFilter] = useState('')
-  const [organizationEditedFrom, setOrganizationEditedFrom] = useState('')
-  const [organizationEditedTo, setOrganizationEditedTo] = useState('')
-  const [organizationFilterVersion, setOrganizationFilterVersion] = useState(0)
+  const [loadingMoreTemplates, setLoadingMoreTemplates] = useState<'mine' | 'organization' | null>(null)
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null)
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
@@ -506,9 +507,9 @@ function App() {
     const controller = new AbortController()
     setLoading(true); setFailed(false)
     Promise.all([
-      fetch('/api/templates?scope=mine&limit=50', { signal: controller.signal }).then(response => response.ok ? response.json() as Promise<{ items: Template[] }> : Promise.reject(new Error('unavailable'))),
-      fetch(`/api/templates?scope=organization&limit=24&offset=0&edited_by=${encodeURIComponent(organizationEditorFilter)}&edited_from=${encodeURIComponent(organizationEditedFrom)}&edited_to=${encodeURIComponent(organizationEditedTo)}`, { signal: controller.signal }).then(response => response.ok ? response.json() as Promise<{ items: Template[]; has_more?: boolean; next_offset?: number }> : Promise.reject(new Error('unavailable'))),
-    ]).then(([mine, organization]) => { setMyTemplates(mine.items); setOrganizationTemplates(organization.items); setOrganizationOffset(organization.next_offset || organization.items.length); setOrganizationHasMore(Boolean(organization.has_more)); setTemplates([...mine.items, ...organization.items].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index)) }).catch(() => {
+      fetch(`/api/templates?scope=mine&limit=${TEMPLATE_DISPLAY_LIMIT}&offset=0`, { signal: controller.signal }).then(response => response.ok ? response.json() as Promise<{ items: Template[]; has_more?: boolean; next_offset?: number }> : Promise.reject(new Error('unavailable'))),
+      fetch(`/api/templates?scope=organization&limit=${TEMPLATE_DISPLAY_LIMIT}&offset=0`, { signal: controller.signal }).then(response => response.ok ? response.json() as Promise<{ items: Template[]; has_more?: boolean; next_offset?: number }> : Promise.reject(new Error('unavailable'))),
+    ]).then(([mine, organization]) => { setMyTemplates(mine.items); setMyTemplatesOffset(mine.next_offset || mine.items.length); setMyTemplatesHasMore(Boolean(mine.has_more)); setOrganizationTemplates(organization.items); setOrganizationOffset(organization.next_offset || organization.items.length); setOrganizationHasMore(Boolean(organization.has_more)); setTemplates([...mine.items, ...organization.items].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index)) }).catch(() => {
       if (!controller.signal.aborted) setFailed(true)
     }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
     fetch('/health/ready', { signal: controller.signal }).then(response => response.json())
@@ -526,7 +527,7 @@ function App() {
       return await response.json() as { items: ReusableComponent[] }
     }).then(result => setComponents(result.items)).catch(() => undefined)
     return () => controller.abort()
-  }, [attempt, authChecked, authRequired, organizationFilterVersion])
+  }, [attempt, authChecked, authRequired])
   useEffect(() => {
     const controller = new AbortController()
     fetch(`/api/extraction-schemas/${encodeURIComponent(schemaId)}`, { signal: controller.signal }).then(response => response.json())
@@ -1076,14 +1077,32 @@ function App() {
   const filteredComponents = components.filter(component => component.name.toLowerCase().includes(componentSearch.trim().toLowerCase()))
   const starterCategories = Array.from(new Set(starters.map(starter => starter.category)))
   const workspaceFolders: string[] = []
-  async function loadMoreOrganizationTemplates() {
-    const response = await fetch(`/api/templates?scope=organization&limit=24&offset=${organizationOffset}&edited_by=${encodeURIComponent(organizationEditorFilter)}&edited_from=${encodeURIComponent(organizationEditedFrom)}&edited_to=${encodeURIComponent(organizationEditedTo)}`)
-    if (!response.ok) return
-    const body = await response.json() as { items: Template[]; has_more?: boolean; next_offset?: number }
-    setOrganizationTemplates(current => [...current, ...body.items.filter(item => !current.some(existing => existing.id === item.id))])
-    setTemplates(current => [...current, ...body.items.filter(item => !current.some(existing => existing.id === item.id))])
-    setOrganizationOffset(body.next_offset || organizationOffset + body.items.length)
-    setOrganizationHasMore(Boolean(body.has_more))
+  async function loadAllTemplates(scope: 'mine' | 'organization') {
+    if (loadingMoreTemplates === scope) return
+    const hasMore = scope === 'mine' ? myTemplatesHasMore : organizationHasMore
+    if (!hasMore) return
+    setLoadingMoreTemplates(scope)
+    try {
+      let offset = scope === 'mine' ? myTemplatesOffset : organizationOffset
+      let more = true
+      let loaded = scope === 'mine' ? [...myTemplates] : [...organizationTemplates]
+      while (more) {
+        const response = await fetch(`/api/templates?scope=${scope}&limit=100&offset=${offset}`)
+        if (!response.ok) return
+        const body = await response.json() as { items: Template[]; has_more?: boolean; next_offset?: number }
+        loaded = [...loaded, ...body.items.filter(item => !loaded.some(existing => existing.id === item.id))]
+        offset = body.next_offset || offset + body.items.length
+        more = Boolean(body.has_more)
+      }
+      if (scope === 'mine') {
+        setMyTemplates(loaded); setMyTemplatesOffset(offset); setMyTemplatesHasMore(false)
+      } else {
+        setOrganizationTemplates(loaded); setOrganizationOffset(offset); setOrganizationHasMore(false)
+      }
+      setTemplates(current => [...current, ...loaded].filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index))
+    } finally {
+      setLoadingMoreTemplates(null)
+    }
   }
   function chartPreviewGraphic(block: EditorBlock) {
     const colors = block.colors || ['#2f6f63', '#d97941', '#4d78a8']
@@ -1158,7 +1177,7 @@ function App() {
        </section>
       {!selected && <section className="blank-template-panel" aria-labelledby="blank-template-title"><div><p className="eyebrow">{t('starterEyebrow')}</p><h2 id="blank-template-title">{t('createBlankTemplate')}</h2><p>{t('blankTemplateHint')}</p></div><div className="blank-template-form"><button type="button" onClick={createBlankTemplate}>{t('createBlankTemplate')}</button></div></section>}
       {!selected && <section className="starter-gallery" aria-labelledby="starter-gallery-title"><div className="section-title"><div><p className="eyebrow">{t('starterEyebrow')}</p><h2 id="starter-gallery-title">{t('starterGallery')}</h2></div></div><p className="starter-gallery-note">{t('starterGalleryNote')}</p>{starterCategories.map(category => { const categoryStarters = starters.filter(starter => starter.category === category); const expanded = expandedStarterCategories.includes(category); const visibleStarters = expanded ? categoryStarters : categoryStarters.slice(0, 4); return <section className="starter-category" key={category} aria-labelledby={`starter-category-${category.replaceAll(/[^a-z0-9]+/gi, '-').toLowerCase()}`}><div className="starter-category-heading"><h3 id={`starter-category-${category.replaceAll(/[^a-z0-9]+/gi, '-').toLowerCase()}`}>{category}</h3><span>{categoryStarters.length} templates</span></div><div className="starter-grid">{visibleStarters.map(starter => <article className="starter-card" key={starter.id}><h4>{starter.name}</h4><div className="starter-languages">{starter.languages.map(language => <button type="button" key={language} onClick={() => void useStarter(starter, language)}>{t('useStarter')} · {language}</button>)}</div></article>)}</div>{categoryStarters.length > 4 && <button type="button" className="more-templates-button" onClick={() => setExpandedStarterCategories(current => expanded ? current.filter(item => item !== category) : [...current, category])}>{expanded ? t('fewerTemplates') : t('moreTemplates')}</button>}</section> })}</section>}
-       {!selected && <section className="my-templates" aria-labelledby="my-templates-title"><div className="section-title"><h2 id="my-templates-title">{t('myTemplates')}</h2><span className="count">{myTemplates.length}</span></div><p className="muted">{t('myTemplatesNote')}</p>{myTemplates.length ? <div className="recent-template-list">{myTemplates.map(templateQuickLink)}</div> : <p className="muted">{t('myTemplatesEmpty')}</p>}</section>}
+       {!selected && <section className="my-templates" aria-labelledby="my-templates-title"><div className="section-title"><h2 id="my-templates-title">{t('myTemplates')}</h2><span className="count">{myTemplates.length}</span></div><p className="muted">{t('myTemplatesNote')}</p>{myTemplates.length ? <><div className="recent-template-list">{myTemplates.map(templateQuickLink)}</div>{myTemplatesHasMore && <button type="button" className="more-templates-button template-more-button" onClick={() => void loadAllTemplates('mine')} disabled={loadingMoreTemplates === 'mine'}>{loadingMoreTemplates === 'mine' ? t('loading') : t('moreTemplates')}</button>}</> : <p className="muted">{t('myTemplatesEmpty')}</p>}</section>}
        <div className={`workspace-grid ${selected ? 'workspace-grid-selected' : 'workspace-grid-library'}`}>
         <section aria-labelledby="templates-title" className="library my-templates organization-templates">
             <div className="section-title"><h2 id="templates-title">{t('organizationTemplates')}</h2><span className="count">{organizationTemplates.length}</span></div>
@@ -1167,17 +1186,11 @@ function App() {
           {!loading && !failed && !selected && templates.length === 0 && <p>{t('empty')}</p>}
            {!selected && <>
              <p className="muted">{t('organizationTemplatesNote')}</p>
-             <form className="template-audit-filters" onSubmit={event => { event.preventDefault(); setOrganizationOffset(0); setOrganizationFilterVersion(value => value + 1) }} aria-label="Organization template filters">
-              <label>Edited by <input value={organizationEditorFilter} onChange={event => setOrganizationEditorFilter(event.target.value)} placeholder="Name or email" /></label>
-              <label>Edited from <input type="date" value={organizationEditedFrom} onChange={event => setOrganizationEditedFrom(event.target.value)} /></label>
-              <label>Edited to <input type="date" value={organizationEditedTo} onChange={event => setOrganizationEditedTo(event.target.value)} /></label>
-              <button type="submit">Filter</button>
-              <button type="button" className="secondary-auth-button" onClick={() => { setOrganizationEditorFilter(''); setOrganizationEditedFrom(''); setOrganizationEditedTo(''); setOrganizationOffset(0); setOrganizationFilterVersion(value => value + 1) }}>Clear</button>
-            </form>
             <div className="recent-template-list organization-template-list">
               {organizationTemplates.map(templateQuickLink)}
             </div>
-            {!loading && !organizationTemplates.length && <p className="muted">No organization templates match these filters.</p>}
+            {organizationHasMore && <button type="button" className="more-templates-button template-more-button" onClick={() => void loadAllTemplates('organization')} disabled={loadingMoreTemplates === 'organization'}>{loadingMoreTemplates === 'organization' ? t('loading') : t('moreTemplates')}</button>}
+            {!loading && !organizationTemplates.length && <p className="muted">{t('empty')}</p>}
           </>}
           {selected ? <article className="detail">
     {textLayoutPalette}
@@ -1243,7 +1256,7 @@ function App() {
           </article> : workspaceFolders.map(folder => <section className="workspace-folder" key={folder} aria-labelledby={`folder-${folder.replaceAll(/[^a-z0-9]+/gi, '-').toLowerCase()}`}><div className="section-title"><h2 id={`folder-${folder.replaceAll(/[^a-z0-9]+/gi, '-').toLowerCase()}`}>{folder}</h2><span className="count">{organizationTemplates.filter(template => (template.folder?.trim() || 'Workspace') === folder).length}</span></div><div className="template-grid">{organizationTemplates.filter(template => (template.folder?.trim() || 'Workspace') === folder).map(template => <article className="template-card" key={template.id}>
             <div className="paper-preview" aria-hidden="true"><div className="paper"><span className="paper-brand" /><span className="line short" /><span className="line" /><span className="line" /><span className="line medium" /><span className="paper-sign" /></div></div>
             <div className="card-body"><span className="tag">{template.folder || t('workspaceFolder')}</span><h3>{template.id === 'sample-welcome' ? t('letter') : template.name}</h3><p>{t('letterDescription')}</p><button onClick={() => void openTemplate(template.id)}>{t('open')}<span aria-hidden="true"> &rarr;</span></button></div>
-           </article>)}</div></section>)}{organizationHasMore && <button type="button" className="load-more-templates" onClick={() => void loadMoreOrganizationTemplates()}>{t('loadMoreOrganization')}</button>}
+           </article>)}</div></section>)}{organizationHasMore && <button type="button" className="load-more-templates" onClick={() => void loadAllTemplates('organization')}>{t('loadMoreOrganization')}</button>}
         </section>
       </div></>}
     </main>

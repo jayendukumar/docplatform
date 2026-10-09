@@ -6620,3 +6620,15 @@ Supersedes/superseded by: [Decision ID when applicable]
 - **Consequences:** Both landing-page collections now match the confirmed historical visual more closely; folder and audit details remain available after opening the template and in version history.
 - **Validation:** Frontend build and the focused organization browser test are required after this change; visual reference is the user-provided screenshot `Screenshot 2026-10-08 120255.png`.
 - **Implementation references:** [landing-page UI](../frontend/src/main.tsx), [quick-link styles](../frontend/src/editor.css), [browser tests](../frontend/tests/foundation.spec.ts).
+
+## DD-465 - Bound initial template sections and defer full loading
+
+- **Date:** 2026-10-08
+- **Status:** Accepted and Implemented
+- **Affected stories:** E19-01, E19-02; proposed E18-04
+- **Context:** The landing page should remain concise when a workspace contains many templates, while still allowing users to access the complete personal and organization collections.
+- **Choice:** Fetch and display a configurable initial number of templates in each section, defaulting to 12 through `VITE_TEMPLATE_DISPLAY_LIMIT` and bounded to 1–100. Show a More templates action only when the API reports additional pages, then load remaining pages on demand. Remove the organization audit filter from the landing section.
+- **Alternatives:** Fetch every template on initial page load; rejected because it makes the landing page and request unnecessarily large. Add a client-only slice to an all-template response; rejected because it does not preserve server pagination. Keep organization filters visible initially; rejected because the landing organization section does not need that filter.
+- **Consequences:** Initial rendering stays compact and full collections remain available after an explicit action. The existing API pagination and authorization boundaries remain in force; version-history audit data is unchanged.
+- **Validation:** Frontend TypeScript/build and focused browser coverage are required after this change; configuration is documented in [README](../README.md).
+- **Implementation references:** [landing-page UI](../frontend/src/main.tsx), [browser tests](../frontend/tests/foundation.spec.ts), [configuration note](../README.md).

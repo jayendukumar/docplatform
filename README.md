@@ -37,6 +37,8 @@ Recommended direction: React/TypeScript and ProseMirror for the editor, FastAPI/
 
 The user has started E1 foundation implementation. Run the multilingual rendering spike (E4-01) before selecting a renderer or claiming CPU document-processing acceptance, then complete generation milestone M1 and digitization milestone M2. No calendar commitment is inferred from relative story sizes.
 
+The landing-page My Templates and Organization Templates sections display 12 entries by default. Set the frontend build variable `VITE_TEMPLATE_DISPLAY_LIMIT` to change that limit (values are bounded to 1–100); selecting More templates loads the remaining entries.
+
 ## Project skills
 
 Repository-local skills are maintained in `skills/` and explicitly routed by `AGENTS.md`:

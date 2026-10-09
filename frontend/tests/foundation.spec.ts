@@ -434,7 +434,7 @@ test('table column data paths remain editable while typing', async ({ page }) =>
   await expect(path).toBeFocused()
 })
 
-test('organization templates use compact links and keep audit metadata in version history', async ({ page }) => {
+test('template sections use a compact initial list without organization filters', async ({ page }) => {
   await page.goto('/')
   await page.waitForTimeout(500)
   if (await page.getByRole('heading', { name: 'Sign in to your workspace' }).isVisible().catch(() => false)) {
@@ -446,12 +446,10 @@ test('organization templates use compact links and keep audit metadata in versio
   await expect(organization.getByRole('heading', { name: 'Organization templates' })).toBeVisible()
   await expect(organization).toHaveClass(/my-templates/)
   await expect(organization.locator('.organization-template-list .template-quick-link').first()).toBeVisible()
+  await expect(organization.locator('.template-audit-filters')).toHaveCount(0)
   await expect(organization.locator('.organization-template-list .template-quick-link-icon')).toHaveCount(0)
   await expect(organization.locator('.organization-template-list .template-quick-link-copy')).toHaveCount(0)
   await expect(organization.locator('.organization-template-list .template-audit-meta')).toHaveCount(0)
-  const editor = organization.getByLabel('Edited by')
-  await editor.fill('admin01@gooddocs-demo.test')
-  await organization.getByRole('button', { name: 'Filter', exact: true }).click()
   await expect(organization.locator('.organization-template-list .template-quick-link')).not.toHaveCount(0)
   await expect(organization.locator('.organization-template-list .template-quick-link-icon')).toHaveCount(0)
   await expect(organization.locator('.organization-template-list .template-audit-meta')).toHaveCount(0)
