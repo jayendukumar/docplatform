@@ -18,4 +18,10 @@ For the requested change:
 5. Verify the changed acceptance criteria using the smallest relevant contract/integration/end-to-end checks. Record actual results and gaps. Do not claim native-reader, second-engineer or accessibility sign-off that did not happen.
 6. Update relevant user/API documentation and the decision record in the same change. `docs/epics.md` is generated from the original DOCX; record proposed scope changes separately.
 
+## Editor component-control rule
+
+Every selectable document component owns one contextual-actions relationship. Component-specific controls must render inside the active component's contextual-actions container, alongside shared alignment, position, property and delete actions. Do not add a second floating, sibling, or grid-level control panel for a component type. If a component editor is implemented as a reusable child panel, mount it into the active contextual-actions container and preserve one accessible relationship. Verify the rule by selecting the component in the tree and confirming its type-specific controls are descendants of the contextual-actions region.
+
+Use the shared contextual-control styling surface for every component-specific control: inherit the contextual panel font, use the common label/input/select/button tokens, and add only component-specific layout rules where necessary. Do not rely on browser-default form-control typography or create a component-only visual language.
+
 For rendering/text/font/output work, also load `skills/docplatform-rendering/SKILL.md`. For OCR/extraction/provenance/review work, also load `skills/docplatform-extraction/SKILL.md`. These are file-based project skills routed by AGENTS.md; no machine-wide installation is required.

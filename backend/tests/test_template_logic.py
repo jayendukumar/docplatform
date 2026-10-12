@@ -1277,3 +1277,38 @@ def test_first_page_footer_override_clears_running_page_number():
     assert "@page:first{" in artifact
     assert '@bottom-center{content:"Copyright"' in artifact
     assert "counter(page)" in artifact
+
+
+def test_source_fidelity_composition_blocks_render_semantically():
+    result = render_definition({"blocks": [
+        {"type": "list", "list_style": "ordered", "items": "changes", "text_path": "text", "level_path": "level"},
+        {"type": "callout", "title": "Decision", "body": "{{decision}}", "accent_color": "#1f7a72", "background_color": "#eef4f3"},
+        {"type": "metric_band", "items": "metrics", "label_path": "label", "value_path": "value"},
+        {"type": "section", "title": "Execution", "body": "{{execution}}"},
+    ]}, {"changes": [{"text": "First", "level": 0}, {"text": "Nested", "level": 1}],
+        "decision": "Proceed", "execution": "Deliver in phases", "metrics": [{"label": "Revenue", "value": "S$2.84B"}]})
+    artifact = result["artifact"]
+    assert '<ol class="template-list list-ordered">' in artifact
+    assert 'margin-left:22px' in artifact and "Nested" in artifact
+    assert 'class="template-callout"' in artifact and "Proceed" in artifact
+    assert 'class="template-metric-band"' in artifact and "S$2.84B" in artifact
+    assert 'class="template-section"' in artifact and "Deliver in phases" in artifact
+
+
+def test_table_cell_styles_style_individual_body_cells():
+    artifact = render_definition({"blocks": [{
+        "type": "table", "data_mode": "static", "columns": [{"header": "Label"}, {"header": "Value"}],
+        "static_rows": [["TO", "Executive Committee"], ["DATE", "7 October 2026"]],
+        "cell_styles": [
+            {"row": 0, "column": 0, "bold": True, "background": "#eef4f8", "color": "#1f416d"},
+            {"row": 1, "column": 0, "bold": True, "background": "#eef4f8"},
+            {"row": 0, "column": 1, "color": "#203d37"},
+            {"row": 5, "column": 0, "bold": True},
+            {"row": 0, "column": 4, "bold": True},
+        ]
+    }]})["artifact"]
+    body = artifact[artifact.index("<tbody>"):artifact.index("</tbody>")]
+    assert 'background:#eef4f8;color:#1f416d' in body
+    assert 'background:#eef4f8' in body
+    assert 'style="color:#203d37"' in body
+    assert body.count('font-weight:700') == 2

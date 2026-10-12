@@ -17,16 +17,18 @@ export type TableStyle = {
   header_row_height?: number
   header_spacing_after?: number
   row_styles?: RowStyle[]
+  cell_styles?: CellStyle[]
   paragraph_spacing_before?: number
   paragraph_spacing_after?: number
 }
 
 // One body row's style (DD-447): row is 0-based; a negative row counts from the end (-1 = last row).
 export type RowStyle = { row: number; bold?: boolean; italic?: boolean; background?: string; color?: string }
+export type CellStyle = { row: number; column: number; bold?: boolean; italic?: boolean; background?: string; color?: string; align?: 'left' | 'center' | 'right' }
 
 export const TABLE_STYLE_KEYS: (keyof TableStyle)[] = ['data_mode', 'static_rows', 'show_header', 'header_bold',
   'header_background', 'font_family', 'font_size', 'borders', 'border_color', 'border_width', 'cell_padding_x', 'cell_padding_y',
-  'row_height', 'header_row_height', 'header_spacing_after', 'row_styles', 'paragraph_spacing_before', 'paragraph_spacing_after']
+  'row_height', 'header_row_height', 'header_spacing_after', 'row_styles', 'cell_styles', 'paragraph_spacing_before', 'paragraph_spacing_after']
 
 export function pickTableStyle(stored: Record<string, unknown>): TableStyle {
   const style: Record<string, unknown> = {}
@@ -93,6 +95,7 @@ export function TableStylePanel({ value, columns, onChange }: Props) {
     {number('paragraph_spacing_before', 'Spacing before', 0, 240)}
     {number('paragraph_spacing_after', 'Spacing after', 0, 240)}
     <RowStylesEditor value={value.row_styles || []} onChange={rows => set({ row_styles: rows.length ? rows : undefined })} />
+    <CellStylesEditor value={value.cell_styles || []} columns={columns} onChange={cells => set({ cell_styles: cells.length ? cells : undefined })} />
   </div>
 }
 
@@ -122,5 +125,26 @@ function RowStylesEditor({ value, onChange }: { value: RowStyle[]; onChange: (va
       <button type="button" onClick={() => onChange(value.filter((_, i) => i !== index))}>Remove</button>
     </div>)}
     <button type="button" disabled={value.length >= 50} onClick={() => onChange([...value, { row: -1, bold: true }])}>Add row style</button>
+  </fieldset>
+}
+
+function CellStylesEditor({ value, columns, onChange }: { value: CellStyle[]; columns: number; onChange: (value: CellStyle[]) => void }) {
+  const update = (index: number, patch: Partial<CellStyle>) => onChange(value.map((entry, i) => {
+    if (i !== index) return entry
+    const next: Record<string, unknown> = { ...entry, ...patch }
+    for (const key of Object.keys(next)) if (next[key] === undefined) delete next[key]
+    return next as CellStyle
+  }))
+  return <fieldset className="table-style-wide table-cell-styles">
+    <legend>Cell styles (body row and zero-based column)</legend>
+    {value.map((entry, index) => <div key={index} className="table-row-style">
+      <label>Row <input aria-label={`Cell style ${index + 1} row`} type="number" min={-1000} max={999} value={entry.row} onChange={event => update(index, { row: Math.trunc(Number(event.target.value) || 0) })} /></label>
+      <label>Column <input aria-label={`Cell style ${index + 1} column`} type="number" min={0} max={Math.max(0, columns - 1)} value={entry.column} onChange={event => update(index, { column: Math.max(0, Math.trunc(Number(event.target.value) || 0)) })} /></label>
+      <label><input aria-label={`Cell style ${index + 1} bold`} type="checkbox" checked={entry.bold === true} onChange={event => update(index, { bold: event.target.checked || undefined })} /> Bold</label>
+      <label>Shading <input aria-label={`Cell style ${index + 1} background`} type="color" value={entry.background || '#ffffff'} onChange={event => update(index, { background: event.target.value })} /></label>
+      <label>Text colour <input aria-label={`Cell style ${index + 1} color`} type="color" value={entry.color || '#000000'} onChange={event => update(index, { color: event.target.value })} /></label>
+      <button type="button" onClick={() => onChange(value.filter((_, i) => i !== index))}>Remove</button>
+    </div>)}
+    <button type="button" disabled={value.length >= 500} onClick={() => onChange([...value, { row: 0, column: 0, bold: true }])}>Add cell style</button>
   </fieldset>
 }

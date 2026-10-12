@@ -1120,6 +1120,23 @@ test('editor inserts a positioned rectangle shape and persists it to server prev
   await expect(shape).toHaveAttribute('aria-hidden', 'true')
 })
 
+test('editor switches local preview between fit, all-pages and selected-block modes', async ({ page }) => {
+  await page.goto('/')
+  const invoice = page.locator('.starter-card').filter({ hasText: 'Invoice' })
+  await invoice.getByRole('button', { name: /Use starter.*en/ }).click()
+  const viewport = page.locator('.editor-page-viewport')
+  await page.getByRole('button', { name: 'Fit page' }).click()
+  await expect(viewport).toHaveClass(/preview-mode-fit/)
+  await page.getByRole('button', { name: 'All pages' }).click()
+  await expect(viewport).toHaveClass(/preview-mode-all/)
+  const nodes = page.locator('.editor-block-list .structure-node')
+  await nodes.nth(0).click()
+  await nodes.nth(1).click({ modifiers: ['Control'] })
+  await page.getByRole('button', { name: /Selected \(2\)/ }).click()
+  await expect(viewport).toHaveClass(/preview-mode-selected/)
+  await expect(viewport.locator('.editor-page')).toHaveCount(1)
+})
+
 test('editor builds a two-column section with a column break and persists it to server preview', async ({ page }) => {
   // DD-435
   await page.goto('/')

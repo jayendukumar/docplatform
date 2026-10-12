@@ -43,6 +43,7 @@ This table adds implementation guidance. The complete original stories and goals
 | E13 AI assistance and agent integration | 10 | Optional local/provider models, reviewed suggestions, evaluation suite and MCP | Stable E3/E7/E9 contracts; E11 controls; no unattended publish/approve |
 | E14 Ecosystem, documentation and community | 13 | Quickstart, contributor path, script matrix, i18n, examples and roadmap | Cross-cutting from MVP; release evidence feeds docs; project licence unresolved |
 | E15 Hosted cloud and billing | 10 | Tenant isolation, metering, signup, plans, quotas, regions and paid-feature policy | Mature E11/E12; explicit isolation and billing reconciliation tests before hosted launch |
+| E20 Source-faithful document composition (proposed) | 8 proposed | Branded furniture, semantic lists, styled tables, callouts/KPI bands, brand kits, pagination controls and source-vs-output evidence | E2/E3/E4/E5/E6; begin with the Business Memo fixture; native-reader and cross-engine gates remain open |
 
 ## Delivery sequence
 

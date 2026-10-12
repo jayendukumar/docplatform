@@ -1,0 +1,74 @@
+[
+  {
+    "template": "Northbridge_Business_Memo",
+    "source_pages": 2,
+    "output_pages": 2,
+    "source_size_pt": [
+      612.0,
+      792.0
+    ],
+    "output_size_pt": [
+      612.0,
+      792.0
+    ],
+    "source_words": 482,
+    "output_words": 484,
+    "multiset_word_overlap": 0.986,
+    "source_chars": 3538,
+    "output_chars": 3475
+  },
+  {
+    "template": "Northbridge_Executive_Brief",
+    "source_pages": 3,
+    "output_pages": 2,
+    "source_size_pt": [
+      612.0,
+      792.0
+    ],
+    "output_size_pt": [
+      595.0,
+      841.9
+    ],
+    "source_words": 554,
+    "output_words": 202,
+    "multiset_word_overlap": 0.489,
+    "source_chars": 4384,
+    "output_chars": 1516
+  },
+  {
+    "template": "Northbridge_Letter_to_Shareholders",
+    "source_pages": 2,
+    "output_pages": 2,
+    "source_size_pt": [
+      612.0,
+      792.0
+    ],
+    "output_size_pt": [
+      595.0,
+      841.9
+    ],
+    "source_words": 567,
+    "output_words": 215,
+    "multiset_word_overlap": 0.509,
+    "source_chars": 3991,
+    "output_chars": 1490
+  },
+  {
+    "template": "Northbridge_Quarterly_Newsletter",
+    "source_pages": 3,
+    "output_pages": 1,
+    "source_size_pt": [
+      612.0,
+      792.0
+    ],
+    "output_size_pt": [
+      595.0,
+      841.9
+    ],
+    "source_words": 524,
+    "output_words": 158,
+    "multiset_word_overlap": 0.446,
+    "source_chars": 3817,
+    "output_chars": 1085
+  }
+]

@@ -1,5 +1,6 @@
 // Line and rectangle shape controls (DD-433). Shape keys use the template contract's snake_case names;
 // placement reuses the editor's shared position fields, which the draft serializer saves for every block.
+import { createPortal } from 'react-dom'
 export type ShapeStyle = {
   shape?: 'line' | 'rectangle'
   orientation?: 'horizontal' | 'vertical'
@@ -53,8 +54,10 @@ export function ShapePanel({ value, placement, onChange, onPlacement }: Props) {
     <label>{label} <input aria-label={`Shape ${label.toLowerCase()}`} type="number" min={low} max={high} step="0.01"
       value={(value[key] as number | undefined) ?? ''} onChange={event => set({ [key]: bounded(event.target.value, low, high) })} /></label>
   const absolute = placement.positionMode === 'absolute'
-  return <aside className="contextual-palette shape-panel" aria-label="Shape">
-    <h4>Shape</h4>
+  const contextualActions = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('.detail > aside.contextual-palette[aria-label="Contextual actions"]')
+  if (!contextualActions) return null
+  return createPortal(<div className="shape-controls-inline" aria-label="Shape controls">
+    <h4>Shape controls</h4>
     <label>Shape <select aria-label="Shape kind" value={value.shape || 'line'} onChange={event => set({ shape: event.target.value as ShapeStyle['shape'] })}>
       <option value="line">Line</option><option value="rectangle">Rectangle</option></select></label>
     {value.shape !== 'rectangle' && <label>Direction <select aria-label="Shape orientation" value={value.orientation || 'horizontal'}
@@ -79,5 +82,5 @@ export function ShapePanel({ value, placement, onChange, onPlacement }: Props) {
         onChange={event => onPlacement({ positionY: bounded(event.target.value, 0, 500) ?? 0, positionUnit: 'mm' })} /></label></>}
     {!absolute && <label>Spacing before px <input aria-label="Shape spacing before" type="number" min="0" max="240" value={placement.paragraphSpacingBefore ?? 0}
       onChange={event => onPlacement({ paragraphSpacingBefore: bounded(event.target.value, 0, 240) ?? 0 })} /></label>}
-  </aside>
+  </div>, contextualActions)
 }

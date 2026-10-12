@@ -6632,3 +6632,170 @@ Supersedes/superseded by: [Decision ID when applicable]
 - **Consequences:** Initial rendering stays compact and full collections remain available after an explicit action. The existing API pagination and authorization boundaries remain in force; version-history audit data is unchanged.
 - **Validation:** Frontend TypeScript/build and focused browser coverage are required after this change; configuration is documented in [README](../README.md).
 - **Implementation references:** [landing-page UI](../frontend/src/main.tsx), [browser tests](../frontend/tests/foundation.spec.ts), [configuration note](../README.md).
+
+## DD-466 - Propose a source-faithful document composition epic
+
+- **Date:** 2026-10-09
+- **Status:** Proposed scope addition; not implemented
+- **Affected stories:** E2-01, E2-02, E2-03, E2-06, E2-07, E2-08, E2-11, E2-12, E4-01, E4-06, E4-08, E5, E6-01, E6-04, E6-05; proposed E20-01 through E20-08
+- **Context:** Visual comparison of the Northbridge Business Memo source PDF and the generated editable-template PDF showed a two-page branded source versus a one-page simplified result. The comparison separated template-construction omissions from genuine platform gaps: furniture, semantic lists, richer tables, callouts/KPI bands, brand tokens and stronger pagination/evidence controls.
+- **Choice:** Add a proposed E20 epic defining bounded editable components and a source-aware fidelity harness. Use the Business Memo as the first conformance fixture, preserve the no-locked-background requirement, and require server-PDF visual/text/layout evidence before claiming fidelity.
+- **Alternatives:** Treat the current generic text/table blocks as sufficient; rejected because they cannot express all required semantic and visual structures without flattening content. Use the source PDF as a locked background; rejected because it removes editability and was explicitly excluded. Promise arbitrary DOCX/PDF round-trip fidelity; rejected because E6 Word conversion and E4 renderer evidence remain separate contracts.
+- **Consequences:** The project has a traceable enhancement backlog for the observed gaps, while existing E2/E4/E6 scope and priorities remain unchanged. The proposed components require additional schema, editor, renderer and regression-fixture work; native-reader, licensing and cross-engine approval remain open.
+- **Validation:** Planning validation is the recorded source/generated Business Memo comparison; no E20 implementation or acceptance claim is made.
+- **Implementation references:** [proposed E20 epic](epic-e20-source-faithful-document-composition.md), [implementation plan](implementation-plan.md), [E2/E4/E6 source stories](epics.md), source fixture `sampledocs/Northbridge_Business_Memo.pdf` and generated comparison artifact `sampledocs/platform-template-pdfs/Northbridge_Business_Memo.pdf`.
+
+## DD-467 - Implement bounded semantic composition primitives first
+
+- **Date:** 2026-10-09
+- **Status:** Accepted and Implemented for E20-02 and E20-04; remaining E20 stories stay in progress
+- **Affected stories:** E20-02, E20-04; enabling portions of E20-07 and E20-08
+- **Context:** The Business Memo comparison identified ordered changes, bullet-style rationale, decision callouts and KPI bands as high-value structures that cannot be represented faithfully by generic paragraphs. The existing template contract already supports bounded data binding and server-side PDF rendering.
+- **Choice:** Add declarative `list`, `callout`, `metric_band` and `section` blocks. Bound lists to a path or static items with the existing loop safety limit; bound metric bands to at most six label/value items; keep callout and section content plain text with safe colors and bounded padding. Expose these blocks through the capability manifest, editor serializer/load path, insertion controls and contextual configuration panels.
+- **Alternatives:** Encode these structures as HTML or arbitrary markup; rejected because templates must remain declarative and safe. Use locked PDF artwork; rejected because the requested output remains editable. Add an unbounded generic layout primitive; rejected because it would weaken rendering and resource limits.
+- **Consequences:** Source-like lists, callouts, KPI bands and named sections can now be authored and rendered as editable server-PDF content. Rich inline callout styling, merged tables, brand-kit management, DOCX reconstruction and cross-engine visual approval remain separate follow-up work under E20.
+- **Validation:** `python -m py_compile` passed for modified backend modules; focused renderer test passed (`1 passed, 85 deselected`); frontend production build passed (`tsc --noEmit` and Vite build). The container runtime image does not include pytest, so the focused test was run with the repository test dependencies installed in the local Python environment.
+- **Implementation references:** [renderer](../backend/app/rendering.py), [capability manifest](../backend/app/capabilities.py), [editor](../frontend/src/main.tsx), [renderer test](../backend/tests/test_template_logic.py), [E20 epic](epic-e20-source-faithful-document-composition.md).
+
+## DD-468 - Recompose the Business Memo using editable fidelity primitives
+
+- **Date:** 2026-10-09
+- **Status:** Accepted and Implemented
+- **Affected stories:** E20-02, E20-03, E20-04, E20-07; sample-template validation for E20-08
+- **Context:** The existing Business Memo template was a simplified paragraph/table draft and did not demonstrate the newly implemented composition blocks. The user requested an updated current template and a visible rendered result.
+- **Choice:** Preserve the existing template identity `4bf819b511f347bb97ef818ec15fd829`, create version 2 with semantic lists, decision/action callouts, KPI metrics, named sections and styled tables, correct PDF separator characters for the configured font stack, then publish version 3. Do not delete the prior versions so the change remains reversible through version history.
+- **Alternatives:** Delete and recreate the template; rejected because it would discard identity and history. Leave the template unchanged and demonstrate only a new blank template; rejected because the user asked to see the result on the Business Memo. Use a locked source-PDF background; rejected because the template must remain editable.
+- **Consequences:** The current Business Memo now uses editable composition primitives and remains recoverable through versions v1 and v2. The result is an editable approximation, not a claim of pixel-perfect source reconstruction or native-reader/cross-engine approval.
+- **Validation:** API version creation returned `4bf819b511f347bb97ef818ec15fd829-v2`; a separator-compatible v3 was created and published. The PDF endpoint returned a valid 47,501-byte two-page PDF; text extraction confirmed zero replacement-question-mark glyphs. Visual inspection confirmed header/footer, ordered and unordered lists, decision/action callouts, KPI band and styled tables.
+- **Implementation references:** published template `4bf819b511f347bb97ef818ec15fd829`, [rendered sample PDF](../sampledocs/platform-template-pdfs/Northbridge_Business_Memo_new-components.pdf), [E20 epic](epic-e20-source-faithful-document-composition.md), [renderer](../backend/app/rendering.py).
+
+## DD-469 - Preserve new composition blocks through editor save and rebuild the memo from source content
+
+- **Date:** 2026-10-09
+- **Status:** Accepted and Implemented
+- **Affected stories:** E20-02, E20-03, E20-04, E20-06, E20-07, E20-08; E2 editor save behavior
+- **Context:** The editor save serializer handled the new blocks during initial insertion but fell through to the generic text serializer when saving an edited template. In addition, `generatePdf` reported a preview-render failure as “Draft could not be saved.” The Business Memo also needed exact source content, Letter geometry and explicit page-two placement.
+- **Choice:** Serialize `list`, `callout`, `metric_band` and `section` blocks through the shared component serializer during draft save; surface API error details for actual save failures; allow PDF generation to continue after a successful version save even if the optional HTML preview fails. Rebuild the Business Memo with its source text, five-row metadata table, four-column implementation table, non-negotiables, KPI band, required action, communication principle, Letter page size and an explicit page-two break.
+- **Alternatives:** Treat all new blocks as text during save; rejected because it silently destroys component semantics. Abort PDF generation whenever the optional preview fails; rejected because saving and preview rendering are separate operations. Keep A4 and summarized sample data; rejected because it reproduces the fidelity failures already observed.
+- **Consequences:** New composition components survive the UI save path, the PDF action no longer mislabels preview failures as save failures, and the published Business Memo v7 is materially closer to the source while remaining editable. Logo artwork, exact branded furniture, font matching and pixel-level fidelity remain open limitations.
+- **Validation:** Frontend TypeScript/Vite build passed after the serializer fix. The rebuilt template was published as `4bf819b511f347bb97ef818ec15fd829-v7`; PDF rendering returned a valid 45,271-byte two-page Letter PDF. Visual inspection confirmed the implementation plan is on page two, all five implementation rows are present, all four non-negotiables and four KPI metrics are present, and extracted text contains no replacement-question-mark glyphs.
+- **Implementation references:** [editor save path](../frontend/src/main.tsx), [published template](../sampledocs/platform-template-pdfs/Northbridge_Business_Memo_source-rebuilt.pdf), [source PDF](../sampledocs/Northbridge_Business_Memo.pdf), [renderer](../backend/app/rendering.py).
+
+## DD-470 - Add bounded per-cell table styling
+
+- **Date:** 2026-10-11
+- **Status:** Accepted and Implemented
+- **Affected stories:** E20-03, E20-08; existing E2 table rendering
+- **Context:** Source comparison showed that row-wide shading could not reproduce common document patterns such as a shaded label column with separately styled value cells. The Business Memo metadata table is the first live use case.
+- **Choice:** Add declarative `cell_styles` entries keyed by zero-based body-row and column coordinates. Support bounded bold, italic, background, text color and alignment properties, with negative body-row indexes matching the existing row-style convention. Ignore invalid coordinates and cap entries at 500.
+- **Alternatives:** Add arbitrary CSS per cell; rejected because templates remain declarative and safe. Encode cell styles inside cell text; rejected because it prevents consistent rendering and editing. Use only row styles; rejected because it cannot reproduce label/value table treatments.
+- **Consequences:** Individual body cells can now be styled without changing table content or using a locked background. Merged cells, vertical alignment and per-cell rich text remain unsupported.
+- **Validation:** Backend focused tests passed (`2 passed` for cell styling and composition blocks); frontend TypeScript/Vite build passed; live services rebuilt; Business Memo metadata table published with cell styles; all four current templates rendered successfully and were compared against their source PDFs.
+- **Implementation references:** [table renderer](../backend/app/rendering.py), [capability manifest](../backend/app/capabilities.py), [table editor](../frontend/src/TableStylePanel.tsx), [regression tests](../backend/tests/test_template_logic.py), [four-template report](../sampledocs/platform-template-pdfs/compare-2026-10-11/comparison-report.json).
+
+## DD-471 - Reconstruct all sample templates from their source PDFs
+
+- **Date:** 2026-10-11
+- **Status:** Accepted and Implemented
+- **Affected stories:** E20-01 through E20-08; sample-template validation for E2, E4 and E6
+- **Context:** The first comparison showed that only the Business Memo had been rebuilt from source content; the other three templates remained simplified drafts with different page sizes, missing pages and lower content overlap.
+- **Choice:** Treat every source PDF in `sampledocs` as a reconstruction fixture. Rebuild each template with editable text, lists, callouts, metric bands and tables; preserve source page size and page count; use explicit page breaks for source page boundaries; avoid locked PDF backgrounds; publish the reconstructed version and render it through the live PDF API before comparison.
+- **Alternatives:** Continue testing only the Business Memo; rejected because it would hide template-specific failures. Use one generic definition for all documents; rejected because the sources have different structures and pagination. Use each source PDF as a locked background; rejected because editability is required.
+- **Consequences:** All four sample templates now have source-derived published versions: Business Memo v8, Executive Brief v2, Letter to Shareholders v2 and Quarterly Newsletter v3. The outputs are editable and content/page-size aligned, while exact logo artwork, branded furniture and pixel-level typography remain renderer/asset fidelity work.
+- **Validation:** All four live PDF renders returned HTTP 200. Source/output comparison reports: Business Memo 2/2 pages and 98.6% word overlap; Executive Brief 3/3 and 96.9%; Letter to Shareholders 2/2 and 98.6%; Quarterly Newsletter 3/3 and 88.5%. All outputs are Letter-sized and stored with the comparison report.
+- **Implementation references:** [source-faithful outputs](../sampledocs/platform-template-pdfs/source-faithful-2026-10-11), [comparison report](../sampledocs/platform-template-pdfs/source-faithful-2026-10-11/comparison-report.json), source fixtures under `sampledocs/*.pdf`, [renderer](../backend/app/rendering.py).
+## DD-472 - Add local preview display modes
+
+- **Date:** 2026-10-11
+- **Status:** Implemented; native-reader/render-engine evidence remains governed by DD-007 and E4-01
+- **Affected stories:** E2-08; implementation enabler for local editor usability
+- **Context:** The editor's local preview showed one page at a time. Users needed a way to inspect a scaled page, the complete page stack, or only selected structure blocks without changing the authoritative server-rendered preview.
+- **Choice:** Add four mutually exclusive local preview modes: `Page` preserves the existing page navigator, `Fit page` scales the current page to the viewport, `All pages` renders the local page stack vertically, and `Selected` renders only blocks selected in the structure list. The selected mode is disabled until at least one structure block is selected. Page grouping uses each block's existing `pageNumber`, defaulting unassigned blocks to page 1. The server preview remains unchanged and authoritative for final document rendering.
+- **Alternatives:** Add only a browser zoom control; rejected because it does not provide whole-document or selection-focused inspection. Change the server preview iframe; rejected because local inspection and final renderer truth must remain separate. Add freehand viewport selection; deferred because the existing structure selection is the stable semantic selection boundary.
+- **Consequences:** Local inspection is faster for single-page and multi-page templates, and selected-block review is available without changing template data. Fit mode is viewport-dependent and approximate; all-pages and selected modes are local editor previews and do not establish pagination or native-reader fidelity.
+- **Validation:** `npm run build` passed (TypeScript check and Vite production build). The controls were then moved into the preview column after visual inspection showed grid placement below the contextual panels. The All pages and Selected page stacks now anchor to the left when wider than the viewport, preserving reachable horizontal scrolling. `docker compose build web` and `docker compose up -d --force-recreate web` passed; the healthy web container serves the new `index-BM0ChqBJ.js` and `index-Bjzme8uB.css` bundles containing the preview controls. A Playwright test covers Fit page, All pages, multi-select and Selected mode; browser-suite execution remains to be run in the current environment.
+- **Implementation references:** [editor](../frontend/src/main.tsx), [preview styles](../frontend/src/editor.css), [browser test](../frontend/tests/foundation.spec.ts), [Docker image](../Dockerfile).
+
+## DD-473 - Insert and reorder blocks from the document tree
+
+- **Date:** 2026-10-12
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-01, E2-03, E2-08; editor composition usability
+- **Context:** New blocks were appended to the end of a template, so adding a line or reusable component between existing components required rebuilding the document order.
+- **Choice:** Treat the active document-tree item as the insertion anchor for new lines and reusable components; insert immediately after it, or append when no item is selected. Add explicit Move selected up and Move selected down controls below the tree. The moved/inserted order remains the authoritative `editorBlocks` order used by save and preview.
+- **Alternatives:** Keep append-only insertion and rely on repeated deletion/recreation; rejected because it is slow and risks losing configuration. Add drag-and-drop first; deferred because explicit keyboard-accessible controls provide a smaller, deterministic interaction and can be extended later.
+- **Consequences:** A user can select the second component, add a line, and get the line in the third position; any selected block can move one position at a time. Other insertion actions retain their existing append behavior until they are explicitly migrated to the shared insertion helper.
+- **Validation:** Frontend production build and `git diff --check` passed. Docker web image was rebuilt and recreated; browser-suite execution remains environment-dependent and was not used as completion evidence.
+- **Implementation references:** [editor insertion and ordering](../frontend/src/main.tsx), [tree controls](../frontend/src/editor.css), [English labels](../frontend/src/i18n.ts), [web image](../Dockerfile).
+
+## DD-474 - Make shape previews directly selectable
+
+- **Date:** 2026-10-12
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-08; shape editing usability
+- **Context:** Shape controls already existed in the editor model, but inserted lines rendered as zero-height, non-interactive previews. Users could not reliably select the line in the canvas to reach controls for width, type, colour or stroke styling.
+- **Choice:** Make shape previews keyboard- and pointer-selectable, add an active/focus outline and a minimum hit area, and label the contextual panel as Shape controls.
+- **Alternatives:** Require users to select shapes only from the document tree; rejected because it hides the relationship between the canvas object and its controls. Add a separate floating toolbar; rejected because the existing contextual panel already owns the shape contract.
+- **Consequences:** Clicking or focusing an inserted line opens the existing shape controls; changing those controls updates the local preview and saved shape style. The line remains declarative and safe.
+- **Validation:** Frontend production build and Docker web rebuild passed; the recreated web container serves the updated bundle. Browser-suite execution remains environment-dependent.
+- **Implementation references:** [shape selection](../frontend/src/main.tsx), [shape controls](../frontend/src/ShapePanel.tsx), [shape hit area](../frontend/src/editor.css).
+
+## DD-475 - Give shape controls their own layout row
+
+- **Date:** 2026-10-12
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-08; shape editing usability
+- **Context:** The shape controls and generic contextual-actions panel were both assigned to the right grid area, causing the generic panel to cover the shape controls.
+- **Choice:** Place the shape controls in the existing secondary contextual row instead of sharing the generic actions grid cell.
+- **Alternatives:** Increase the right-column height or rely on browser scrolling; rejected because the controls would remain visually ambiguous and overlap-prone.
+- **Consequences:** Shape controls are fully visible below the generic contextual actions while retaining the existing panel and controls.
+- **Validation:** Frontend build, Docker rebuild and healthy-container verification completed after the layout change.
+- **Implementation references:** [editor layout](../frontend/src/editor.css), [shape panel](../frontend/src/ShapePanel.tsx).
+
+## DD-476 - Enforce one contextual-actions relationship per component
+
+- **Date:** 2026-10-12
+- **Status:** Accepted and Implemented; supersedes the separate shape-control layout choice in DD-475
+- **Affected stories:** E2-08; editor component usability and accessibility
+- **Context:** Shape was modeled as a document component, but its type-specific controls were rendered as a separate sibling panel. This allowed layout overlap and broke the expected relationship between a selected component and its contextual actions.
+- **Choice:** All component-specific controls must be descendants of the active component's single Contextual actions region. ShapePanel now mounts its controls into that region while retaining its reusable field contract; shared actions remain in the same region.
+- **Alternatives:** Keep one sibling panel per component type; rejected because it duplicates the relationship and can overlap. Move every control into one large monolithic JSX expression; rejected because reusable panels remain easier to test and maintain when mounted into the shared host.
+- **Consequences:** Selecting Shape exposes shape type, width, colour, stroke width/style and placement controls in the same contextual-actions relationship as alignment, position and delete. The rule applies to future component-specific controls as well.
+- **Validation:** Frontend production build, `git diff --check`, Docker rebuild, bundle verification and healthy web-container verification passed. Browser-suite execution remains environment-dependent.
+- **Implementation references:** [shape contextual mount](../frontend/src/ShapePanel.tsx), [editor contextual host](../frontend/src/main.tsx), [implementation rule](../skills/docplatform-implementation/SKILL.md).
+
+## DD-477 - Standardize contextual component-control styling
+
+- **Date:** 2026-10-12
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2-08; editor component usability
+- **Context:** Shape controls were correctly mounted inside the contextual-actions relationship, but their plain labels and native form controls used a different font and spacing from the shared action groups.
+- **Choice:** Apply shared contextual-palette typography and form-control tokens to all contextual component controls. Component panels may add layout-specific rules, but not separate font or control styling.
+- **Alternatives:** Style ShapePanel independently; rejected because it would reproduce the inconsistency for the next component. Normalize controls only when each component is implemented; rejected because the estate would remain inconsistent during incremental delivery.
+- **Consequences:** Shape, chart, table, image and future component controls inherit the same contextual font, label treatment, input/select sizing, colour input treatment, checkbox accent and button typography.
+- **Validation:** Frontend production build, `git diff --check`, Docker rebuild, bundle verification and healthy web-container verification passed.
+- **Implementation references:** [shared contextual styles](../frontend/src/editor.css), [shape controls](../frontend/src/ShapePanel.tsx), [implementation rule](../skills/docplatform-implementation/SKILL.md).
+
+## DD-478 - Use the persisted CSRF header for editor writes
+
+- **Date:** 2026-10-12
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2 editor save behavior; authenticated browser writes
+- **Context:** After a browser refresh, `/api/auth/me` restored the user session but the frontend save path read the CSRF token only from `authUser.csrf_token`. The token remained available in local storage, but draft version creation omitted it and the backend correctly returned `403 CSRF token required`.
+- **Choice:** Route editor draft saves and template restores through the shared `authHeaders()` helper, which reads the persisted session CSRF token, while retaining the backend’s mandatory CSRF validation.
+- **Alternatives:** Disable CSRF for editor writes; rejected because it weakens browser write protection. Force a fresh login after every refresh; rejected because the session is valid and the token is already persisted.
+- **Consequences:** Draft saves and restores continue to work after page reloads without weakening authorization or CSRF protection. The shared helper is now the source of truth for browser write headers.
+- **Validation:** Frontend production build, `git diff --check`, Docker rebuild, bundle verification and healthy web-container verification passed.
+- **Implementation references:** [auth header helper and editor writes](../frontend/src/main.tsx), [CSRF enforcement](../backend/app/main.py).
+
+## DD-479 - Propose a source-document-to-template creation workflow
+
+- **Date:** 2026-10-12
+- **Status:** Proposed; not approved or implemented
+- **Affected stories:** Proposed E21-01 through E21-10; related E13-05, E13-08, E2-08, E5-08, E6-01 and E7-01
+- **Context:** Template owners need a guided way to start from a source PDF or Word document, while the platform cannot promise exact reproduction because fonts, styling, images, source features and renderer evidence may be missing.
+- **Choice:** Propose a staged workflow consisting of limitation disclosure, immutable source upload, provenance-preserving interpretation review, approved-snapshot draft generation, existing-editor refinement, and a new-tab side-by-side original/generated PDF comparison with independent pane controls.
+- **Alternatives:** Present automatic generation as a finished template; rejected because it would overclaim fidelity and bypass human review. Compare only screenshots inside the editor; rejected because the original and generated PDFs need independent inspection and the editor preview is not authoritative final output. Silently replace unsupported fonts/assets; rejected because differences must be visible and explainable.
+- **Consequences:** The workflow gives users a clear path from source to editable draft while preserving approval, security, provenance and renderer-fidelity boundaries. It adds a proposed E21 scope overlay and does not rewrite generated `docs/epics.md` or change existing priorities.
+- **Validation:** Planning artifact reviewed against current E13 extraction/agent stories, E5 approved-data binding, E6 PDF output, E7 API parity, implementation-plan security constraints and existing ingestion/extraction contracts. No implementation or acceptance evidence is claimed.
+- **Implementation references:** [proposed E21 epic](../docs/epic-e21-source-document-template-creation.md), [generated baseline E13 stories](../docs/epics.md), [implementation plan](../docs/implementation-plan.md).

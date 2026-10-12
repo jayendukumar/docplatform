@@ -82,6 +82,7 @@ def _diagnostic_missing_glyphs(texts: list[str]) -> list[str]:
 TABLE_BORDERS = {"grid", "horizontal", "none"}
 MAX_STATIC_CELL_CHARS = 500
 MAX_ROW_STYLES = 50
+MAX_CELL_STYLES = 500
 _HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}")
 
 
@@ -171,6 +172,35 @@ def _row_styles(block: dict[str, Any], count: int) -> dict[int, str]:
     return {index: ";".join(f"{css}:{value}" for css, value in styles.items()) for index, styles in merged.items() if styles}
 
 
+def _cell_styles(block: dict[str, Any], row_count: int, column_count: int) -> dict[tuple[int, int], str]:
+    """Map bounded body-cell coordinates to inline styles (DD-470)."""
+    entries = block.get("cell_styles")
+    if not isinstance(entries, list):
+        return {}
+    styled: dict[tuple[int, int], dict[str, str]] = {}
+    for entry in entries[:MAX_CELL_STYLES]:
+        if not isinstance(entry, dict):
+            continue
+        row = entry.get("row")
+        column = entry.get("column")
+        if isinstance(row, bool) or not isinstance(row, int) or isinstance(column, bool) or not isinstance(column, int):
+            continue
+        row = row + row_count if row < 0 else row
+        if not 0 <= row < row_count or not 0 <= column < column_count:
+            continue
+        styles = styled.setdefault((row, column), {})
+        for key, css, on, off in (("bold", "font-weight", "700", "400"), ("italic", "font-style", "italic", "normal")):
+            if isinstance(entry.get(key), bool):
+                styles[css] = on if entry[key] else off
+        for key, css in (("background", "background"), ("color", "color")):
+            if isinstance(entry.get(key), str) and _HEX_COLOR.fullmatch(entry[key]):
+                styles[css] = entry[key]
+        if entry.get("align") in {"left", "center", "right"}:
+            styles["text-align"] = entry["align"]
+    return {coordinate: ";".join(f"{css}:{value}" for css, value in styles.items())
+            for coordinate, styles in styled.items() if styles}
+
+
 def _render_table(block: dict[str, Any], data: Any, locale: str, policy: str,
                   missing: list[str]) -> tuple[str, list[str]]:
     columns = block.get("columns")
@@ -234,14 +264,17 @@ def _render_table(block: dict[str, Any], data: Any, locale: str, policy: str,
                         missing.append(f"{items_path}.{column['path']}")
                 row.append(format_value(value, locale, column["format"]))
             body_rows.append(row)
-    table_style, cell_style, header_style = _table_styles(block)
+    table_style, shared_cell_style, header_style = _table_styles(block)
 
     row_styles = _row_styles(block, len(body_rows))
+    cell_styles = _cell_styles(block, len(body_rows), len(normalized))
 
-    def cell_attribute(column: dict[str, Any], header: bool, row_style: str = "") -> str:
-        parts = [cell_style] + ([header_style] if header and header_style else []) + [row_style]
+    def cell_attribute(column: dict[str, Any], header: bool, row_style: str = "", cell_style: str = "") -> str:
+        parts = [shared_cell_style] + ([header_style] if header and header_style else []) + [row_style]
         if column["align"]:
             parts.append(f"text-align:{column['align']}")
+        if cell_style:
+            parts.append(cell_style)
         joined = ";".join(part for part in parts if part)
         return f' style="{joined}"' if joined else ""
 
@@ -250,8 +283,8 @@ def _render_table(block: dict[str, Any], data: Any, locale: str, policy: str,
     headers = "".join(f"<th scope=\"col\" dir=\"auto\"{cell_attribute(column, True)}>{html.escape(column['header'])}</th>"
                       for column in normalized)
     # Per-row styles go on each cell, not the <tr>, so they combine with the cell borders and padding (DD-447).
-    rows = "".join("<tr>" + "".join(f"<td dir=\"auto\"{cell_attribute(column, False, row_styles.get(index, ''))}>"
-                                    f"{html.escape(value)}</td>" for column, value in zip(normalized, row, strict=True))
+    rows = "".join("<tr>" + "".join(f"<td dir=\"auto\"{cell_attribute(column, False, row_styles.get(index, ''), cell_styles.get((index, column_index), ''))}>"
+                                    f"{html.escape(value)}</td>" for column_index, (column, value) in enumerate(zip(normalized, row, strict=True)))
                    + "</tr>" for index, row in enumerate(body_rows))
     flow = _flow_classes(block)
     spacing = _bounded_number(block.get("header_spacing_after"), 0, 240)
@@ -1086,6 +1119,100 @@ def _render_shape(block: dict[str, Any]) -> str:
     return f'<div class="template-shape template-shape-{shape}" aria-hidden="true" style="{";".join(style)}"></div>'
 
 
+def _safe_color(value: Any, fallback: str) -> str:
+    return value if isinstance(value, str) and _HEX_COLOR.fullmatch(value) else fallback
+
+
+def _render_list(block: dict[str, Any], data: Any, locale: str, policy: str,
+                 missing: list[str]) -> tuple[str, list[str]]:
+    """Render a semantic ordered/unordered list with bounded data binding."""
+    ordered = block.get("list_style", block.get("style", "unordered")) in {"ordered", "numbered", "ol"}
+    source = block.get("items")
+    if isinstance(source, str) and source:
+        values, found = resolve_path(data, source)
+        if not found or values is None:
+            values = []
+    else:
+        values = block.get("static_items", [])
+    if not isinstance(values, list) or len(values) > MAX_LOOP_ITEMS:
+        raise ValueError("list items must be an array of at most the template loop limit")
+    text_path = block.get("text_path", "text")
+    level_path = block.get("level_path", "level")
+    entries: list[tuple[str, int]] = []
+    for item in values:
+        if isinstance(item, dict):
+            value, found = resolve_path(item, text_path) if isinstance(text_path, str) else (None, False)
+            level, level_found = resolve_path(item, level_path) if isinstance(level_path, str) else (0, False)
+            value = value if found else ""
+            level = level if level_found else 0
+        else:
+            value, level = item, 0
+        if value is None:
+            value = ""
+        rendered = interpolate(str(value)[:2000], data, locale, policy,
+                              lambda path: missing.append(path) if path not in missing else None)
+        try:
+            depth = max(0, min(6, int(level)))
+        except (TypeError, ValueError):
+            depth = 0
+        entries.append((rendered, depth))
+    tag = "ol" if ordered else "ul"
+    marker = "list-ordered" if ordered else "list-unordered"
+    body = "".join(f'<li style="margin-left:{depth * 22}px">{html.escape(value)}</li>' for value, depth in entries)
+    return f'<{tag} class="template-list {marker}">{body}</{tag}>', [value for value, _ in entries]
+
+
+def _render_callout(block: dict[str, Any], data: Any, locale: str, policy: str,
+                    missing: list[str]) -> tuple[str, list[str]]:
+    title = interpolate(str(block.get("title", "")), data, locale, policy,
+                        lambda path: missing.append(path) if path not in missing else None)
+    body = interpolate(str(block.get("body", "")), data, locale, policy,
+                       lambda path: missing.append(path) if path not in missing else None)
+    accent = _safe_color(block.get("accent_color"), "#2f6f63")
+    background = _safe_color(block.get("background_color"), "#f2f6f3")
+    border = _safe_color(block.get("border_color"), accent)
+    padding = _bounded_number(block.get("padding_px", 10), 0, 48) or 10
+    style = f"border-left:4px solid {border};background:{background};padding:{padding:g}px;"
+    heading = f"<strong>{html.escape(title)}</strong>" if title else ""
+    paragraph = f"<p>{html.escape(body)}</p>" if body else ""
+    return f'<aside class="template-callout" style="{style}">{heading}{paragraph}</aside>', [title, body]
+
+
+def _render_metric_band(block: dict[str, Any], data: Any, locale: str, policy: str,
+                        missing: list[str]) -> tuple[str, list[str]]:
+    items_path = block.get("items")
+    values, found = resolve_path(data, items_path) if isinstance(items_path, str) else (None, False)
+    if not found or values is None:
+        values = []
+    if not isinstance(values, list) or len(values) > 6:
+        raise ValueError("metric_band.items must resolve to at most six items")
+    label_path = block.get("label_path", "label")
+    value_path = block.get("value_path", "value")
+    background = _safe_color(block.get("background_color"), "#eaf1f4")
+    accent = _safe_color(block.get("accent_color"), "#1f416d")
+    cells: list[str] = []
+    diagnostics: list[str] = []
+    for item in values:
+        label, label_found = resolve_path(item, label_path) if isinstance(item, dict) else (item, True)
+        value, value_found = resolve_path(item, value_path) if isinstance(item, dict) else ("", False)
+        label = str(label if label_found else "")
+        value = str(value if value_found else "")
+        diagnostics.extend((label, value))
+        cells.append(f'<div class="template-metric" style="background:{background};color:{accent}"><strong>{html.escape(value)}</strong><span>{html.escape(label)}</span></div>')
+    return f'<div class="template-metric-band">{"".join(cells)}</div>', diagnostics
+
+
+def _render_section(block: dict[str, Any], data: Any, locale: str, policy: str,
+                    missing: list[str]) -> tuple[str, list[str]]:
+    title = interpolate(str(block.get("title", "")), data, locale, policy,
+                        lambda path: missing.append(path) if path not in missing else None)
+    body = interpolate(str(block.get("body", "")), data, locale, policy,
+                       lambda path: missing.append(path) if path not in missing else None)
+    heading = f"<h2>{html.escape(title)}</h2>" if title else ""
+    paragraph = f"<p>{html.escape(body)}</p>" if body else ""
+    return f'<section class="template-section">{heading}{paragraph}</section>', [title, body]
+
+
 COLUMN_MARKERS = {"columns", "column_break", "columns_end"}
 MAX_COLUMNS = 4
 
@@ -1233,6 +1360,26 @@ def render_definition(definition: dict[str, Any], data: dict[str, Any] | None = 
             fragment, labels = _render_chart(block, data, locale, policy, missing)
             rendered_blocks.append((fragment, {**block, "__html": True}))
             seen_scripts.update(scripts_in(labels)); diagnostic_texts.append(labels)
+        elif block.get("type") == "list":
+            fragment, list_text = _render_list(block, data, locale, policy, missing)
+            rendered_blocks.append((fragment, {**block, "__html": True}))
+            for value in list_text:
+                seen_scripts.update(scripts_in(value)); diagnostic_texts.append(value)
+        elif block.get("type") == "callout":
+            fragment, callout_text = _render_callout(block, data, locale, policy, missing)
+            rendered_blocks.append((fragment, {**block, "__html": True}))
+            for value in callout_text:
+                seen_scripts.update(scripts_in(value)); diagnostic_texts.append(value)
+        elif block.get("type") == "metric_band":
+            fragment, metric_text = _render_metric_band(block, data, locale, policy, missing)
+            rendered_blocks.append((fragment, {**block, "__html": True}))
+            for value in metric_text:
+                seen_scripts.update(scripts_in(value)); diagnostic_texts.append(value)
+        elif block.get("type") == "section":
+            fragment, section_text = _render_section(block, data, locale, policy, missing)
+            rendered_blocks.append((fragment, {**block, "__html": True}))
+            for value in section_text:
+                seen_scripts.update(scripts_in(value)); diagnostic_texts.append(value)
         elif block.get("type") == "toc":
             rendered_blocks.append((_render_toc(blocks), {**block, "__html": True}))
         elif block.get("type") == "shape":
@@ -1371,7 +1518,7 @@ def render_definition(definition: dict[str, Any], data: dict[str, Any] | None = 
         "<meta charset=\"utf-8\"><title>" + html.escape(metadata["title"]) + "</title><meta name=\"author\" content=\"" + html.escape(metadata["author"], quote=True) + "\"><style>:root{" + theme_css + "}@page{size:" + page["size"] + " " + page["orientation"] + ";margin:" + margin_css + ";" + margin_boxes_css(page, zones, furniture_font) + "}body{font-family:var(--theme-font-family," + css_stack + ");direction:auto;margin:0;" + background_css + "}.page-surface{position:relative;z-index:0;" + page_surface_css + "break-inside:avoid;page-break-inside:avoid;break-after:page;page-break-after:always;}.page-surface:last-of-type{break-after:auto;page-break-after:auto;}"
         ".document-header,.document-footer{font-size:" + f"{page['header_footer_font_size']:g}" + "px;color:#52645a;} .document-header{text-align:" + page["header_align"] + ";margin-bottom:8px;} .document-footer{text-align:" + page["footer_align"] + ";margin-top:8px;} @media print{.document-header,.document-footer{display:none!important;}}.docplatform-anchor-marker{font-size:1px;color:transparent;}.tab-box{display:inline-flex;align-items:baseline;white-space:pre;vertical-align:baseline;box-sizing:border-box;text-indent:0;}.tab-fill{flex:1 1 auto;min-width:0;align-self:baseline;margin:0 0.15em;}.leader-dot{border-bottom:1px dotted currentColor;}.leader-underscore{border-bottom:1px solid currentColor;}.leader-hyphen{border-bottom:1px dashed currentColor;}"
         "p{white-space:pre-wrap;line-height:var(--theme-spacing,1.45);break-inside:auto;page-break-inside:auto;orphans:3;widows:3;unicode-bidi:plaintext;} .document-header,.document-footer,table.template-table th,table.template-table td{unicode-bidi:plaintext;} .page-break-before{break-before:page;page-break-before:always;} .keep-together{break-inside:avoid;page-break-inside:avoid;}figure.template-image,figure.template-code,figure.template-chart{margin:0;display:block;break-inside:avoid;page-break-inside:avoid;}figure.template-image img,figure.template-code svg,figure.template-chart svg{max-width:100%;height:auto;}figure.template-image.image-align-left img{display:block!important;margin-left:0!important;margin-right:auto!important;}figure.template-image.image-align-center img{display:block!important;margin-left:auto!important;margin-right:auto!important;}figure.template-image.image-align-right img{display:block!important;margin-left:auto!important;margin-right:0!important;}figure.template-chart rect{fill:var(--theme-accent,#2f6f60);}figure.template-chart .chart-grid{stroke:#dce2d6;stroke-width:1;}figure.template-chart .chart-donut-hole{fill:#fff;}figure.template-chart text{fill:#52645a;font:11px sans-serif;}figure.template-chart .chart-title{font-weight:700;font-size:14px;fill:#203d37;}nav.template-toc{break-inside:avoid;page-break-inside:avoid;}nav.template-toc li{margin:4px 0;}table.template-table{width:100%;border-collapse:collapse;break-inside:auto;page-break-inside:auto;}table.template-table th,table.template-table td{border:1px solid #cfd9cc;padding:6px;text-align:left;}table.template-table thead{display:table-header-group;}table.template-table tr{break-inside:avoid;page-break-inside:avoid;}table.template-table tbody tr{orphans:3;widows:3;}</style></head>"
-        "<style>.rich-text-block{break-inside:avoid;page-break-inside:avoid;}.rich-text-block .rich-text-paragraph{margin:0;white-space:pre-wrap;line-height:var(--theme-spacing,1.45);unicode-bidi:plaintext;}</style><body>" + (f'<header dir="auto" class="document-header">{html.escape(header)}</header>' if header else ""))
+        "<style>.rich-text-block{break-inside:avoid;page-break-inside:avoid;}.rich-text-block .rich-text-paragraph{margin:0;white-space:pre-wrap;line-height:var(--theme-spacing,1.45);unicode-bidi:plaintext;}ol.template-list,ul.template-list{margin:8px 0 12px;padding-left:22px;}ol.template-list li,ul.template-list li{padding:2px 0;break-inside:avoid;page-break-inside:avoid;}aside.template-callout{break-inside:avoid;page-break-inside:avoid;margin:10px 0;color:#203d37;}aside.template-callout strong{display:block;color:#205448;margin-bottom:4px;}aside.template-callout p{margin:0;}div.template-metric-band{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:2px;margin:12px 0;break-inside:avoid;page-break-inside:avoid;}div.template-metric{min-height:42px;padding:9px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:3px;}div.template-metric strong{font-size:18px;line-height:1.1;}div.template-metric span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}section.template-section{break-inside:avoid;page-break-inside:avoid;margin:16px 0;}section.template-section h2{margin:0 0 6px;color:#1f416d;font-size:18px;}section.template-section p{margin:0;}</style><body>" + (f'<header dir="auto" class="document-header">{html.escape(header)}</header>' if header else ""))
     artifact += body
     if footer or page["show_page_numbers"]:
         # Screen preview only; printed output uses the @page margin boxes above.
