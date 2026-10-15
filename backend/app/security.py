@@ -16,10 +16,14 @@ class UploadScanError(RuntimeError):
 
 
 _PDF_ACTIVE_CONTENT_RE = re.compile(
-    rb"/(?:JavaScript|JS|OpenAction|Launch|EmbeddedFile|RichMedia|XFA)(?=\s|/|\[|<|>)",
+    rb"/(?:JavaScript|JS|OpenAction|Launch|RichMedia|XFA)(?=\s|/|\[|<|>)",
     re.IGNORECASE,
 )
 _PDF_ADDITIONAL_ACTION_RE = re.compile(rb"/AA(?!\s*<<\s*>>)(?=\s|/|\[|<|>)", re.IGNORECASE)
+_PDF_EMBEDDED_FILE_STREAM_RE = re.compile(rb"/Type\s*/EmbeddedFile(?=\s|/|\[|<|>)", re.IGNORECASE)
+_PDF_OBJECT_STREAM_START_RE = re.compile(
+    rb"\b\d+\s+\d+\s+obj\b(?:(?!endobj).){0,32768}?stream\r?\n", re.DOTALL | re.IGNORECASE
+)
 _PDF_NAME_RE = re.compile(rb"/([A-Za-z0-9#]+)")
 _PDF_FLATE_STREAM_RE = re.compile(rb"/Filter\s*/FlateDecode(?:(?!endobj).){0,1024}?stream\r?\n", re.DOTALL)
 _PDF_MAX_COMPRESSED_STREAM = 1_000_000
@@ -31,15 +35,49 @@ _SCANNER_ENV_NAMES = frozenset({
 
 
 def validate_pdf_active_content(data: bytes) -> None:
-    """Reject common PDF actions and embedded active-content declarations.
+    """Reject common PDF actions while allowing opaque embedded file metadata.
 
     This is a bounded lexical gate before storage, not a complete PDF parser or
-    malware scanner. Compressed/object-obfuscated content still requires the
+    malware scanner. Embedded file streams are retained only inside the original
+    source PDF; downstream extraction reads bounded metadata and never exports
+    their payloads. Compressed/object-obfuscated actions still require the
     optional scanner and isolated downstream parser boundary.
     """
-    sources = [data]
+    def decoded_pdf_names(source: bytes) -> bytes:
+        def decode_name(match: re.Match[bytes]) -> bytes:
+            name = re.sub(rb"#([0-9A-Fa-f]{2})", lambda item: bytes.fromhex(item.group(1).decode("ascii")),
+                          match.group(1))
+            return b"/" + name
+
+        return _PDF_NAME_RE.sub(decode_name, source)
+
+    # Opaque attachment bytes are not PDF actions. Mask recognized EmbeddedFile
+    # stream payloads before scanning raw names, while still scanning their PDF
+    # dictionaries and all document/page/action objects.
+    scan_data = bytearray(data)
+    for match in _PDF_OBJECT_STREAM_START_RE.finditer(data):
+        header = decoded_pdf_names(data[match.start():match.end()])
+        if not _PDF_EMBEDDED_FILE_STREAM_RE.search(header):
+            continue
+        payload_start = match.end()
+        length_match = re.search(
+            rb"/Length\s+(\d+)(?!\s+\d+\s+R\b)(?=\s|/|\[|<|>)", header, re.IGNORECASE
+        )
+        payload_end = payload_start + int(length_match.group(1)) if length_match else data.find(b"endstream", payload_start)
+        if payload_end < payload_start or payload_end < 0 or payload_end > len(data):
+            continue
+        scan_data[payload_start:payload_end] = b" " * (payload_end - payload_start)
+
+    sources = [bytes(scan_data)]
     total = 0
     for match in _PDF_FLATE_STREAM_RE.finditer(data):
+        object_start = data.rfind(b"obj", 0, match.start())
+        stream_header_start = max(object_start + 3, match.start() - 8192)
+        stream_header = decoded_pdf_names(data[stream_header_start:match.end()])
+        # Embedded payloads are retained in the original source but are opaque
+        # to this ingestion path; inspect their PDF wrapper, not nested content.
+        if _PDF_EMBEDDED_FILE_STREAM_RE.search(stream_header):
+            continue
         start = match.end()
         end = data.find(b"endstream", start)
         if end < 0:
@@ -59,14 +97,6 @@ def validate_pdf_active_content(data: bytes) -> None:
             continue
         total += len(inflated)
         sources.append(inflated)
-    def decoded_pdf_names(source: bytes) -> bytes:
-        def decode_name(match: re.Match[bytes]) -> bytes:
-            name = re.sub(rb"#([0-9A-Fa-f]{2})", lambda item: bytes.fromhex(item.group(1).decode("ascii")),
-                          match.group(1))
-            return b"/" + name
-
-        return _PDF_NAME_RE.sub(decode_name, source)
-
     decoded_sources = [decoded_pdf_names(source) for source in sources]
     if any(_PDF_ACTIVE_CONTENT_RE.search(source) or _PDF_ADDITIONAL_ACTION_RE.search(source)
            for source in decoded_sources):

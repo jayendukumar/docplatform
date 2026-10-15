@@ -51,6 +51,30 @@ def main() -> int:
             from app.ocr import run_ocr
             raw = base64.b64decode(payload["data_base64"], validate=True)
             result = run_ocr(raw, payload["command"], payload["language"], int(payload["timeout_seconds"]))
+        elif kind == "pdf-inspect":
+            from app.ingestion import simple_pdf_document
+            from app.pdf_classification import classify_pdf_pages
+            from app.pdf_physical import extract_pdf_physical
+            from app.pdf_validation import PdfValidationStage
+            from app.pipeline import PipelineError, ProcessingArtifact, run_pipeline
+            raw = base64.b64decode(payload["data_base64"], validate=True)
+            artifact = ProcessingArtifact(filename=payload["filename"], media_type="application/pdf", content=raw)
+            try:
+                validated = run_pipeline(artifact, [PdfValidationStage(max_pages=int(payload["max_pages"]))])
+                page_classifications = classify_pdf_pages(raw)
+                page_routes = ["scan" if item["classification"] == "scanned" else "digital"
+                               for item in page_classifications]
+                elements = simple_pdf_document(raw) if payload["route"] == "digital" else {}
+                physical_content = extract_pdf_physical(raw, include_characters=bool(
+                    payload.get("include_characters", False)))
+                result = {"sha256": validated.sha256, "metadata": validated.metadata,
+                          "page_classifications": page_classifications,
+                          "physical_content": physical_content,
+                          "page_routes": page_routes,
+                          "page_elements": {str(number): values for number, values in elements.items()}}
+            except PipelineError as exc:
+                result = {"validation_error": {"stage": exc.stage, "code": exc.code,
+                                                "message": exc.message}}
         elif kind == "pdf-render":
             from app.pdf_render import render_html_to_pdf
             output, report = render_html_to_pdf(payload["html"], payload["command"],

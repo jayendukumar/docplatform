@@ -12,6 +12,8 @@ export const storyStatus: Record<string, StoryStatus> = {
   'E5-01': 'implemented', 'E5-02': 'implemented', 'E5-03': 'implemented', 'E5-04': 'implemented',
   'E5-05': 'implemented', 'E5-06': 'implemented', 'E5-07': 'implemented', 'E5-09': 'partial',
   'E14-01': 'partial', 'E14-02': 'partial', 'E14-03': 'implemented', 'E14-04': 'implemented',
+  'E22-103': 'partial', 'E22-104': 'partial', 'E22-201': 'partial', 'E22-202': 'partial',
+  'E22-203': 'partial', 'E22-204': 'partial',
   'E6-01': 'partial', 'E6-02': 'partial', 'E6-03': 'partial', 'E6-04': 'partial', 'E6-05': 'partial', 'E8-01': 'implemented', 'E8-02': 'partial', 'E8-03': 'partial', 'E8-04': 'partial', 'E8-05': 'implemented', 'E8-06': 'implemented', 'E8-07': 'implemented', 'E8-08': 'partial',
   'E9-01': 'implemented', 'E9-02': 'implemented', 'E9-03': 'implemented', 'E9-04': 'partial',
   'E9-05': 'implemented', 'E9-06': 'implemented', 'E9-07': 'implemented', 'E9-08': 'implemented', 'E9-09': 'implemented', 'E9-10': 'implemented',

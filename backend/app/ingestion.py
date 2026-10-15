@@ -16,6 +16,7 @@ from xml.sax.saxutils import unescape
 from pypdf import PdfReader
 
 from app.layout import map_layout_elements
+from app.pdf_geometry import normalize_pdf_box
 
 
 class IngestionInputError(ValueError):
@@ -749,7 +750,9 @@ def page_model(document_id: str, filename: str, classification: UploadClassifica
                elements: list[dict[str, Any]] | None = None,
                dimensions: tuple[int, int] | None = None,
                page_elements: dict[int, list[dict[str, Any]]] | None = None,
-               page_routes: list[str] | None = None) -> dict[str, Any]:
+               page_routes: list[str] | None = None,
+               page_metadata: list[dict[str, Any]] | None = None,
+               page_classifications: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     first_page_elements = elements or []
     width, height = dimensions or (None, None)
     if page_elements is None and first_page_elements:
@@ -762,7 +765,19 @@ def page_model(document_id: str, filename: str, classification: UploadClassifica
     all_page_elements = page_elements or ({1: first_page_elements} if first_page_elements else {})
     normalized_pages: dict[int, tuple[list[dict[str, Any]], dict[str, Any]]] = {}
     for page_number, raw_elements in all_page_elements.items():
-        normalized, layout = map_layout_elements(raw_elements)
+        prepared = []
+        metadata = page_metadata[page_number - 1] if page_metadata and page_number <= len(page_metadata) else None
+        for element in raw_elements:
+            item = dict(element)
+            if (metadata and item.get("source_coordinate_system") == "pdf-user-space"
+                    and item.get("source_box_pdf_user_space") is not None):
+                item["box"] = normalize_pdf_box(item["source_box_pdf_user_space"],
+                                                crop_box=metadata["crop_box_pdf_user_space"],
+                                                rotation=metadata.get("rotation", 0))
+                item["source_box_pdf_user_space"] = list(item["source_box_pdf_user_space"])
+                item["source_coordinate_system"] = "pdf-user-space"
+            prepared.append(item)
+        normalized, layout = map_layout_elements(prepared)
         normalized_pages[page_number] = (normalized, layout)
     return {
         "schema_version": 1,
@@ -772,8 +787,20 @@ def page_model(document_id: str, filename: str, classification: UploadClassifica
         "pages": [{"page_number": number, "route": (page_routes[number - 1]
                                                         if page_routes and number <= len(page_routes)
                                                         else classification.route),
-                   "width": width, "height": height, "rotation": 0,
+                   "width": ((page_metadata[number - 1].get("width_points"))
+                             if page_metadata and number <= len(page_metadata) else width),
+                   "height": ((page_metadata[number - 1].get("height_points"))
+                              if page_metadata and number <= len(page_metadata) else height),
+                   "rotation": ((page_metadata[number - 1].get("rotation", 0))
+                                if page_metadata and number <= len(page_metadata) else 0),
                    "coordinate_system": "top-left-points",
+                   "source_geometry": ({"media_box_pdf_user_space": page_metadata[number - 1].get("media_box_pdf_user_space"),
+                                        "crop_box_pdf_user_space": page_metadata[number - 1].get("crop_box_pdf_user_space"),
+                                        "original_width_points": page_metadata[number - 1].get("original_width_points"),
+                                        "original_height_points": page_metadata[number - 1].get("original_height_points")}
+                                       if page_metadata and number <= len(page_metadata) else None),
+                   "classification": (page_classifications[number - 1]
+                                      if page_classifications and number <= len(page_classifications) else None),
                    "elements": normalized_pages.get(number, ([], {}))[0],
                    "layout": normalized_pages.get(number, ([], {"reading_order": [], "headings": [],
                                                                     "lists": [], "tables": []}))[1]}

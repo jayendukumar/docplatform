@@ -13,4 +13,5 @@ frontend/dist
 config.local.toml
 data
 artifacts
+e22-corpus/additionaldocs
 *.docx

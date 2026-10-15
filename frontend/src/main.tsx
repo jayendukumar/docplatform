@@ -42,6 +42,17 @@ type ComponentPart = Record<string, unknown> & { __id: string }
 type TableColumn = { header: string; path: string; format?: 'text' | 'number' | 'currency' | 'date' | 'percent'; width?: number; align?: 'left' | 'center' | 'right' }
 type Health = { status: string; dependencies: Record<string, string> }
 type Ingestion = { id: string; filename: string; route: string; status: string; pagesTotal?: number; pagesProcessed?: number; resultId?: string; error?: string }
+const EXTRACTION_PIPELINE_STEPS = [
+  { title: 'Validate the uploaded PDF', detail: 'Check file type, size, integrity, encryption, and configured resource limits.', status: 'Complete' },
+  { title: 'Inspect pages and capture metadata', detail: 'Read page count, dimensions, rotation, document metadata, and file fingerprint.', status: 'Complete' },
+  { title: 'Classify each page', detail: 'Identify pages containing native text, scanned content, or a mixture.', status: 'Complete' },
+  { title: 'Extract native page content', detail: 'Read digital text and supported page elements.' },
+  { title: 'Run OCR where needed', detail: 'Recognize text on scanned pages or regions while retaining native text.' },
+  { title: 'Merge extracted content and source evidence', detail: 'Normalize coordinates, de-duplicate content, and retain page locations and extraction methods.' },
+  { title: 'Analyze layout and reading order', detail: 'Identify regions, columns, ordering, and captions.' },
+  { title: 'Reconstruct document structure and complex content', detail: 'Build headings, paragraphs, lists, sections, tables, and references to visual objects.' },
+  { title: 'Assemble and validate versioned JSON', detail: 'Produce the canonical document model with provenance, warnings, and processing metadata.' },
+]
 type ReviewField = { original_value: string | null; normalized_value: unknown; confidence: number; review_status: string; absent?: boolean; validation: Array<{ code: string; message: string }>; source?: { page_number?: number; element_id?: string; box?: number[] | null } | null }
 type PageElement = { id: string; type?: string; role?: 'text' | 'heading' | 'list_item' | 'table_row'; text: string; box?: number[] | null }
 type PageLayout = { reading_order?: string[]; headings?: string[]; lists?: string[]; tables?: Array<{ row_ids: string[] }> }
@@ -329,6 +340,94 @@ function SourceComparisonView({ sessionId }: { sessionId: string }) {
     return () => { cancelled = true; objectUrls.forEach(URL.revokeObjectURL) }
   }, [sessionId])
   return <main className="source-compare-page"><header className="source-compare-header"><div><p className="eyebrow">SOURCE TEMPLATE COMPARISON</p><h1>Original and generated PDF</h1><p>{comparison?.source_filename || 'Preparing comparison'} · Draft version {comparison?.source_version_id || ''}</p></div><a href={comparison ? `/?template=${encodeURIComponent(comparison.template_id)}` : '/'}>Return to workspace</a></header>{loading && <p className="source-compare-status" role="status">Preparing both PDFs…</p>}{error && <p className="source-compare-error" role="alert">{error}</p>}{comparison && <div className="source-compare-panes"><section><div className="source-compare-pane-heading"><h2>Original source</h2><span>{comparison.source_filename} · {comparison.source_page_count} source pages</span>{sourcePdfUrl && <a href={sourcePdfUrl} target="_blank" rel="noreferrer">Open PDF separately</a>}</div>{sourcePdfUrl && <iframe title={`Original source: ${comparison.source_filename}`} src={sourcePdfUrl} />}</section><section><div className="source-compare-pane-heading"><h2>Generated PDF</h2><span>Saved editable draft output</span>{generatedPdfUrl && <a href={generatedPdfUrl} target="_blank" rel="noreferrer">Open PDF separately</a>}</div>{generatedPdfUrl && <iframe title="Generated draft PDF" src={generatedPdfUrl} />}</section></div>}{comparison && <p className="source-compare-note">Each pane has independent PDF navigation, zoom and scrolling. {comparison.limitations.join(' ')}</p>}</main>
+}
+
+function DigitizationProcessingView({ documentId, jobId, initialError }: { documentId: string; jobId: string | null; initialError: string | null }) {
+  const [filename, setFilename] = useState('Uploaded PDF')
+  const [route, setRoute] = useState('unknown')
+  const [status, setStatus] = useState('queued')
+  const [pagesTotal, setPagesTotal] = useState(0)
+  const [pagesProcessed, setPagesProcessed] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(initialError)
+  const [parserOutput, setParserOutput] = useState<{ label: string; value: unknown } | null>(null)
+  const lastResultKey = useRef('')
+  const sourceUrl = `/api/ingestions/${encodeURIComponent(documentId)}/source`
+
+  useEffect(() => {
+    let cancelled = false
+    let timer: number | undefined
+    async function update() {
+      try {
+        const ingestionResponse = await fetch(`/api/ingestions/${encodeURIComponent(documentId)}`)
+        const ingestion = await ingestionResponse.json() as { detail?: string; filename?: string; route?: string; status?: string; pages_total?: number; pages_processed?: number }
+        if (!ingestionResponse.ok) throw new Error(ingestion.detail || 'Could not load this ingestion.')
+        if (cancelled) return
+        setFilename(ingestion.filename || 'Uploaded PDF')
+        setRoute(ingestion.route || 'unknown')
+        setPagesTotal(ingestion.pages_total || 0)
+        setPagesProcessed(ingestion.pages_processed || 0)
+
+        let jobStatus = ingestion.status || 'queued'
+        if (jobId) {
+          const jobResponse = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`)
+          const job = await jobResponse.json() as { status?: string; error?: string }
+          if (!jobResponse.ok) throw new Error(job.error || 'Could not load extraction job status.')
+          if (cancelled) return
+          jobStatus = job.status || jobStatus
+          if (job.status === 'failed') setError(job.error || 'Processing failed. The source PDF is still available.')
+          else if (job.status === 'done') setPagesProcessed(ingestion.pages_total || ingestion.pages_processed || pagesTotal)
+        }
+        setStatus(jobStatus === 'processed' ? 'done' : jobStatus)
+
+        // The physical parser model is available before schema extraction finishes.
+        // Refresh it when the durable job/page state changes, not on every polling tick.
+        const resultKey = `${ingestion.status}:${ingestion.pages_processed}:${jobStatus}`
+        if (resultKey !== lastResultKey.current) {
+          try {
+            const resultResponse = await fetch(`/api/ingestions/${encodeURIComponent(documentId)}/result`)
+            if (resultResponse.ok) {
+              const result = await resultResponse.json() as {
+                page_model?: { physical_content?: unknown; [key: string]: unknown }
+              }
+              if (cancelled) return
+              if (result.page_model?.physical_content) {
+                setParserOutput({ label: 'Physical content', value: result.page_model.physical_content })
+              } else if (result.page_model) {
+                setParserOutput({ label: 'PageModel', value: result.page_model })
+              }
+              lastResultKey.current = resultKey
+            }
+          } catch { /* keep status polling independent from a temporarily unavailable result */ }
+        }
+
+        if (!jobId) {
+          setLoading(false)
+          return
+        }
+        setLoading(false)
+        if (!['done', 'processed', 'failed'].includes(jobStatus)) timer = window.setTimeout(() => void update(), 1000)
+      } catch (reason) {
+        if (!cancelled) {
+          setError(reason instanceof Error ? reason.message : 'Could not load processing status.')
+          setLoading(false)
+        }
+      }
+    }
+    void update()
+    return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer) }
+  }, [documentId, jobId])
+
+  const finished = status === 'done' || status === 'processed'
+  const percent = finished ? 100 : pagesTotal > 0 ? Math.min(99, Math.round((pagesProcessed / pagesTotal) * 100)) : 0
+  return <section className="digitization-view" aria-labelledby="digitization-result-title">
+    <a className="digitization-back" href="/">&larr; Back to Digitization Intake</a>
+    <div className="digitization-heading"><div><p className="eyebrow">DIGITIZATION INTAKE</p><h1 id="digitization-result-title">Processing document</h1><p>{filename}</p></div><span className={`digitization-status ${status}`} role="status">{finished ? 'Complete' : status === 'failed' ? 'Failed' : status === 'running' ? 'Processing' : 'Queued'}</span></div>
+    <div className="digitization-progress"><div className="digitization-progress-label"><strong>{loading ? 'Loading processing status' : finished ? 'Processing complete' : status === 'running' ? 'Extracting document content' : 'Waiting for processing'}</strong><span>{pagesTotal > 0 ? `${pagesProcessed} of ${pagesTotal} pages` : route !== 'unknown' ? `${route} document` : 'Preparing document'}</span></div><div className="digitization-progress-track" role="progressbar" aria-label="Document processing progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%` }} /></div></div>
+    <section className="digitization-pipeline" aria-labelledby="digitization-pipeline-title"><div className="digitization-pipeline-heading"><h2 id="digitization-pipeline-title">Extraction pipeline</h2><span>{EXTRACTION_PIPELINE_STEPS.length} steps</span></div><p>These are the application tasks for producing structured document output. The first three steps completed during upload; the progress bar above shows current job and page progress.</p><ol>{EXTRACTION_PIPELINE_STEPS.map((stage, index) => <li key={stage.title}><span className="digitization-stage-number">{index + 1}</span><div className="digitization-stage-copy"><strong>{stage.title}</strong><small>{stage.detail}</small></div>{stage.status && <span className="digitization-stage-status">{stage.status}</span>}</li>)}</ol></section>
+    {error && <p className="digitization-error" role="alert">{error}</p>}
+    <div className="digitization-split"><section className="digitization-pane" aria-labelledby="digitization-pdf-title"><div className="digitization-pane-heading"><div><p className="eyebrow">SOURCE</p><h2 id="digitization-pdf-title">PDF document</h2></div><a href={sourceUrl} target="_blank" rel="noreferrer">Open separately</a></div><iframe title={`Uploaded PDF: ${filename}`} src={sourceUrl} /></section><section className="digitization-pane" aria-labelledby="digitization-json-title"><div className="digitization-pane-heading"><div><p className="eyebrow">CURRENT PARSER OUTPUT</p><h2 id="digitization-json-title">{parserOutput?.label || 'Document JSON'}</h2></div><span>{parserOutput ? 'Current snapshot' : 'Loading model'}</span></div><div className="digitization-json"><pre>{parserOutput ? JSON.stringify(parserOutput.value, null, 2) : '{\n  "status": "waiting_for_parser_output"\n}'}</pre><p>The parser model is shown as it becomes available. Job and page progress are above; this view is not the final schema extraction result.</p></div></section></div>
+  </section>
 }
 
 function App() {
@@ -1104,22 +1203,46 @@ function App() {
     setActiveBlockId(sourceId)
   }
   async function uploadFiles(files: FileList | null) {
-    if (!files?.length) return
+    const file = files?.[0]
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setIngestions(current => [{ id: `local-${file.name}-${file.lastModified}`, filename: file.name, route: 'unknown', status: 'failed', error: 'Choose a PDF document.' }, ...current])
+      return
+    }
     setUploading(true)
-    const pending = Array.from(files).map(file => ({ id: `local-${file.name}-${file.lastModified}`, filename: file.name, route: 'pending', status: 'uploading' }))
-    setIngestions(current => [...pending, ...current])
-    for (const [index, file] of Array.from(files).entries()) {
-      const localId = pending[index].id
+    const localId = `local-${file.name}-${file.lastModified}`
+    setIngestions(current => [{ id: localId, filename: file.name, route: 'pending', status: 'uploading' }, ...current])
+    let documentId: string | undefined
+    try {
+      const response = await fetch(`/api/ingestions?filename=${encodeURIComponent(file.name)}`, { method: 'POST', headers: { 'content-type': file.type || 'application/pdf' }, body: file })
+      const body = await response.json() as { id?: string; route?: string; status?: string; pages_total?: number; pages_processed?: number; detail?: string | { message?: string; code?: string } }
+      const uploadError = typeof body.detail === 'string' ? body.detail : body.detail?.message
+      if (!response.ok || !body.id) throw new Error(uploadError || t('uploadFailed'))
+      documentId = body.id
+      setIngestions(current => current.map(item => item.id === localId ? { id: body.id!, filename: file.name, route: body.route || 'unknown', status: body.status || 'queued', pagesTotal: body.pages_total, pagesProcessed: body.pages_processed } : item))
+      let jobId: string | undefined
+      let processingError = false
       try {
-        const response = await fetch(`/api/ingestions?filename=${encodeURIComponent(file.name)}`, { method: 'POST', headers: { 'content-type': file.type || 'application/octet-stream' }, body: file })
-        const body = await response.json() as { id?: string; route?: string; status?: string; pages_total?: number; pages_processed?: number; detail?: string }
-        if (!response.ok) throw new Error(body.detail || t('uploadFailed'))
-        setIngestions(current => current.map(item => item.id === localId ? { id: body.id!, filename: file.name, route: body.route || 'unknown', status: body.status || 'queued', pagesTotal: body.pages_total, pagesProcessed: body.pages_processed } : item))
-      } catch (error) {
+        let extractionPayload: { schema_id: string; schema?: unknown } = { schema_id: schemaId }
+        try { extractionPayload = { schema_id: schemaId, schema: JSON.parse(schemaDraft) as unknown } } catch { /* use bundled schema when the draft is not JSON */ }
+        const extractResponse = await fetch(`/api/ingestions/${encodeURIComponent(body.id)}/extract`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...extractionPayload, async: true }) })
+        const extraction = await extractResponse.json() as { id?: string; detail?: string }
+        if (!extractResponse.ok || !extraction.id) throw new Error(extraction.detail || t('extractionFailed'))
+        jobId = extraction.id
+      } catch { processingError = true }
+      const query = new URLSearchParams({ digitization: body.id })
+      if (jobId) query.set('job', jobId)
+      if (processingError) query.set('error', 'processing_not_started')
+      window.location.assign(`/?${query.toString()}`)
+    } catch (error) {
+      if (documentId) {
+        window.location.assign(`/?${new URLSearchParams({ digitization: documentId, error: 'processing_not_started' }).toString()}`)
+      } else {
         setIngestions(current => current.map(item => item.id === localId ? { ...item, route: 'unknown', status: 'failed', error: error instanceof Error ? error.message : t('uploadFailed') } : item))
       }
+    } finally {
+      setUploading(false)
     }
-    setUploading(false)
   }
   async function extractDocument(item: Ingestion) {
     setExtracting(item.id)
@@ -1390,6 +1513,9 @@ function App() {
   </section>
   if (!authChecked) return <main className="auth-shell"><section className="auth-card"><p className="eyebrow">{t('brand')}</p><h1>{t('loading')}</h1></section></main>
   if (authRequired || authConfig?.setup_required) return <><header><a className="brand" href="/"><span className="mark" aria-hidden="true">D</span>{t('brand')}</a></header><main className="auth-shell"><section className="auth-card"><p className="eyebrow">{authConfig?.setup_required ? t('createAccount') : t('signIn')}</p><h1>{authConfig?.setup_required ? t('setupTitle') : t('signInTitle')}</h1><p>{t('authNote')}</p><form onSubmit={authConfig?.setup_required ? submitSetup : submitLogin}><label>{t('email')}<input type="email" required value={authEmail} onChange={event => setAuthEmail(event.target.value)} /></label><label>{t('password')}<input type="password" required minLength={12} value={authPassword} onChange={event => setAuthPassword(event.target.value)} /></label><button type="submit">{authConfig?.setup_required ? t('createAccount') : t('signIn')}</button></form><button type="button" className="secondary-auth-button" onClick={() => void continueAsGuest()}>{t('continueAsGuest')}</button><form className="signup-form" onSubmit={submitSignup}><label>{t('signUpEmail')}<input type="email" required value={authEmail} onChange={event => setAuthEmail(event.target.value)} /></label><button type="submit">{t('signUp')}</button></form><button type="button" className="secondary-auth-button" onClick={() => setAuthFeedback(t('ssoNotConfigured'))}>{t('ssoSignIn')}</button>{authFeedback && <p role="alert" className="error">{authFeedback}</p>}</section></main><footer>{t('footer')}</footer></>
+  const digitizationParams = new URLSearchParams(window.location.search)
+  const digitizationId = digitizationParams.get('digitization')
+  if (digitizationId) return <><header><a className="brand" href="/"><span className="mark" aria-hidden="true">D</span>{t('brand')}</a><span className="workspace">{authUser ? `${authUser.email} · ${authUser.role}` : t('workspace')} {authUser && <button type="button" className="header-signout" onClick={() => void signOut()}>{t('signOut')}</button>}</span></header><main className="app-main digitization-main"><DigitizationProcessingView documentId={digitizationId} jobId={digitizationParams.get('job')} initialError={digitizationParams.get('error') ? 'The upload is saved, but processing could not be started. The PDF and available JSON are shown below.' : null} /></main><footer>{t('footer')}</footer></>
   return <>
     <header><a className="brand" href="/"><span className="mark" aria-hidden="true">D</span>{t('brand')}</a><span className="workspace">{authUser ? `${authUser.email} Â· ${authUser.role}` : t('workspace')} {authUser && <button type="button" className="header-signout" onClick={() => void signOut()}>{t('signOut')}</button>}</span></header>
     <main className="app-main">
@@ -1410,7 +1536,7 @@ function App() {
       </section>
       <section className="ingestion-panel" aria-labelledby="ingestion-title">
         <div><p className="eyebrow">{t('ingestionEyebrow')}</p><h2 id="ingestion-title">{t('ingestionTitle')}</h2><p>{t('ingestionNote')}</p></div>
-         <label className="upload-control">{uploading ? t('uploading') : t('chooseFiles')}<input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff" disabled={uploading} onChange={event => { void uploadFiles(event.target.files); event.currentTarget.value = '' }} /></label>
+         <label className="upload-control">{uploading ? t('uploading') : 'Choose PDF'}<input type="file" accept=".pdf,application/pdf" disabled={uploading} onChange={event => { void uploadFiles(event.target.files); event.currentTarget.value = '' }} /></label>
          <div className="schema-controls"><label>{t('extractionSchema')} <select value={schemaId} onChange={event => setSchemaId(event.target.value)}>{schemas.map(schema => <option key={schema.id} value={schema.id}>{schema.name}</option>)}</select></label><details><summary>{t('editSchema')}</summary><textarea aria-label={t('schemaJson')} value={schemaDraft} onChange={event => setSchemaDraft(event.target.value)} /><button type="button" onClick={() => void validateSchemaDraft()}>{t('validateSchema')}</button>{schemaFeedback && <small role="status">{schemaFeedback}</small>}</details></div>
         {ingestions.length > 0 && <ul className="ingestion-list">{ingestions.map(item => <li key={item.id}><span className="ingestion-filename">{item.filename}</span><span className={`ingestion-status ${item.status}`}>{item.status === 'queued' ? t('queued') : item.status === 'uploading' ? t('uploading') : item.status === 'failed' ? t('failed') : item.status}</span><span className="ingestion-route">{item.route}</span>{item.pagesTotal !== undefined && <span className="ingestion-progress">{item.pagesProcessed ?? 0}/{item.pagesTotal} {t('pages')}</span>}{item.id && !item.id.startsWith('local-') && !item.resultId && <button className="ingestion-action" type="button" disabled={extracting === item.id} onClick={() => void extractDocument(item)}>{extracting === item.id ? t('extracting') : t('extract')}</button>}{item.resultId && <span className="ingestion-progress">{t('reviewReady')}</span>}{item.error && <small>{item.error}</small>}</li>)}</ul>}
          {Object.values(reviews).map(review => <article className="review-card" key={review.result_id} aria-labelledby={`review-${review.result_id}`}><div className="review-card-heading"><div><p className="eyebrow">{t('reviewEyebrow')}</p><h3 id={`review-${review.result_id}`}>{t('reviewTitle')}</h3></div><span className={`review-state ${review.status}`}>{review.status}</span></div><p className="review-note">{t('reviewNote')}</p><div className="review-fields">{Object.entries(review.fields).map(([name, field]) => <label key={name}><span>{name.replaceAll('_', ' ')}</span><input value={String(field.normalized_value ?? field.original_value ?? '')} onFocus={() => selectReviewSource(review.result_id, name)} onChange={event => changeReviewField(review.result_id, name, event.target.value)} onBlur={() => void saveReviewField(review.result_id, name)} /><small>{t('confidence')}: {field.confidence.toFixed(2)}{field.validation.length ? ` · ${field.validation[0].message}` : ''}</small><button type="button" className="review-absent" onClick={() => void saveReviewField(review.result_id, name, true)}>{t('markAbsent')}</button></label>)}</div>{Object.entries(review.tables ?? {}).map(([tableName, table]) => <section className="review-line-items" key={tableName} aria-label={`${tableName} extracted values`}><h4>{tableName.replaceAll('_', ' ')}</h4><table><thead><tr>{table.columns.map(column => <th scope="col" key={column}>{column.replaceAll('_', ' ')}</th>)}</tr></thead><tbody>{table.rows.map((row, rowIndex) => <tr key={`${tableName}-${rowIndex}`}>{table.columns.map(column => { const field = row.fields[column]; return <td key={column}><button type="button" className="review-source-value" onClick={() => selectReviewSourceValue(review.result_id, field?.source)}>{String(field?.normalized_value ?? field?.original_value ?? '')}</button></td> })}</tr>)}</tbody></table></section>)}<div className="review-actions"><button type="button" onClick={() => void changeReviewStatus(review.result_id, 'approved')}>{t('approve')}</button><button type="button" onClick={() => void changeReviewStatus(review.result_id, 'rejected')}>{t('reject')}</button>{review.status === 'approved' && <button type="button" onClick={() => void renderApproved(review.result_id)} disabled={!templates.length}>{t('sendToTemplate')}</button>}</div>{review.artifact && <pre className="review-artifact">{review.artifact}</pre>}{review.error && <p className="error" role="alert">{review.error}</p>}</article>)}

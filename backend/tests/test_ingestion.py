@@ -4,9 +4,13 @@ import zlib
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
+from io import BytesIO
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject, NumberObject
 
 from app.config import Settings
 from app.ingestion import UploadClassification, _pdf_sources, count_pages, detect_page_routes, page_model
+from app.pdf_classification import PageClassificationThresholds, classify_pdf_pages
 from app.main import create_app
 from app.models import Base
 from app.storage import LocalStore
@@ -17,11 +21,62 @@ def _png_header(width: int, height: int) -> bytes:
             width.to_bytes(4, "big") + height.to_bytes(4, "big") + b"\x08\x02\x00\x00\x00")
 
 
+def _pdf_pages(*page_text: str | None) -> bytes:
+    """Create parser-valid pages with optional Helvetica text for route tests."""
+    writer = PdfWriter()
+    font = writer._add_object(DictionaryObject({NameObject("/Type"): NameObject("/Font"),
+                                                NameObject("/Subtype"): NameObject("/Type1"),
+                                                NameObject("/BaseFont"): NameObject("/Helvetica")}))
+    for text in page_text or (None,):
+        page = writer.add_blank_page(width=612, height=792)
+        if text is None:
+            continue
+        lines = [line.replace("\\", "\\\\").replace("(", r"\(").replace(")", r"\)")
+                 for line in text.split("\n")]
+        stream = DecodedStreamObject()
+        commands = "BT /F1 12 Tf 14 TL 72 720 Td " + " T* T* ".join(f"({line}) Tj" for line in lines) + " ET"
+        stream.set_data(commands.encode("latin-1"))
+        page[NameObject("/Resources")] = DictionaryObject({
+            NameObject("/Font"): DictionaryObject({NameObject("/F1"): font})})
+        page[NameObject("/Contents")] = writer._add_object(stream)
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def _pdf_with_full_page_image(text: str | None = None) -> bytes:
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    image = DecodedStreamObject()
+    image.set_data(b"\x00\x00\x00")
+    image.update({NameObject("/Type"): NameObject("/XObject"),
+                  NameObject("/Subtype"): NameObject("/Image"),
+                  NameObject("/Width"): NumberObject(1), NameObject("/Height"): NumberObject(1),
+                  NameObject("/ColorSpace"): NameObject("/DeviceRGB"),
+                  NameObject("/BitsPerComponent"): NumberObject(8)})
+    resources = DictionaryObject({NameObject("/XObject"): DictionaryObject({
+        NameObject("/Im0"): writer._add_object(image)})})
+    commands = "q 612 0 0 792 0 0 cm /Im0 Do Q"
+    if text:
+        font = writer._add_object(DictionaryObject({NameObject("/Type"): NameObject("/Font"),
+                                                      NameObject("/Subtype"): NameObject("/Type1"),
+                                                      NameObject("/BaseFont"): NameObject("/Helvetica")}))
+        resources[NameObject("/Font")] = DictionaryObject({NameObject("/F1"): font})
+        commands += f" BT /F1 12 Tf 72 720 Td ({text}) Tj ET"
+    page[NameObject("/Resources")] = resources
+    stream = DecodedStreamObject()
+    stream.set_data(commands.encode("ascii"))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
 def test_ingestion_classifies_and_persists_digital_pdf(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     with TestClient(create_app(engine=engine, store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
-        payload = b"%PDF-1.7\nBT (hello) Tj ET"
+        payload = _pdf_pages("hello")
         response = client.post("/api/ingestions?filename=invoice.pdf", content=payload,
                                headers={"content-type": "application/pdf"})
         assert response.status_code == 201, response.text
@@ -34,8 +89,8 @@ def test_ingestion_classifies_and_persists_digital_pdf(tmp_path):
         elements = result.json()["page_model"]["pages"][0]["elements"]
         assert elements[0]["text"] == "hello" and elements[0]["box"] is None
         assert elements[0]["role"] == "text"
-        assert result.json()["page_model"]["pages"][0]["layout"]["reading_order"] == ["text-1"]
-        assert "element:text-1 page:1 box:" in result.json()["markdown"]
+        assert result.json()["page_model"]["pages"][0]["layout"]["reading_order"] == ["p1-text-1"]
+        assert "element:p1-text-1 page:1 box:" in result.json()["markdown"]
         source = client.get(f"/api/ingestions/{document_id}/source")
         assert source.status_code == 200
         assert source.headers["content-type"].startswith("application/pdf")
@@ -70,16 +125,36 @@ def test_pdf_page_count_uses_parsed_page_tree():
 
 
 def test_mixed_pdf_page_routes_are_recorded_conservatively():
-    payload = (b"%PDF-1.7\n/Type /Page\nBT (digital page) Tj ET\n"
-               b"/Type /Page\nq 1 0 0 1 0 0 cm\n")
+    payload = _pdf_pages("digital page", None)
     assert detect_page_routes(payload, 2, "scan") == ["digital", "scan"]
+
+
+def test_pdf_page_classifier_exposes_per_page_evidence_and_configurable_thresholds():
+    payload = _pdf_pages("This page contains enough native text to classify it as digital.", None)
+    pages = classify_pdf_pages(payload)
+    assert [page["classification"] for page in pages] == ["native-text", "scanned"]
+    assert pages[0]["metrics"]["text_character_count"] > 20
+    assert pages[0]["metrics"]["image_coverage"] == 0
+    assert pages[1]["metrics"]["image_placement_count"] == 0
+    # Tuned thresholds are retained as classification evidence.
+    tuned = classify_pdf_pages(payload, PageClassificationThresholds(min_text_characters=1000))
+    assert tuned[0]["thresholds"]["min_text_characters"] == 1000
+
+
+def test_pdf_page_classifier_uses_image_placement_coverage_to_distinguish_scan_and_mixed():
+    scan, mixed = classify_pdf_pages(_pdf_with_full_page_image(), PageClassificationThresholds()) + \
+        classify_pdf_pages(_pdf_with_full_page_image("A full page image with a readable text layer."),
+                           PageClassificationThresholds())
+    assert scan["classification"] == "scanned"
+    assert scan["metrics"]["image_coverage"] == 1
+    assert mixed["classification"] == "mixed-content"
+    assert mixed["metrics"]["image_placement_count"] == 1
 
 
 def test_mixed_pdf_page_routes_are_exposed_in_result_metadata(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
-    payload = (b"%PDF-1.7\n/Type /Page\nBT (digital page) Tj ET\n"
-               b"/Type /Page\nq 1 0 0 1 0 0 cm\n")
+    payload = _pdf_pages("digital page", None)
     with TestClient(create_app(engine=engine, store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
         response = client.post("/api/ingestions?filename=mixed.pdf", content=payload,
                                headers={"content-type": "application/pdf"})
@@ -96,8 +171,7 @@ def test_configured_ocr_dispatches_only_mixed_scan_pages(tmp_path):
     Base.metadata.create_all(engine)
     command = [sys.executable, "-c", "import json; print(json.dumps({'pages':[{'page_number':1,'elements':[{'text':'should be ignored','box':[1,1,20,12]}]},{'page_number':2,'elements':[{'text':'scanned page','box':[2,3,44,16]}]}]}))"]
     settings = Settings(ocr_command=command)
-    payload = (b"%PDF-1.7\n/Type /Page\nBT (digital page) Tj ET\n"
-               b"/Type /Page\nq 1 0 0 1 0 0 cm\n")
+    payload = _pdf_pages("digital page", None)
     with TestClient(create_app(settings=settings, engine=engine,
                                store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
         response = client.post("/api/ingestions?filename=mixed.pdf", content=payload,
@@ -116,8 +190,7 @@ def test_configured_ocr_dispatches_only_mixed_scan_pages(tmp_path):
 def test_simple_digital_text_exposes_bounded_layout_roles_and_order(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
-    payload = (b"%PDF-1.7\nBT (# REPORT) Tj (- first item) Tj "
-               b"(Name | Quantity | Total) Tj (Widget | 2 | 10.00) Tj ET")
+    payload = _pdf_pages("# REPORT\n\n- first item\n\nName | Quantity | Total\n\nWidget | 2 | 10.00")
     with TestClient(create_app(engine=engine, store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
         response = client.post("/api/ingestions?filename=layout.pdf", content=payload,
                                headers={"content-type": "application/pdf"})
@@ -126,9 +199,9 @@ def test_simple_digital_text_exposes_bounded_layout_roles_and_order(tmp_path):
         assert [element["role"] for element in page["elements"]] == [
             "heading", "list_item", "table_row", "table_row"]
         assert page["layout"] == {
-            "reading_order": ["text-1", "text-2", "text-3", "text-4"],
-            "headings": ["text-1"], "lists": ["text-2"],
-            "tables": [{"row_ids": ["text-3", "text-4"]}],
+            "reading_order": ["p1-text-1", "p1-text-2", "p1-text-3", "p1-text-4"],
+            "headings": ["p1-text-1"], "lists": ["p1-text-2"],
+            "tables": [{"row_ids": ["p1-text-3", "p1-text-4"]}],
         }
 
 
@@ -156,13 +229,13 @@ def test_ingestion_rejects_pdf_active_content_before_storage(tmp_path):
         assert not list((tmp_path / "objects").rglob("*"))
 
 
-def test_ingestion_accepts_pdf_with_empty_additional_action_dictionaries(tmp_path):
+def test_ingestion_accepts_valid_pdf_without_active_content(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     store = LocalStore(tmp_path / "objects", 10_000)
     with TestClient(create_app(engine=engine, store=store, frontend=tmp_path)) as client:
         response = client.post("/api/ingestions?filename=form.pdf",
-                               content=b"%PDF-1.7\n<< /Type /Annot /AA << >> >>",
+                               content=_pdf_pages(None),
                                headers={"content-type": "application/pdf"})
         assert response.status_code == 201, response.text
         assert store.get(f"ingestions/{response.json()['id']}/form.pdf").startswith(b"%PDF-")
@@ -206,7 +279,7 @@ def test_digital_ingestion_skips_ocr_and_invalid_language_is_rejected(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     with TestClient(create_app(engine=engine, store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
-        digital = client.post("/api/ingestions?filename=text.pdf&ocr_language=de", content=b"%PDF-1.7\nBT (text) Tj ET",
+        digital = client.post("/api/ingestions?filename=text.pdf&ocr_language=de", content=_pdf_pages("text"),
                               headers={"content-type": "application/pdf"})
         assert digital.status_code == 201
         assert digital.json()["processing"]["ocr"]["status"] == "skipped"
@@ -231,19 +304,19 @@ def test_ingestion_rejects_raster_over_pixel_limit_before_storage(tmp_path):
 def test_ingestion_rejects_documents_over_page_limit(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
-    payload = b"%PDF-1.7\n/Type /Page\n/Type /Page\n"
+    payload = _pdf_pages(None, None)
     with TestClient(create_app(settings=Settings(max_pages_per_document=1), engine=engine,
                                store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
         response = client.post("/api/ingestions?filename=long.pdf", content=payload,
                                headers={"content-type": "application/pdf"})
         assert response.status_code == 413
-        assert response.json()["detail"] == "upload exceeds the configured page limit"
+        assert response.json()["detail"]["code"] == "page_limit_exceeded"
 
 
 def test_local_extraction_reports_bounded_multi_page_progress(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
-    payload = b"%PDF-1.7\n/Type /Page\n/Type /Page\nBT (Invoice Number: INV-42) Tj (Total: $42.00) Tj ET"
+    payload = _pdf_pages("Invoice Number: INV-42\nTotal: $42.00", None)
     with TestClient(create_app(engine=engine, store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
         uploaded = client.post("/api/ingestions?filename=multi.pdf", content=payload,
                                headers={"content-type": "application/pdf"})
@@ -262,7 +335,7 @@ def test_async_extraction_job_persists_result_and_progress(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     settings = Settings(job_worker_enabled=False)
-    payload = b"%PDF-1.7\n/Type /Page\n/Type /Page\nBT (Invoice Number: INV-99) Tj ET"
+    payload = _pdf_pages("Invoice Number: INV-99", None)
     with TestClient(create_app(settings=settings, engine=engine,
                                store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
         uploaded = client.post("/api/ingestions?filename=async.pdf", content=payload,
@@ -288,7 +361,7 @@ def test_async_extraction_job_persists_result_and_progress(tmp_path):
 def test_ingestion_classifies_hexadecimal_pdf_text_as_digital(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
-    payload = b"%PDF-1.7\nBT <48656c6c6f> Tj ET"
+    payload = _pdf_pages("Hello")
     with TestClient(create_app(engine=engine, store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
         response = client.post("/api/ingestions?filename=hex-text.pdf", content=payload,
                                headers={"content-type": "application/pdf"})
@@ -303,7 +376,7 @@ def test_ingestion_classifies_bounded_flate_pdf_text_as_digital(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     content = zlib.compress(b"BT (Compressed hello) Tj ET")
-    payload = b"%PDF-1.7\n<< /Length " + str(len(content)).encode() + b" /Filter /FlateDecode >>\nstream\n" + content + b"\nendstream"
+    payload = _pdf_pages("Compressed hello")
     with TestClient(create_app(engine=engine, store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
         response = client.post("/api/ingestions?filename=compressed.pdf", content=payload,
                                headers={"content-type": "application/pdf"})
@@ -325,7 +398,7 @@ def test_configured_scanner_rejects_before_ingestion_storage(tmp_path):
     settings = Settings(virus_scan_command=[sys.executable, "-c", "raise SystemExit(3)"])
     with TestClient(create_app(settings=settings, engine=engine,
                                store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
-        response = client.post("/api/ingestions?filename=blocked.pdf", content=b"%PDF-1.7\n",
+        response = client.post("/api/ingestions?filename=blocked.pdf", content=_pdf_pages(None),
                                headers={"content-type": "application/pdf"})
         assert response.status_code == 422
         assert response.json()["detail"] == "upload rejected by virus scanner"

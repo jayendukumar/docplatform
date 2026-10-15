@@ -1,0 +1,13 @@
+# Optional E22 physical PDF parser stack (DD-503); not in the default runtime lock.
+# Install with: pip install -r requirements-pdf-extraction.lock
+# PyMuPDF is dual licensed AGPL-3.0/commercial; see docs/dependencies.md before distribution.
+PyMuPDF==1.28.2
+Pillow==12.3.0
+pdfminer.six==20260107
+pdfplumber==0.11.10
+pypdfium2==5.13.0
+# pdfminer.six resolved transitive dependencies; aligned with the reviewed test lock.
+cffi==2.1.1
+charset-normalizer==3.5.1
+cryptography==50.0.1
+pycparser==3.0

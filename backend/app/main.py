@@ -58,7 +58,6 @@ from app.ingestion import (
     markdown_for,
     page_model,
     simple_docx_document,
-    simple_pdf_document,
 )
 from app.jobs import claim, claim_next, enqueue
 from app.migrations import expected_revision
@@ -1641,7 +1640,8 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
     @app.post("/api/ingestions", status_code=201, tags=["ingestion"])
     async def ingest(request: Request, filename: str,
                      ocr_language: str = Query("eng", min_length=2, max_length=20),
-                     ocr_engine: str = Query("paddleocr", min_length=2, max_length=40)):
+                     ocr_engine: str = Query("paddleocr", min_length=2, max_length=40),
+                     include_characters: bool = Query(False)):
         authenticated_user(request, scope="read")
         raw = await request.body()
         if not filename or len(filename) > 255:
@@ -1659,16 +1659,36 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                 validate_pdf_active_content(raw)
             except ValueError as exc:
                 raise HTTPException(status_code=415, detail=str(exc)) from None
+        pdf_inspection = None
+        if classification.media_type == "application/pdf":
+            try:
+                pdf_inspection = run_isolated(
+                    "pdf-inspect", {"data_base64": base64.b64encode(raw).decode("ascii"),
+                                    "filename": filename, "route": classification.route,
+                                    "max_pages": settings.max_pages_per_document,
+                                    "include_characters": include_characters},
+                    timeout_seconds=settings.job_timeout_seconds,
+                    cpu_seconds=settings.job_cpu_seconds,
+                    memory_bytes=settings.job_memory_bytes,
+                    max_output_bytes=settings.job_max_output_bytes)
+            except WorkerExecutionError as exc:
+                raise HTTPException(status_code=422, detail={"code": "pdf_inspection_failed",
+                                                             "message": str(exc)}) from None
+            validation_error = pdf_inspection.get("validation_error")
+            if validation_error:
+                status_code = 413 if validation_error.get("code") == "page_limit_exceeded" else 422
+                raise HTTPException(status_code=status_code, detail=validation_error)
         normalized_language = ocr_language.replace("_", "-").casefold()
         if not re.fullmatch(r"[a-z]{2,8}(?:-[a-z0-9]{2,8})?", normalized_language):
             raise HTTPException(status_code=422, detail="ocr_language must be a language code")
         if ocr_engine.casefold() not in {"paddleocr", "tesseract"}:
             raise HTTPException(status_code=422, detail="ocr_engine must be paddleocr or tesseract")
         document_id = uuid4().hex
-        pages_total = count_pages(filename, raw)
+        pages_total = int(pdf_inspection["metadata"]["page_count"]) if pdf_inspection else count_pages(filename, raw)
         if pages_total > settings.max_pages_per_document:
             raise HTTPException(status_code=413, detail="upload exceeds the configured page limit")
-        page_routes = detect_page_routes(raw, pages_total, classification.route)
+        page_routes = (pdf_inspection["page_routes"] if pdf_inspection
+                       else detect_page_routes(raw, pages_total, classification.route))
         try:
             scan_upload(raw, settings.virus_scan_command, settings.virus_scan_timeout_seconds)
         except UploadScanError as exc:
@@ -1676,7 +1696,8 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         dimensions = image_dimensions(raw, classification.media_type) if classification.route == "scan" else None
         if dimensions and dimensions[0] * dimensions[1] > settings.max_image_pixels:
             raise HTTPException(status_code=413, detail="image exceeds the configured pixel limit")
-        extracted_pdf_pages = simple_pdf_document(raw) if classification.route == "digital" else {}
+        extracted_pdf_pages = ({int(number): values for number, values in pdf_inspection["page_elements"].items()}
+                               if pdf_inspection else {})
         pdf_page_elements = {number: page_elements for number, page_elements in extracted_pdf_pages.items()
                              if number <= len(page_routes) and page_routes[number - 1] == "digital"}
         elements = []
@@ -1723,10 +1744,32 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         if ocr_target_pages and elements and any(route == "digital" for route in page_routes):
             model_elements = []
         model = page_model(document_id, filename, classification, len(raw), pages_total,
-                           model_elements, dimensions, model_page_elements, page_routes)
+                           model_elements, dimensions, model_page_elements, page_routes,
+                           pdf_inspection["metadata"]["pages"] if pdf_inspection else None,
+                           pdf_inspection["page_classifications"] if pdf_inspection else None)
+        if pdf_inspection:
+            model["source"]["sha256"] = pdf_inspection["sha256"]
+            model["source"]["metadata"] = pdf_inspection["metadata"]
+            physical = pdf_inspection.get("physical_content")
+            if isinstance(physical, dict):
+                for asset in physical.get("assets", []):
+                    encoded = asset.pop("data_base64", None)
+                    if not isinstance(encoded, str):
+                        continue
+                    try:
+                        binary = base64.b64decode(encoded, validate=True)
+                    except (ValueError, binascii.Error):
+                        raise HTTPException(status_code=422, detail="PDF worker returned invalid image bytes") from None
+                    if hashlib.sha256(binary).hexdigest() != asset.get("sha256"):
+                        raise HTTPException(status_code=422, detail="PDF worker returned an image hash mismatch")
+                    key = f"ingestions/{document_id}/assets/{asset['id']}.{asset['extension']}"
+                    store.put(key, binary)
+                    asset["url"] = f"/api/ingestions/{document_id}/assets/{asset['id']}"
+                model["physical_content"] = physical
         model["processing"] = {
             "route": classification.route,
             "page_routes": page_routes,
+            "page_classifications": (pdf_inspection["page_classifications"] if pdf_inspection else []),
             "ocr": ocr_report,
         }
         object_key = f"ingestions/{document_id}/{filename.replace('\\', '/') .split('/')[-1]}"
@@ -1839,6 +1882,26 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         return Response(content=raw, media_type=row["media_type"],
                         headers={"Content-Disposition": "inline"})
 
+    @app.get("/api/ingestions/{document_id}/assets/{asset_id}", tags=["ingestion"])
+    def ingestion_asset(document_id: str, asset_id: str, request: Request):
+        authenticated_user(request, scope="read")
+        with engine.connect() as connection:
+            row = connection.execute(select(IngestionDocument.page_model_json).where(
+                IngestionDocument.id == document_id)).mappings().one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Ingestion not found")
+        model = json.loads(row["page_model_json"])
+        asset = next((item for item in model.get("physical_content", {}).get("assets", [])
+                      if item.get("id") == asset_id), None)
+        if asset is None:
+            raise HTTPException(status_code=404, detail="Image asset not found")
+        try:
+            binary = store.get(f"ingestions/{document_id}/assets/{asset['id']}.{asset['extension']}")
+        except (FileNotFoundError, KeyError):
+            raise HTTPException(status_code=404, detail="Image asset not found") from None
+        return Response(content=binary, media_type=asset["media_type"],
+                        headers={"Content-Disposition": "inline", "X-Content-Type-Options": "nosniff"})
+
     @app.get("/api/ingestions/{document_id}/result", tags=["ingestion"])
     def ingestion_result(document_id: str):
         with engine.connect() as connection:
@@ -1849,7 +1912,7 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                 raise HTTPException(status_code=404, detail="Ingestion not found")
             return {"id": row["id"], "status": row["status"], "page_model": json.loads(row["page_model_json"]),
                     "markdown": row["markdown"], "extraction": None,
-                    "pending": "OCR/layout extraction worker is not implemented"}
+                    "pending": "OCR fallback, advanced layout analysis, and logical interpretation are not implemented"}
 
     @app.post("/api/ingestions/{document_id}/extract", tags=["extraction"])
     def extract_ingestion(document_id: str, payload: dict, request: Request):

@@ -1,0 +1,168 @@
+{
+  "corpus": "E22 PDF extraction evaluation fixtures",
+  "version": 1,
+  "synthetic": true,
+  "document_limit": 30,
+  "count": 12,
+  "generator": "scripts/build_e22_corpus.mjs",
+  "expected_text_note": "HTML-stripped anchors only; geometric/logical annotations are listed as layout_features and require ongoing gold annotation before accuracy claims.",
+  "documents": [
+    {
+      "id": "report-annual",
+      "file": "report-annual.pdf",
+      "kind": "report",
+      "title": "Northwind Annual Operations Report",
+      "layout_features": [
+        "headings",
+        "paragraphs",
+        "table",
+        "page-footer"
+      ],
+      "scanned": false,
+      "expected_text": "Annual Operations Report Reporting period: 1 January to 31 December 2025 Executive summary Northwind Fixture Services completed 1,240 service visits across four regions. On-time completion was 96.4 percent. Regional results Region Visits On time North 420 97.1% South 315 95.8% East 280 96.0% West 225 96.7% Total visits: 1,240"
+    },
+    {
+      "id": "report-two-column",
+      "file": "report-two-column.pdf",
+      "kind": "report",
+      "title": "Quarterly Field Report",
+      "layout_features": [
+        "two-columns",
+        "headings",
+        "reading-order"
+      ],
+      "scanned": false,
+      "expected_text": "Quarterly Field Report Period: Q2 2026 North district Three service teams completed 188 visits. Parts availability improved after the depot inventory review. Open follow-ups: 7 South district Two service teams completed 142 visits. Average response time was 4.2 hours. Open follow-ups: 5 Conclusion Combined visits: 330. The next review is scheduled for 15 July 2026."
+    },
+    {
+      "id": "report-multipage",
+      "file": "report-multipage.pdf",
+      "kind": "report",
+      "title": "Service Quality Review",
+      "layout_features": [
+        "multi-page",
+        "repeated-header-footer",
+        "cross-page-paragraph"
+      ],
+      "scanned": false,
+      "expected_text": "Service Quality Review Fixture document for multi-page continuation and repeating furniture. Findings Finding 1. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 2. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 3. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 4. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 5. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 6. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Findings (continued) Finding 7. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 8. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 9. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 10. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 11. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization. Finding 12. Sample paragraph for page flow, continuation, source locations, and repeatable page headers. The observation is limited to test data and does not describe a real organization."
+    },
+    {
+      "id": "invoice-simple",
+      "file": "invoice-simple.pdf",
+      "kind": "invoice",
+      "title": "Invoice INV-2026-0042",
+      "layout_features": [
+        "key-value",
+        "totals"
+      ],
+      "scanned": false,
+      "expected_text": "INVOICE Invoice number: INV-2026-0042 Issue date: 2026-10-01 Due date: 2026-10-31 Supplier: Northwind Fixture Services Customer: Placeholder Holdings Description Qty Unit price Amount Inspection service 2 $125.00 $250.00 Subtotal: $250.00 Tax: $20.00 Total: $270.00"
+    },
+    {
+      "id": "invoice-line-items",
+      "file": "invoice-line-items.pdf",
+      "kind": "invoice",
+      "title": "Invoice INV-2026-0108",
+      "layout_features": [
+        "table",
+        "repeated-table-header",
+        "multi-page"
+      ],
+      "scanned": false,
+      "expected_text": "INVOICE INV-2026-0108 Supplier: Example Supply Co. · Currency: USD Code Description Quantity Unit Line total SKU-100 Replacement component 1 1 $12.50 $12.50 SKU-101 Replacement component 2 2 $13.50 $27.00 SKU-102 Replacement component 3 3 $14.50 $43.50 SKU-103 Replacement component 4 4 $15.50 $62.00 SKU-104 Replacement component 5 5 $16.50 $82.50 SKU-105 Replacement component 6 6 $17.50 $105.00 SKU-106 Replacement component 7 7 $18.50 $129.50 SKU-107 Replacement component 8 8 $19.50 $156.00 SKU-108 Replacement component 9 9 $20.50 $184.50 SKU-109 Replacement component 10 10 $21.50 $215.00 SKU-110 Replacement component 11 11 $22.50 $247.50 SKU-111 Replacement component 12 12 $23.50 $282.00 SKU-112 Replacement component 13 13 $24.50 $318.50 SKU-113 Replacement component 14 14 $25.50 $357.00 SKU-114 Replacement component 15 15 $26.50 $397.50 SKU-115 Replacement component 16 16 $27.50 $440.00 SKU-116 Replacement component 17 17 $28.50 $484.50 SKU-117 Replacement component 18 18 $29.50 $531.00 SKU-118 Replacement component 19 19 $30.50 $579.50 SKU-119 Replacement component 20 20 $31.50 $630.00 SKU-120 Replacement component 21 21 $32.50 $682.50 SKU-121 Replacement component 22 22 $33.50 $737.00 SKU-122 Replacement component 23 23 $34.50 $793.50 SKU-123 Replacement component 24 24 $35.50 $852.00 SKU-124 Replacement component 25 25 $36.50 $912.50 SKU-125 Replacement component 26 26 $37.50 $975.00 SKU-126 Replacement component 27 27 $38.50 $1039.50 SKU-127 Replacement component 28 28 $39.50 $1106.00 Subtotal: $14,917.00 Tax: $1,193.36 Total: $16,110.36"
+    },
+    {
+      "id": "invoice-complex-table",
+      "file": "invoice-complex-table.pdf",
+      "kind": "invoice",
+      "title": "Consolidated Invoice",
+      "layout_features": [
+        "complex-table",
+        "merged-header",
+        "subtotal-groups"
+      ],
+      "scanned": false,
+      "expected_text": "Consolidated Invoice Invoice: CONS-2609 · Period: September 2026 Service Current period Prior balance Amount due Units Charges Field inspection 12 $1,440.00 $100.00 $1,540.00 Emergency response 3 $900.00 $0.00 $900.00 Total due $2,440.00 Payment terms: Net 30 days"
+    },
+    {
+      "id": "contract-services",
+      "file": "contract-services.pdf",
+      "kind": "contract",
+      "title": "Sample Services Agreement",
+      "layout_features": [
+        "numbered-clauses",
+        "nested-list",
+        "signature-block"
+      ],
+      "scanned": false,
+      "expected_text": "Services Agreement Effective date: 1 October 2026 1. Parties This sample agreement is between Example Party A and Example Party B. It is fictional and has no legal effect. 2. Services Provider will perform the following services: Monthly inspection Written findings report Customer will provide reasonable site access. 3. Term The sample term begins on 1 October 2026 and ends on 30 September 2027. 4. Signatures Provider: ____________________ &nbsp; Date: __________ Customer: ___________________ &nbsp; Date: __________"
+    },
+    {
+      "id": "legal-numbered-agreement",
+      "file": "legal-numbered-agreement.pdf",
+      "kind": "legal",
+      "title": "Sample Framework Agreement",
+      "layout_features": [
+        "multi-page",
+        "nested-numbering",
+        "defined-terms",
+        "headers-footers"
+      ],
+      "scanned": false,
+      "expected_text": "Framework Agreement (Test Fixture) Fictional educational fixture; not legal advice and not an operative agreement. 1. Definitions 1.1 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 1.2 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 1.3 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 2. Representations 2.1 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 2.2 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 2.3 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 3. Confidentiality 3.1 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 3.2 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 3.3 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 4. Term and termination 4.1 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 4.2 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 4.3 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 5. General provisions 5.1 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 5.2 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request. 5.3 The term “Sample Information” means fictional content used only to evaluate document extraction. Each party will retain a record of notices and make the record available on written request."
+    },
+    {
+      "id": "legal-two-column-filing",
+      "file": "legal-two-column-filing.pdf",
+      "kind": "legal",
+      "title": "Sample Filing Layout",
+      "layout_features": [
+        "two-columns",
+        "caption",
+        "numbered-paragraphs"
+      ],
+      "scanned": false,
+      "expected_text": "IN THE SAMPLE ADMINISTRATIVE TRIBUNAL Example Matter No. 2026-014 Statement of facts 1. The parties and events in this filing are fictional. 2. Dates and references are included to test numbered paragraph extraction. Requested schedule 3. Initial conference: 12 November 2026. 4. Supporting materials: Fixture A and Fixture B. Submitted by: Sample Representative Date: 15 October 2026"
+    },
+    {
+      "id": "scan-invoice",
+      "file": "scan-invoice.pdf",
+      "kind": "invoice",
+      "title": "Scanned Invoice Fixture",
+      "layout_features": [
+        "image-only-scan",
+        "ocr",
+        "table"
+      ],
+      "scanned": true,
+      "expected_text": "INVOICE Invoice number: SCAN-2048 Supplier: Sample Office Goods Date: 2026-08-12 Item Qty Amount Paper cartons 4 $48.00 Ink supplies 2 $76.00 Subtotal: $124.00 Tax: $9.92 Total: $133.92"
+    },
+    {
+      "id": "scan-receipt",
+      "file": "scan-receipt.pdf",
+      "kind": "receipt",
+      "title": "Scanned Receipt Fixture",
+      "layout_features": [
+        "image-only-scan",
+        "ocr",
+        "narrow-page"
+      ],
+      "scanned": true,
+      "expected_text": "MARKET SAMPLE Receipt: R-77104 Date: 2026-09-03 Apples $4.20 Bread $3.50 Milk $2.30 Subtotal: $10.00 Tax: $0.80 TOTAL: $10.80 Card: **** 0042"
+    },
+    {
+      "id": "mixed-report",
+      "file": "mixed-report.pdf",
+      "kind": "report",
+      "title": "Mixed Source Report",
+      "layout_features": [
+        "mixed-digital-scan",
+        "image-page",
+        "digital-page"
+      ],
+      "scanned": false,
+      "expected_text": "Mixed Source Report Page 1 is digitally generated. Page 2 is an image-only scanned appendix. Page 3 contains digital text. Scanned Appendix Meter reading: 008412 Inspection date: 2026-09-20 Status: PASS Digital conclusion The appendix reading is 8,412 units. This known value tests cross-page source traceability."
+    }
+  ]
+}

@@ -19,3 +19,5 @@ artifacts/
 /generated-isda*.pdf
 /fidelity-corpus/local/
 /fidelity-corpus/generated/
+# User-provided E22 evaluation documents may contain sensitive financial data.
+/e22-corpus/additionaldocs/
