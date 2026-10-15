@@ -94,6 +94,30 @@
 - **Validation:** Added a compressed JavaScript regression alongside raw-token and pre-storage API rejection tests; focused security/ingestion tests pass. E11-04 remains partial.
 - **Implementation/evidence:** [security gate](../backend/app/security.py), [security tests](../backend/tests/test_security.py), [ingestion contract](ingestion-contract.md), [story status](../frontend/src/storyStatus.ts).
 
+## DD-491 - Permit empty PDF additional-action dictionaries
+
+- **Date:** 2026-10-14
+- **Status:** Accepted and Implemented
+- **Affected stories:** E8-01, E8-02, E11-04
+- **Context:** `2002-ISDA-Master-Agreement.pdf` was rejected because its form widgets contain many empty `/AA << >>` dictionaries. Structural inspection found no JavaScript, launch action, XFA, embedded-file, or rich-media entries; the existing lexical gate rejected the `/AA` name alone.
+- **Choice:** Permit only an empty inline `/AA << >>` dictionary. Continue rejecting `/AA` values containing entries and indirect `/AA` references because their action content cannot be established by the bounded lexical check. Continue rejecting other active-content declarations unchanged.
+- **Alternatives:** Remove `/AA` from the denylist completely; rejected because populated additional actions would no longer be caught. Parse and rewrite the PDF; rejected because it would mutate the immutable uploaded source and exceed this bounded fix. Accept every `/AA` value; rejected because that could allow executable annotation actions.
+- **Consequences:** The provided agreement can pass the false-positive check while documents with populated or indirect additional-action dictionaries remain blocked. This lexical gate remains partial PDF security validation and is not a malware scan or full parser.
+- **Validation:** The supplied `2002-ISDA-Master-Agreement.pdf` (767,829 bytes) now passes the active-content gate unchanged. Structural inspection found 130 parsed widget `/AA` dictionaries, all empty, and no parsed JavaScript, launch action, XFA, embedded-file stream, or rich-media annotation. `tests/test_security.py` and `tests/test_ingestion.py` passed (37 tests), including acceptance of empty `/AA` dictionaries and rejection of populated/indirect additional-action values; existing active-content rejection tests remain green. Docker rebuilt and `/health/ready` returned `status: ready` with database, storage and frontend ready. This does not certify the file as malware-free or replace full PDF parsing.
+- **Implementation references:** [PDF validation](../backend/app/security.py), [security regression tests](../backend/tests/test_security.py), [ingestion contract](../docs/ingestion-contract.md).
+
+## DD-492 - Preserve the source session ID across upload responses
+
+- **Date:** 2026-10-14
+- **Status:** Accepted and Implemented
+- **Affected stories:** Proposed E21-02/E21-03/E21-04/E21-05
+- **Context:** Source upload persisted its interpretation successfully but returned `session_id` while the frontend consumes session objects using `id`. Replacing frontend state with the upload response therefore discarded the identifier; the next review/generation call addressed an empty session ID and returned “Source-template session not found.”
+- **Choice:** Return both `id` and `session_id` for compatibility, and have the frontend preserve the current session ID as a fallback when consuming upload responses.
+- **Alternatives:** Change the frontend to reconstruct the ID from unrelated state only; rejected because the API response should itself remain a usable session representation. Retry against the latest session; rejected because it can cross-link a separate workflow and violates per-workflow isolation.
+- **Consequences:** Review, replacement upload and draft generation remain bound to the session that received the source. Existing API clients using `session_id` remain compatible.
+- **Validation:** Source API tests passed (3 tests), including a source upload that asserts both response identifiers equal the created session ID; security/ingestion tests passed (37 tests); frontend production build passed; Docker rebuilt and `/health/ready` returned `status: ready` with database, storage and frontend ready. Inspection of the running database confirmed the supplied PDF upload had already succeeded and its source session was in `interpretation` state; the 404 was in the subsequent client handoff, not the upload parser.
+- **Implementation references:** [source upload response](../backend/app/main.py), [frontend session mapping](../frontend/src/main.tsx), [API regression](../backend/tests/test_source_template_api.py).
+
 # DD-159 — Preserve OCR selection and unavailable-engine state in ingestion
 
 - **Date:** 2026-09-24
@@ -2794,7 +2818,7 @@ Supersedes/superseded by: [Decision ID when applicable]
 # DD-197 — Prioritize the hybrid template editor and renderer adapter boundary
 
 - **Date:** 2026-09-24
-- **Status:** Accepted; implementation in progress
+- **Status:** Accepted and implemented for the bounded local DOCX conversion slice
 - **Affected stories:** E2-01 through E2-09, E2-10, E2-11, E4-01 through E4-10, E6-01, E6-04, E6-05, E7-01, E7-04, E11-04, E12-01, E12-02, E14-01
 - **Context:** The agreed near-term product outcome is an owner-created template rendered to PDF. The current bounded JSON/template and isolated renderer contracts are more mature than a DOCX-first architecture, while final engine selection remains pending empirical and native-reader evidence. Prince can be evaluated without making it the default, but commercial deployment requires an appropriate license.
 - **Choice:** Keep the bounded browser editor and versioned template JSON as the near-term authoring model, improve it toward a Word-like experience, retain Chromium as the default renderer, and introduce a renderer adapter contract with Prince as an optional explicitly configured implementation. Other backlog areas remain deferred unless they are prerequisites for this flow.
@@ -6799,3 +6823,147 @@ Supersedes/superseded by: [Decision ID when applicable]
 - **Consequences:** The workflow gives users a clear path from source to editable draft while preserving approval, security, provenance and renderer-fidelity boundaries. It adds a proposed E21 scope overlay and does not rewrite generated `docs/epics.md` or change existing priorities.
 - **Validation:** Planning artifact reviewed against current E13 extraction/agent stories, E5 approved-data binding, E6 PDF output, E7 API parity, implementation-plan security constraints and existing ingestion/extraction contracts. No implementation or acceptance evidence is claimed.
 - **Implementation references:** [proposed E21 epic](../docs/epic-e21-source-document-template-creation.md), [generated baseline E13 stories](../docs/epics.md), [implementation plan](../docs/implementation-plan.md).
+
+## DD-480 - Implement a bounded approval-gated source-template session
+
+- **Date:** 2026-10-12
+- **Status:** Accepted and Implemented for the bounded local slice; E21-06/E21-07/E21-10 remain partial
+- **Affected stories:** Proposed E21-01 through E21-10; E8 ingestion, E9/E10 provenance and review, E3 template versions, E6-01 PDF output
+- **Context:** Existing ingestion and extraction contracts provide immutable storage and PageModel provenance, but no workflow boundary connected a source document to interpretation corrections and a generated editable draft.
+- **Choice:** Add a durable source-template session with mandatory disclosure acknowledgement, local-only-by-default processing, immutable ingestion linkage, versioned interpretation items, correction history, approved-snapshot generation, and draft template/version links. Accept PDF and DOCX through bounded local paths; DOCX currently preserves paragraph text only and reports that limitation. Comparison returns original/generated PDF references and explicit evidence states without claiming pixel-perfect or native-reader equality.
+- **Alternatives:** Feed raw extraction directly into generation; rejected because unreviewed model output must not become template content. Add an external AI provider; rejected because it changes the default data boundary and needs a separate provider/licence decision. Reconstruct arbitrary DOCX layout; deferred pending a reviewed parser and fidelity evidence.
+- **Consequences:** Owners can create, review, correct/reject, approve and generate a declarative draft while original values, normalized values, source coordinates, engine version and correction history remain available. The comparison API is metadata-first; independent browser panes and measured visual evidence remain follow-up work.
+- **Validation:** `python -m compileall`, focused ingestion/extraction regression tests (`29 passed`), source-template contract tests, backend source-module/migration Ruff checks, and frontend TypeScript/build checks passed. No native-reader, second-engine, OCR accuracy or pixel-fidelity claim is made.
+- **Implementation references:** [source-template workflow](../backend/app/source_template.py), [API routes](../backend/app/main.py), [models](../backend/app/models.py), [migration](../backend/migrations/versions/0015_source_template_sessions.py), [frontend workflow](../frontend/src/main.tsx), [E21 specification](../docs/epic-e21-source-document-template-creation.md).
+
+## DD-481 - Reopen the latest saved draft in the editor
+
+- **Date:** 2026-10-12
+- **Status:** Accepted and Implemented
+- **Affected stories:** E2 editor save/reopen behavior; E3 draft version management
+- **Context:** The editor saved changes as a new draft version, but its workspace reopen path used the API's published-default read. After refresh, reopening a template therefore hid the saved draft and appeared to lose edits.
+- **Choice:** The frontend editor explicitly requests `GET /api/templates/{id}?draft=true` when opening a template from the workspace. The API's default published behavior remains unchanged for public/integration reads.
+- **Alternatives:** Automatically publish every editor save; rejected because draft review and publication governance would be bypassed. Change the API default globally; rejected because it would alter integration and public-read semantics.
+- **Consequences:** Refreshing the workspace and reopening a template restores the latest saved draft version, while integrations that omit `draft=true` continue to receive the published version. Unsaved browser changes remain unsaved and are not claimed as persisted.
+- **Validation:** Frontend TypeScript check and production build passed; `git diff --check` passed. The corrected request path is covered by the editor reopen regression path; browser-suite execution remains environment-dependent.
+- **Implementation references:** [editor open path](../frontend/src/main.tsx), [draft selection contract](../backend/app/main.py), [template version contract](../docs/template-contract.md).
+
+## DD-482 - Move source-template creation beside blank-template creation
+
+- **Date:** 2026-10-13
+- **Status:** Accepted and Implemented
+- **Affected stories:** Proposed E21-01 through E21-05; workspace template creation UX
+- **Context:** The source-template workflow was nested inside Digitization Intake, which made it overlap with ingestion controls and obscured its role as a template-creation entry point.
+- **Choice:** Move the workflow into its own card immediately below Create Blank Template, reuse the blank-template card styling, label the eyebrow `START FROM SOURCE DOCUMENT`, present `Create a template from a sample doc`, and use `Create template` as the entry action before disclosure and upload.
+- **Alternatives:** Keep the workflow inside Digitization Intake; rejected because source-template creation is a template authoring action, not ordinary digitization intake. Add a separate page; deferred because the existing workspace flow already supports the bounded session.
+- **Consequences:** Source-template creation is discoverable beside the blank-template option, while the existing disclosure, upload, review and draft-generation behavior remains unchanged. Digitization Intake now contains only ingestion and extraction controls.
+- **Validation:** Frontend production build and `git diff --check` passed after implementation.
+- **Implementation references:** [workspace layout and source-template card](../frontend/src/main.tsx), [shared card styling](../frontend/src/style.css), [source-template contract](../docs/source-template-contract.md).
+
+## DD-483 - Make source-template creation a guided review workspace
+
+- **Date:** 2026-10-13
+- **Status:** Accepted and Implemented for the bounded local slice
+- **Affected stories:** Proposed E21-01 through E21-05; E8 scan routing and extraction failure handling
+- **Context:** The source workflow rendered on the home page and treated zero extracted items as a normal result. Users could not understand what the system had found or why a PDF could not produce a draft.
+- **Choice:** Navigate from the home card to a dedicated `source-template` workspace. Keep disclosure and upload as explicit steps, present structured counts, warnings, item kind, confidence, page/provenance and editable values, require approve/correct/reject decisions, and block generation when no reviewable items exist. Empty scan extraction reports that local OCR/configuration is required.
+- **Alternatives:** Continue inline extraction on the home page; rejected because it mixes template authoring with digitization intake. Generate an empty template or display the raw render artifact; rejected because neither gives the user a meaningful decision surface.
+- **Consequences:** Users get a focused source-to-template workflow and actionable failure messages. The bounded PDF path still does not perform OCR; scanned/image-only PDFs remain blocked until a configured local OCR adapter is available.
+- **Validation:** Source interpretation unit tests, frontend production build, `git diff --check`, Docker rebuild and readiness verification passed. OCR accuracy and broad PDF layout fidelity remain unclaimed.
+- **Implementation references:** [source workflow UI](../frontend/src/main.tsx), [source workflow styling](../frontend/src/style.css), [interpretation warnings](../backend/app/source_template.py), [source upload handling](../backend/app/main.py), [source workflow contract](../docs/source-template-contract.md).
+
+## DD-484 - Sanitize and chunk leaked document markup in source review
+
+- **Date:** 2026-10-13
+- **Status:** Accepted and Implemented for the bounded local slice
+- **Affected stories:** Proposed E21-03/E21-04; E8/E9 source interpretation readability
+- **Context:** A source document produced review content containing raw WordprocessingML tags and an oversized single text item, making the result impossible for a person to interpret.
+- **Choice:** Normalize XML entities and known document markup before display, preserve the raw value for provenance, split oversized extracted text into bounded reviewable chunks, and warn when markup was normalized. Do not silently claim that the source's layout or semantics were reconstructed.
+- **Alternatives:** Display the raw extracted string; rejected because it is not actionable to users. Discard the entire item; rejected because it loses potentially useful source content. Use a general-purpose parser without a separate licence/resource review; deferred.
+- **Consequences:** Review cards contain readable text rather than XML tags and are less likely to become one giant decision. The bounded extractor remains conservative and does not add OCR or promise arbitrary PDF layout fidelity.
+- **Validation:** Focused source-template tests, frontend build, `git diff --check`, Docker rebuild and readiness verification passed.
+- **Implementation references:** [bounded extraction cleanup](../backend/app/ingestion.py), [interpretation warnings](../backend/app/source_template.py), [source review UI](../frontend/src/main.tsx), [source extraction tests](../backend/tests/test_source_template.py).
+
+## DD-485 - Review uncertain interpretation decisions instead of every text run
+
+- **Date:** 2026-10-14
+- **Status:** Accepted and Implemented for the bounded local slice
+- **Affected stories:** Proposed E21-03/E21-04/E21-05; E8/E9 structure extraction
+- **Context:** The Northbridge executive brief produced 58 low-level text elements, and the UI asked the user to approve each one without explaining the decision boundary. Deterministic headers, paragraphs, lists and table rows do not need individual human approval; candidate variables, formulas and assets do.
+- **Choice:** Classify extracted elements as header, heading, paragraph, list item, table row, variable, formula or image. Mark reliable structural items `auto_accepted`, keep uncertain items `suggested`, expose a structure/count summary, show only decisions requiring review, support approve-all for those decisions, and report each changed review state.
+- **Alternatives:** Require approval for every element; rejected because it creates unusable review workload. Auto-approve every item; rejected because variables, formulas and assets can materially change the generated template. Aggregate all source text into one approval; rejected because it loses decision-level provenance.
+- **Consequences:** A document with 58 structural elements can proceed without 58 clicks, while genuinely uncertain content remains reviewable and traceable. The bounded classifier is heuristic and does not claim full semantic understanding or layout fidelity.
+- **Validation:** Focused source-template tests, frontend production build, `git diff --check`, Docker rebuild and readiness verification passed. Native-reader, OCR accuracy and broad semantic-classification acceptance remain unclaimed.
+- **Implementation references:** [interpretation classifier](../backend/app/source_template.py), [source review workspace](../frontend/src/main.tsx), [review styling](../frontend/src/style.css), [source contract](../docs/source-template-contract.md), [source tests](../backend/tests/test_source_template.py).
+
+## DD-486 - Make source draft creation explicit and compatible with saved sessions
+
+- **Date:** 2026-10-14
+- **Status:** Accepted and Implemented for the bounded local slice
+- **Affected stories:** Proposed E21-04/E21-05; source-template session compatibility
+- **Context:** Sessions created before DD-485 stored deterministic content as `fixed` items with `suggested` status. The new review model could therefore leave an existing Northbridge session with no usable draft action, and the create request gave little visible progress or failure feedback.
+- **Choice:** Treat the pre-DD-485 fixed-item shape as legacy deterministic content only when the interpretation has no current summary, retain current approval gating for uncertain items, show an in-progress label, surface server/no-eligible-item errors, and report whether the generated draft opened successfully in the editor.
+- **Alternatives:** Require users to upload the source again; rejected because existing saved sessions should remain usable. Treat every suggested item as approved; rejected because it would bypass the current review boundary.
+- **Consequences:** Existing source sessions can create drafts without migration, while current sessions still require decisions only for uncertain content. Users receive visible action feedback and an actionable error when generation or editor navigation fails.
+- **Validation:** Source-template tests, frontend production build, `git diff --check`, Docker rebuild and readiness verification passed. Browser click-through remains environment-dependent.
+- **Implementation references:** [draft eligibility and feedback](../frontend/src/main.tsx), [legacy-compatible generation](../backend/app/source_template.py), [source tests](../backend/tests/test_source_template.py), [source contract](../docs/source-template-contract.md).
+
+## DD-487 - Persist and recover the active source-template session
+
+- **Date:** 2026-10-14
+- **Status:** Accepted and Implemented for the bounded local slice
+- **Affected stories:** Proposed E21-01/E21-05; source-template workflow continuity
+- **Context:** The active source-template session existed only in frontend memory. A reload, re-authentication or refreshed container could leave the draft action using an ID that was no longer present in the current client state, producing an opaque session-not-found error.
+- **Choice:** Persist the active session ID in browser local storage, restore it when reopening the source workflow, expose a user-scoped latest-session endpoint, and retry draft generation against that session when the stored ID returns 404.
+- **Alternatives:** Require a new upload after every reload; rejected because the source session is durable and should remain usable. Search all sessions without ownership filtering; rejected because session recovery must respect access boundaries.
+- **Consequences:** The source workflow survives ordinary page reloads and can recover a stale client session while preserving server-side ownership checks. A missing or inaccessible session still requires a new upload.
+- **Validation:** Backend route/import checks, frontend production build, `git diff --check`, Docker rebuild and readiness verification are required for this change.
+- **Implementation references:** [session recovery API](../backend/app/main.py), [workflow persistence and retry](../frontend/src/main.tsx).
+
+## DD-488 - Allow guests to edit their own generated source drafts
+
+- **Date:** 2026-10-14
+- **Status:** Accepted and Implemented for the bounded local slice
+- **Affected stories:** Proposed E21-05; guest source-template authoring
+- **Context:** Source generation correctly created a draft owned by the guest user, but the generic guest template policy rejected every non-public template, including that owner’s own generated draft. The editor consequently reported a misleading open failure.
+- **Choice:** Allow guest users to read and write templates they own, keep other non-public workspace templates inaccessible, and include owned templates in the guest workspace listing.
+- **Alternatives:** Mark generated drafts public; rejected because it exposes user-created draft content. Disable guest source-template generation; rejected because the bounded workflow supports guest authoring.
+- **Consequences:** A guest can continue editing their own generated draft, while ownership and visibility boundaries remain enforced for other templates.
+- **Validation:** Backend/frontend checks, Docker rebuild and readiness verification are required for this change.
+- **Implementation references:** [guest template access](../backend/app/main.py), [source draft generation](../backend/app/main.py).
+
+## DD-489 - Preserve supported OOXML structure in source-generated templates
+
+- **Date:** 2026-10-14
+- **Status:** Accepted and implemented for the bounded local DOCX conversion slice
+- **Affected stories:** Proposed E21-02/E21-03/E21-05; E8-03/E8-06; E2-01/E2-02/E2-06
+- **Context:** The Northbridge Executive Brief DOCX contains headings, formatted runs, semantic lists, six tables, section page setup, header/footer text and an embedded header logo. The current parser flattened table-cell text into paragraphs and the generator emitted unformatted text blocks on default A4 pages.
+- **Choice:** Extend the bounded local OOXML reader without new dependencies to retain body reading order, paragraph/run formatting, heading/list semantics, editable table structures and supported section page settings/header/footer text. Map these into existing declarative rich-text, list and table blocks. Keep unsupported image placement, complex layout and exact physical pagination explicit as limitations; do not infer geometry or claim Word fidelity.
+- **Alternatives:** Keep flattening and ask users to rebuild tables/styles manually; rejected because the Word structure is present and existing template blocks can represent much of it. Add a new DOCX parser/conversion dependency; deferred pending the unresolved DD-013 licence review and parser isolation evidence. Use DOCX pages as a locked background; rejected because the output must remain editable.
+- **Consequences:** Source-generated drafts retain substantially more document structure and can be edited with existing block types. DOCX rendering is still an approximation; the current source parser runs in the API process and broader hostile-document isolation remains an open E11/E12 requirement.
+- **Validation:** `python -m py_compile app/ingestion.py app/source_template.py app/main.py` passed; focused `tests/test_source_template.py` and `tests/test_ingestion.py` passed (25 tests); `npm run build` passed; real `sampledocs/Northbridge_Executive_Brief.docx` conversion produced 37 source elements (6 editable tables, 8 headings), 31 blocks (6 tables, 2 lists, 22 rich-text blocks, 1 image), and retained Letter page setup plus header/footer text; `docker compose up -d --build` completed and `/health/ready` returned `status: ready` with database, storage and frontend ready. The test runner emitted environment warnings about Starlette/httpx deprecation and denied pytest cache access; no test failures. No native Word visual comparison was performed.
+- **Implementation references:** [OOXML reader](../backend/app/ingestion.py), [source interpretation and generation](../backend/app/source_template.py), [source upload route](../backend/app/main.py), [editor persistence](../frontend/src/main.tsx), [source-template contract](../docs/source-template-contract.md), [regression test](../backend/tests/test_source_template.py).
+
+## DD-490 - Isolate each source-creation workflow and compare its saved draft in a new tab
+
+- **Date:** 2026-10-14
+- **Status:** Accepted and implemented for the bounded local workflow
+- **Affected stories:** Proposed E21-01/E21-02/E21-05/E21-06/E21-07/E21-08
+- **Context:** The source workflow restored a session from local storage or the latest-session endpoint, which could show a previous document and interpretation when a user started again. The comparison endpoint returned URLs and metadata but did not provide the requested browser comparison view.
+- **Choice:** Starting from the workspace always clears the active client workflow and does not restore a previous session; the server creates a distinct session after disclosure acknowledgement. Keep completed source sessions and generated drafts as independent records. Associate each generated draft with its source session, save current editor changes before comparison, and open a dedicated same-origin tab that renders the original source and generated draft as independent PDF panes. Convert DOCX originals through the existing configured converter and report conversion/render failures explicitly.
+- **Alternatives:** Reuse the most recent session; rejected because it leaks stale workflow context into a new creation. Delete previous sessions/drafts on restart; rejected because each generated draft has its own lifecycle and must remain independently addressable. Replace the editor with a modal comparison; rejected because the requirement is a new tab and comparison must not discard edits.
+- **Consequences:** Each new workflow starts clean without mutating prior drafts. Comparison reflects the saved draft version; each PDF pane retains its own browser controls and scrolling. Unsaved editor changes are saved before opening comparison. DOCX comparison depends on the existing converter being configured; no renderer/native-reader equivalence is claimed.
+- **Validation:** Backend `tests/test_source_template.py` and `tests/test_source_template_api.py` passed (9 tests); existing DOCX conversion/PDF render checks passed (27 tests); frontend production build passed; Playwright comparison-page test passed with two independent PDF iframe panes; `git diff --check` passed; Docker rebuilt and `/health/ready` returned `status: ready` with database, storage and frontend ready. The test runner emitted existing Starlette/httpx deprecation and pytest-cache access warnings. DOCX original-to-PDF comparison was not exercised against a configured production Word converter; native-reader fidelity is not claimed.
+- **Implementation references:** [workflow and comparison UI](../frontend/src/main.tsx), [comparison metadata and source association](../backend/app/main.py), [source-template contract](../docs/source-template-contract.md).
+
+## DD-493 - Use page-aware paragraph extraction for digital PDFs
+
+- **Date:** 2026-10-14
+- **Status:** Accepted and implemented for the bounded digital-PDF path
+- **Affected stories:** Proposed E21-02/E21-03/E21-04/E21-05; E8-01/E8-02/E8-03
+- **Context:** The bounded PDF extractor scanned text operands across compressed streams, treated each operator fragment as a separate review component, assigned synthetic coordinates, and attached all fragments to page one. In the reported ISDA PDF this produced 770 auto-accepted items and 770 generated blocks; the PDF reader identifies 36 pages while the prior byte-pattern hint counted 72.
+- **Choice:** Use the repository's already-pinned `pypdf` dependency to count pages from the PDF page tree and extract layout-mode text page-by-page. Group wrapped lines into paragraph candidates, retain actual page association, and allow page-only provenance where the extractor does not provide trusted geometry. Keep the old narrow operand logic only as a fallback for malformed PDF-like uploads. Do not add dependencies or claim OCR, reliable table/formula/image classification, or general layout fidelity.
+- **Alternatives:** Keep one editable block per low-level text operator; rejected because it surfaced parser fragments as user decisions and inflated generated drafts. Put all document text into one block; rejected because it would erase page/paragraph structure. Add a new PDF/layout engine; deferred pending DD-013 licensing, E4-01 rendering, and worker-isolation evidence.
+- **Consequences:** Digital PDFs are interpreted as page-grounded paragraph suggestions rather than hundreds of fragments; the number of blocks should follow readable paragraph segmentation, not text drawing operators. Extraction remains approximate and reviewable. Existing drafts are not silently rewritten; users must start a fresh source workflow to use the updated extraction.
+- **Validation:** `tests/test_ingestion.py`, `tests/test_source_template.py`, and `tests/test_engines.py` passed (36 tests); `tests/test_source_template_api.py` passed (3 tests); Python compilation and `git diff --check` passed. Metadata-only processing of the reported ISDA PDF now yields 36 pages, 444 paragraph/heading/list suggestions, and 423 generated blocks (down from the stored prior draft's 770 elements/blocks); no source text was printed. Docker rebuilt successfully and `/health/ready` returned ready for database, storage and frontend. Related PDF-render/job tests were also attempted but failed in this local Python environment because the renderer's `barcode` module is not installed; that is independent of extraction and no PDF-render claim is made. No native-reader visual comparison was performed.
+- **Implementation references:** [PDF extraction and page count](../backend/app/ingestion.py), [ingestion/source routes](../backend/app/main.py), [PDF regression tests](../backend/tests/test_ingestion.py), [source-template contract](source-template-contract.md).

@@ -16,9 +16,10 @@ class UploadScanError(RuntimeError):
 
 
 _PDF_ACTIVE_CONTENT_RE = re.compile(
-    rb"/(?:JavaScript|JS|AA|OpenAction|Launch|EmbeddedFile|RichMedia|XFA)(?=\s|/|\[|<|>)",
+    rb"/(?:JavaScript|JS|OpenAction|Launch|EmbeddedFile|RichMedia|XFA)(?=\s|/|\[|<|>)",
     re.IGNORECASE,
 )
+_PDF_ADDITIONAL_ACTION_RE = re.compile(rb"/AA(?!\s*<<\s*>>)(?=\s|/|\[|<|>)", re.IGNORECASE)
 _PDF_NAME_RE = re.compile(rb"/([A-Za-z0-9#]+)")
 _PDF_FLATE_STREAM_RE = re.compile(rb"/Filter\s*/FlateDecode(?:(?!endobj).){0,1024}?stream\r?\n", re.DOTALL)
 _PDF_MAX_COMPRESSED_STREAM = 1_000_000
@@ -66,7 +67,9 @@ def validate_pdf_active_content(data: bytes) -> None:
 
         return _PDF_NAME_RE.sub(decode_name, source)
 
-    if any(_PDF_ACTIVE_CONTENT_RE.search(decoded_pdf_names(source)) for source in sources):
+    decoded_sources = [decoded_pdf_names(source) for source in sources]
+    if any(_PDF_ACTIVE_CONTENT_RE.search(source) or _PDF_ADDITIONAL_ACTION_RE.search(source)
+           for source in decoded_sources):
         raise ValueError("PDF contains unsupported active content")
 
 

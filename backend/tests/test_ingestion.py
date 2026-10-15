@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
-from app.ingestion import _pdf_sources, detect_page_routes
+from app.ingestion import UploadClassification, _pdf_sources, count_pages, detect_page_routes, page_model
 from app.main import create_app
 from app.models import Base
 from app.storage import LocalStore
@@ -32,10 +32,10 @@ def test_ingestion_classifies_and_persists_digital_pdf(tmp_path):
         assert result.status_code == 200
         assert result.json()["page_model"]["schema_version"] == 1
         elements = result.json()["page_model"]["pages"][0]["elements"]
-        assert elements[0]["text"] == "hello" and elements[0]["box"] == [72, 72, 540, 86]
+        assert elements[0]["text"] == "hello" and elements[0]["box"] is None
         assert elements[0]["role"] == "text"
         assert result.json()["page_model"]["pages"][0]["layout"]["reading_order"] == ["text-1"]
-        assert "element:text-1 page:1 box:72,72,540,86" in result.json()["markdown"]
+        assert "element:text-1 page:1 box:" in result.json()["markdown"]
         source = client.get(f"/api/ingestions/{document_id}/source")
         assert source.status_code == 200
         assert source.headers["content-type"].startswith("application/pdf")
@@ -47,6 +47,26 @@ def test_ingestion_classifies_and_persists_digital_pdf(tmp_path):
         progress = client.get(f"/api/ingestions/{document_id}").json()
         assert progress["status"] == "processed"
         assert progress["pages_processed"] == progress["pages_total"] == 1
+
+
+def test_pdf_page_model_keeps_elements_on_their_source_pages_without_fake_geometry():
+    model = page_model("doc", "agreement.pdf", UploadClassification("application/pdf", "digital"),
+                       100, 2, [{"id": "p2-text-1", "type": "text", "text": "Clause", "page_number": 2}])
+    assert model["pages"][0]["elements"] == []
+    assert model["pages"][1]["elements"][0]["text"] == "Clause"
+    assert model["pages"][1]["elements"][0]["box"] is None
+
+
+def test_pdf_page_count_uses_parsed_page_tree():
+    from io import BytesIO
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    writer.add_blank_page(width=612, height=792)
+    output = BytesIO()
+    writer.write(output)
+    assert count_pages("agreement.pdf", output.getvalue()) == 2
 
 
 def test_mixed_pdf_page_routes_are_recorded_conservatively():
@@ -134,6 +154,18 @@ def test_ingestion_rejects_pdf_active_content_before_storage(tmp_path):
         assert response.status_code == 415
         assert response.json()["detail"] == "PDF contains unsupported active content"
         assert not list((tmp_path / "objects").rglob("*"))
+
+
+def test_ingestion_accepts_pdf_with_empty_additional_action_dictionaries(tmp_path):
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    store = LocalStore(tmp_path / "objects", 10_000)
+    with TestClient(create_app(engine=engine, store=store, frontend=tmp_path)) as client:
+        response = client.post("/api/ingestions?filename=form.pdf",
+                               content=b"%PDF-1.7\n<< /Type /Annot /AA << >> >>",
+                               headers={"content-type": "application/pdf"})
+        assert response.status_code == 201, response.text
+        assert store.get(f"ingestions/{response.json()['id']}/form.pdf").startswith(b"%PDF-")
 
 
 def test_image_page_model_contains_dimensions_and_bounded_source_box(tmp_path):

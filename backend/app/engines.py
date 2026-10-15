@@ -105,11 +105,11 @@ def _validate_result(result: dict[str, Any], engine_id: str) -> None:
         box = source.get("box")
         if isinstance(page_number, bool) or not isinstance(page_number, int) or page_number < 1:
             raise ExtractionEngineError(f"extraction engine {engine_id!r} returned invalid source page for {context}")
-        if not isinstance(box, list) or len(box) != 4 or any(
+        if box is not None and (not isinstance(box, list) or len(box) != 4 or any(
                 isinstance(item, bool) or not isinstance(item, (int, float)) or not math.isfinite(item)
-                for item in box):
+                for item in box)):
             raise ExtractionEngineError(f"extraction engine {engine_id!r} returned invalid source box for {context}")
-        if box[0] < 0 or box[1] < 0 or box[2] <= box[0] or box[3] <= box[1]:
+        if box is not None and (box[0] < 0 or box[1] < 0 or box[2] <= box[0] or box[3] <= box[1]):
             raise ExtractionEngineError(f"extraction engine {engine_id!r} returned invalid source box for {context}")
         if "element_id" in source and source["element_id"] is not None and not isinstance(source["element_id"], str):
             raise ExtractionEngineError(f"extraction engine {engine_id!r} returned invalid source element for {context}")

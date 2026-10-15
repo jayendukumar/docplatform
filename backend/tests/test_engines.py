@@ -1,6 +1,6 @@
 import pytest
 
-from app.engines import ExtractionEngineError, engine_descriptors, extract_with_engine
+from app.engines import ExtractionEngineError, _validate_result, engine_descriptors, extract_with_engine
 
 
 def test_local_engine_contract_preserves_result_and_lists_optional_engines():
@@ -76,6 +76,12 @@ def test_engine_contract_rejects_invalid_plugin_provenance(monkeypatch):
     monkeypatch.setattr("app.engines.entry_points", lambda: EntryPoints())
     with pytest.raises(ExtractionEngineError, match="source box"):
         extract_with_engine("invalid-provenance-engine", {"pages": []}, {"fields": []}, "en")
+
+
+def test_engine_contract_accepts_page_provenance_without_unavailable_geometry():
+    _validate_result({"schema_version": 1, "fields": {"total": {
+        "confidence": 0.8, "source": {"page_number": 1, "box": None},
+    }}, "tables": {}}, "local")
 
 
 def test_engine_contract_rejects_value_without_provenance(monkeypatch):

@@ -62,6 +62,16 @@ def test_pdf_active_content_gate_scans_bounded_flate_streams():
         validate_pdf_active_content(payload)
 
 
+def test_pdf_active_content_gate_accepts_empty_additional_action_dictionaries():
+    validate_pdf_active_content(b"%PDF-1.7\n<< /Type /Annot /AA << >> >>")
+
+
+@pytest.mark.parametrize("value", [b"<< /E 2 0 R >>", b"7 0 R"])
+def test_pdf_active_content_gate_rejects_populated_or_indirect_additional_actions(value):
+    with pytest.raises(ValueError, match="active content"):
+        validate_pdf_active_content(b"%PDF-1.7\n<< /Type /Annot /AA " + value + b" >>")
+
+
 @pytest.mark.parametrize("token", [b"/Java#53cript", b"/Open#41ction", b"/Emb#65ddedFile"])
 def test_pdf_active_content_gate_rejects_hex_escaped_names(token):
     with pytest.raises(ValueError, match="active content"):

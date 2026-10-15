@@ -30,9 +30,14 @@ from app.auth import (
     new_session,
     verify_password,
 )
-from app.capabilities import capability_manifest
 from app.calibration import CalibrationProfileError, apply_profile, validate_profile
-from app.components import ComponentDefinitionError, ComponentExpansionError, expand_definition, validate_component_definition
+from app.capabilities import capability_manifest
+from app.components import (
+    ComponentDefinitionError,
+    ComponentExpansionError,
+    expand_definition,
+    validate_component_definition,
+)
 from app.config import ConfigurationError, load_settings
 from app.database import check_database, create_database
 from app.engines import ExtractionEngineError, engine_descriptors, extract_with_engine
@@ -52,7 +57,8 @@ from app.ingestion import (
     image_dimensions,
     markdown_for,
     page_model,
-    simple_pdf_text_elements,
+    simple_docx_document,
+    simple_pdf_document,
 )
 from app.jobs import claim, claim_next, enqueue
 from app.migrations import expected_revision
@@ -63,22 +69,28 @@ from app.models import (
     ExtractionReviewEvent,
     IngestionDocument,
     Job,
+    Organization,
+    OrganizationMembership,
+    ReusableComponent,
     Session,
+    SourceTemplateCorrection,
+    SourceTemplateSession,
     Template,
     TemplateAlias,
     TemplateVersion,
-    ReusableComponent,
     User,
-    Organization,
-    OrganizationMembership,
     Workspace,
 )
+from app.pdf_background import PdfBackgroundError, merge_pdf_background
+from app.pdf_toc import PdfPageNumberError, PdfTocError, add_toc_page_numbers
+from app.renderer_adapter import default_command
 from app.security import (
     UploadScanError,
     scan_upload,
     validate_pdf_active_content,
     validate_svg_markup,
 )
+from app.source_template import approved_items, interpret_page_model, template_from_interpretation
 from app.storage import create_store
 from app.template_logic import TemplateDataError, TemplateEvaluationLimitError, generate_sample_data
 from app.word_convert import (
@@ -89,9 +101,6 @@ from app.word_convert import (
 )
 from app.word_merge import WordMergeError, merge_docx
 from app.worker import WorkerExecutionError, run_isolated
-from app.renderer_adapter import default_command
-from app.pdf_background import PdfBackgroundError, merge_pdf_background
-from app.pdf_toc import PdfPageNumberError, PdfTocError, add_toc_page_numbers
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
@@ -551,7 +560,7 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         access = workspace_access(connection, user)
         allowed = (row["visibility"] == "public" and not write) or row["owner_user_id"] == user.get("id") or (
             access["workspace_ids"] is None or row["workspace_id"] in access["workspace_ids"])
-        if access["guest"] and (row["visibility"] != "public" or write):
+        if access["guest"] and row["visibility"] != "public" and row["owner_user_id"] != user.get("id"):
             allowed = False
         if not allowed:
             raise HTTPException(status_code=404, detail="Template not found")
@@ -1074,7 +1083,7 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                 in_workspace = access["workspace_ids"] is None or row["workspace_id"] in access["workspace_ids"]
                 visible = row["visibility"] == "public" or mine or in_workspace
                 if access["guest"]:
-                    visible = row["visibility"] == "public"
+                    visible = row["visibility"] == "public" or mine
                 if scope == "mine" and not mine:
                     visible = False
                 if scope == "organization" and not in_workspace:
@@ -1423,6 +1432,212 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                                            for language in starter["languages"]}}
                           for starter_id, starter in STARTER_CATALOG.items()]}
 
+    @app.post("/api/source-template-sessions", status_code=201, tags=["source-templates"])
+    def create_source_template_session(payload: dict, request: Request):
+        user = authenticated_user(request, csrf=True, scope="write")
+        if payload.get("disclosure_acknowledged") is not True:
+            raise HTTPException(status_code=428, detail="The source-to-template limitations must be acknowledged before upload")
+        session_id = uuid4().hex
+        owner_id = None if user.get("id") == "local" else user.get("id")
+        with engine.begin() as connection:
+            connection.execute(SourceTemplateSession.__table__.insert().values(
+                id=session_id, owner_user_id=owner_id, disclosure_acknowledged=True,
+                external_ai_enabled=bool(payload.get("external_ai_enabled", False)),
+                status="awaiting_source"))
+        return {"id": session_id, "status": "awaiting_source", "external_ai_enabled": bool(payload.get("external_ai_enabled", False)),
+                "disclosure": {"acknowledged": True, "limitations": ["Missing fonts, styling and images may change the result.",
+                "Unsupported document features and renderer differences may change the result.",
+                "The generated result is a draft and exact visual reproduction is not guaranteed."]}}
+
+    @app.post("/api/source-template-sessions/{session_id}/source", status_code=201, tags=["source-templates"])
+    async def upload_source_template_document(session_id: str, request: Request, filename: str):
+        user = authenticated_user(request, csrf=True, scope="write")
+        raw = await request.body()
+        if not raw or not filename or len(raw) > settings.max_object_bytes:
+            raise HTTPException(status_code=413 if len(raw) > settings.max_object_bytes else 422,
+                                detail="source is empty or exceeds the configured size limit")
+        with engine.connect() as connection:
+            session = connection.execute(select(SourceTemplateSession).where(SourceTemplateSession.id == session_id)).mappings().one_or_none()
+        if session is None:
+            raise HTTPException(status_code=404, detail="Source-template session not found")
+        if session["owner_user_id"] and session["owner_user_id"] != user.get("id"):
+            raise HTTPException(status_code=403, detail="You do not have access to this source session")
+        try:
+            classification = classify_upload(filename, request.headers.get("content-type", ""), raw)
+        except IngestionInputError as exc:
+            raise HTTPException(status_code=415, detail=str(exc)) from None
+        if classification.media_type == "application/pdf":
+            try:
+                validate_pdf_active_content(raw)
+            except ValueError as exc:
+                raise HTTPException(status_code=415, detail=str(exc)) from None
+        try:
+            scan_upload(raw, settings.virus_scan_command, settings.virus_scan_timeout_seconds)
+        except UploadScanError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        document_id = uuid4().hex
+        pages_total = min(settings.max_pages_per_document, count_pages(filename, raw))
+        docx_metadata = None
+        if classification.media_type.endswith("wordprocessingml.document"):
+            elements, docx_metadata = simple_docx_document(raw)
+            pdf_page_elements = None
+        else:
+            elements = []
+            pdf_page_elements = simple_pdf_document(raw)
+        model = page_model(document_id, filename, classification, len(raw), pages_total, elements,
+                           page_elements=pdf_page_elements)
+        if docx_metadata is not None:
+            model["source_document"] = docx_metadata
+        model["processing"] = {"route": classification.route, "engine": "bounded-local-page-model",
+                                "external_ai": bool(session["external_ai_enabled"]),
+                                "limitations": (["Embedded images are reported but not yet placed automatically."]
+                                                if docx_metadata and docx_metadata.get("embedded_image_count") else []),
+                                "warnings": []}
+        object_key = f"ingestions/{document_id}/{Path(filename).name}"
+        store.put(object_key, raw)
+        interpretation = interpret_page_model(model)
+        model["processing"]["warnings"] = list(interpretation.get("warnings", []))
+        with engine.begin() as connection:
+            connection.execute(IngestionDocument.__table__.insert().values(
+                id=document_id, filename=filename, media_type=classification.media_type, size_bytes=len(raw),
+                pages_total=pages_total, pages_processed=pages_total, route=classification.route, status="processed",
+                object_key=object_key, page_model_json=json.dumps(model), markdown=markdown_for(model)))
+            connection.execute(SourceTemplateSession.__table__.update().where(SourceTemplateSession.id == session_id).values(
+                document_id=document_id, status="interpretation", interpretation_json=json.dumps(interpretation, ensure_ascii=False),
+                revision=2, updated_at=func.now()))
+        return {"id": session_id, "session_id": session_id, "document_id": document_id, "status": "interpretation",
+                "interpretation": interpretation, "source_url": f"/api/ingestions/{document_id}/source"}
+
+    @app.get("/api/source-template-sessions/latest", tags=["source-templates"])
+    def latest_source_template_session(request: Request):
+        user = authenticated_user(request, scope="read")
+        with engine.connect() as connection:
+            query = select(SourceTemplateSession).order_by(SourceTemplateSession.updated_at.desc())
+            if user.get("id") != "local":
+                query = query.where(SourceTemplateSession.owner_user_id == user.get("id"))
+            row = connection.execute(query.limit(1)).mappings().one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="No source-template session found")
+        return {"id": row["id"], "document_id": row["document_id"], "status": row["status"], "revision": row["revision"],
+                "external_ai_enabled": row["external_ai_enabled"],
+                "interpretation": json.loads(row["interpretation_json"] or "{}"),
+                "template_id": row["template_id"], "template_version_id": row["template_version_id"]}
+
+    @app.get("/api/source-template-sessions/{session_id}", tags=["source-templates"])
+    def source_template_session(session_id: str, request: Request):
+        user = authenticated_user(request, scope="read")
+        with engine.connect() as connection:
+            row = connection.execute(select(SourceTemplateSession).where(SourceTemplateSession.id == session_id)).mappings().one_or_none()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Source-template session not found")
+            if row["owner_user_id"] and row["owner_user_id"] != user.get("id"):
+                raise HTTPException(status_code=403, detail="You do not have access to this source session")
+            corrections = connection.execute(select(SourceTemplateCorrection.item_id, SourceTemplateCorrection.action,
+                                                     SourceTemplateCorrection.created_at).where(SourceTemplateCorrection.session_id == session_id)
+                                             .order_by(SourceTemplateCorrection.created_at)).mappings().all()
+        interpretation = json.loads(row["interpretation_json"] or "{}")
+        return {"id": row["id"], "document_id": row["document_id"], "status": row["status"], "revision": row["revision"],
+                "external_ai_enabled": row["external_ai_enabled"], "interpretation": interpretation,
+                "approved_snapshot": json.loads(row["approved_snapshot_json"]) if row["approved_snapshot_json"] else None,
+                "template_id": row["template_id"], "template_version_id": row["template_version_id"],
+                "corrections": [{"item_id": item["item_id"], "action": item["action"],
+                                 "created_at": item["created_at"].isoformat() if item["created_at"] else None} for item in corrections]}
+
+    @app.patch("/api/source-template-sessions/{session_id}/interpretation/{item_id}", tags=["source-templates"])
+    def review_source_interpretation(session_id: str, item_id: str, payload: dict, request: Request):
+        user = authenticated_user(request, csrf=True, scope="write")
+        action = str(payload.get("action", ""))
+        if action not in {"approve", "correct", "reject"}:
+            raise HTTPException(status_code=422, detail="action must be approve, correct, or reject")
+        with engine.begin() as connection:
+            row = connection.execute(select(SourceTemplateSession).where(SourceTemplateSession.id == session_id)).mappings().one_or_none()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Source-template session not found")
+            if row["owner_user_id"] and row["owner_user_id"] != user.get("id"):
+                raise HTTPException(status_code=403, detail="You do not have access to this source session")
+            interpretation = json.loads(row["interpretation_json"] or "{}")
+            item = next((value for value in interpretation.get("items", []) if value.get("id") == item_id), None)
+            if item is None:
+                raise HTTPException(status_code=404, detail="Interpretation item not found")
+            before = dict(item)
+            item["status"] = {"approve": "approved", "correct": "corrected", "reject": "rejected"}[action]
+            if action == "correct":
+                if "normalized_value" not in payload:
+                    raise HTTPException(status_code=422, detail="normalized_value is required for a correction")
+                item["normalized_value"] = str(payload["normalized_value"])
+            item["review_revision"] = int(row["revision"]) + 1
+            connection.execute(SourceTemplateCorrection.__table__.insert().values(
+                id=uuid4().hex, session_id=session_id, item_id=item_id, action=action,
+                before_json=json.dumps(before, ensure_ascii=False), after_json=json.dumps(item, ensure_ascii=False),
+                actor=str(user.get("email") or user.get("id") or "local")))
+            connection.execute(SourceTemplateSession.__table__.update().where(SourceTemplateSession.id == session_id).values(
+                interpretation_json=json.dumps(interpretation, ensure_ascii=False), status="interpretation",
+                revision=int(row["revision"]) + 1, updated_at=func.now()))
+        return {"session_id": session_id, "item": item, "revision": int(row["revision"]) + 1}
+
+    @app.post("/api/source-template-sessions/{session_id}/generate", status_code=201, tags=["source-templates"])
+    def generate_source_template(session_id: str, payload: dict, request: Request):
+        user = authenticated_user(request, csrf=True, scope="write")
+        with engine.begin() as connection:
+            row = connection.execute(select(SourceTemplateSession).where(SourceTemplateSession.id == session_id)).mappings().one_or_none()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Source-template session not found")
+            if row["owner_user_id"] and row["owner_user_id"] != user.get("id"):
+                raise HTTPException(status_code=403, detail="You do not have access to this source session")
+            interpretation = json.loads(row["interpretation_json"] or "{}")
+            items = approved_items(interpretation)
+            if not items:
+                raise HTTPException(status_code=409, detail="At least one interpretation item must be approved before generation")
+            snapshot = dict(interpretation); snapshot["items"] = [dict(item) for item in items]
+            name = str(payload.get("name") or "Source document draft").strip()[:200]
+            definition = template_from_interpretation(snapshot, name)
+            definition.setdefault("source_generation", {})["session_id"] = session_id
+            template_id, version_id = uuid4().hex, None
+            encoded = json.dumps(definition, ensure_ascii=False, sort_keys=True)
+            version_id = f"{template_id}-v1"
+            store.put(f"templates/{template_id}/v1.json", encoded.encode("utf-8"))
+            owner_id = None if user.get("id") == "local" else user.get("id")
+            connection.execute(Template.__table__.insert().values(id=template_id, name=name,
+                object_key=f"templates/{template_id}/v1.json", schema_version=1, folder="", tags_json='["source-generated"]',
+                owner_user_id=owner_id, workspace_id="workspace-good-docs", visibility="workspace", updated_by_user_id=owner_id))
+            connection.execute(TemplateVersion.__table__.insert().values(id=version_id, template_id=template_id, version=1,
+                status="draft", change_summary="Generated from approved source interpretation", definition_json=encoded,
+                created_by_user_id=owner_id))
+            connection.execute(SourceTemplateSession.__table__.update().where(SourceTemplateSession.id == session_id).values(
+                status="draft_generated", approved_snapshot_json=json.dumps(snapshot, ensure_ascii=False),
+                template_id=template_id, template_version_id=version_id, revision=int(row["revision"]) + 1, updated_at=func.now()))
+        return {"session_id": session_id, "template_id": template_id, "template_version_id": version_id,
+                "status": "draft", "editor_url": f"/?template={template_id}&source_session={session_id}"}
+
+    @app.post("/api/source-template-sessions/{session_id}/compare", tags=["source-templates"])
+    def compare_source_template(session_id: str, request: Request):
+        user = authenticated_user(request, scope="read")
+        with engine.connect() as connection:
+            row = connection.execute(select(SourceTemplateSession, IngestionDocument.media_type,
+                                            IngestionDocument.pages_total, IngestionDocument.filename)
+                                     .join(IngestionDocument, IngestionDocument.id == SourceTemplateSession.document_id)
+                                     .where(SourceTemplateSession.id == session_id)).mappings().one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Source-template session not found")
+        if row["owner_user_id"] and row["owner_user_id"] != user.get("id"):
+            raise HTTPException(status_code=403, detail="You do not have access to this source session")
+        if not row["template_id"]:
+            raise HTTPException(status_code=409, detail="Generate a draft before comparing")
+        source_media_type = row["media_type"]
+        if source_media_type not in {"application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}:
+            raise HTTPException(status_code=415, detail="Comparison supports PDF and DOCX source documents")
+        with engine.connect() as connection:
+            latest_draft = connection.execute(select(TemplateVersion.id).where(
+                TemplateVersion.template_id == row["template_id"], TemplateVersion.status == "draft"
+            ).order_by(TemplateVersion.version.desc()).limit(1)).scalar_one_or_none()
+        comparison_version_id = latest_draft or row["template_version_id"]
+        return {"session_id": session_id, "template_id": row["template_id"], "source_version_id": comparison_version_id,
+                "source_url": f"/api/ingestions/{row['document_id']}/source", "generated_pdf_url": f"/api/templates/{row['template_id']}/render-pdf",
+                "source_filename": row["filename"], "source_media_type": source_media_type,
+                "source_page_count": row["pages_total"], "generated_page_count": None,
+                "evidence": {"text": "available after PDF render", "visual": "not_claimed", "native_reader": "not_claimed"},
+                "limitations": ["The two panes must be navigated independently.", "No pixel-perfect or native-reader equivalence is claimed."]}
+
     @app.post("/api/ingestions", status_code=201, tags=["ingestion"])
     async def ingest(request: Request, filename: str,
                      ocr_language: str = Query("eng", min_length=2, max_length=20),
@@ -1461,7 +1676,10 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         dimensions = image_dimensions(raw, classification.media_type) if classification.route == "scan" else None
         if dimensions and dimensions[0] * dimensions[1] > settings.max_image_pixels:
             raise HTTPException(status_code=413, detail="image exceeds the configured pixel limit")
-        elements = simple_pdf_text_elements(raw) if classification.route == "digital" else []
+        extracted_pdf_pages = simple_pdf_document(raw) if classification.route == "digital" else {}
+        pdf_page_elements = {number: page_elements for number, page_elements in extracted_pdf_pages.items()
+                             if number <= len(page_routes) and page_routes[number - 1] == "digital"}
+        elements = []
         ocr_page_elements: dict[int, list[dict]] = {}
         ocr_report: dict[str, object]
         ocr_target_pages = {index + 1 for index, route in enumerate(page_routes) if route == "scan"}
@@ -1500,16 +1718,9 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
             width, height = dimensions
             elements = [{"id": "image-1", "type": "image", "text": "",
                          "box": [0, 0, width, height]}]
-        model_page_elements = ocr_page_elements or None
+        model_page_elements = {**pdf_page_elements, **ocr_page_elements}
         model_elements = elements
         if ocr_target_pages and elements and any(route == "digital" for route in page_routes):
-            # The bounded digital extractor has no page-aware operator mapping yet.
-            # Preserve its text on the first digital page while keeping OCR output
-            # restricted to the pages classified as scans.
-            model_page_elements = dict(ocr_page_elements)
-            digital_pages = [index + 1 for index, route in enumerate(page_routes) if route == "digital"]
-            if digital_pages:
-                model_page_elements[digital_pages[0]] = elements
             model_elements = []
         model = page_model(document_id, filename, classification, len(raw), pages_total,
                            model_elements, dimensions, model_page_elements, page_routes)

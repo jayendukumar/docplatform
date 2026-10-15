@@ -107,6 +107,36 @@ class ExtractionReviewEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class SourceTemplateSession(Base):
+    """A revisioned, approval-gated source-to-template workflow."""
+    __tablename__ = "source_template_sessions"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    document_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    owner_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="disclosure", server_default="disclosure")
+    disclosure_acknowledged: Mapped[bool] = mapped_column(default=False, server_default="false")
+    external_ai_enabled: Mapped[bool] = mapped_column(default=False, server_default="false")
+    interpretation_json: Mapped[str] = mapped_column(Text, default="{}", server_default="{}")
+    approved_snapshot_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    template_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    template_version_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SourceTemplateCorrection(Base):
+    __tablename__ = "source_template_corrections"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), index=True)
+    item_id: Mapped[str] = mapped_column(String(100))
+    action: Mapped[str] = mapped_column(String(20))
+    before_json: Mapped[str] = mapped_column(Text)
+    after_json: Mapped[str] = mapped_column(Text)
+    actor: Mapped[str] = mapped_column(String(200), default="local", server_default="local")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class User(Base):
     __tablename__ = "users"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)

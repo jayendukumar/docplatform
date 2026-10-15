@@ -40,6 +40,27 @@ test('workspace fits a narrow screen', async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
+test('source comparison opens two independent PDF panes for the saved draft', async ({ page }) => {
+  const comparison = {
+    session_id: 'session-1', template_id: 'template-1', source_version_id: 'template-1-v2',
+    source_url: '/api/ingestions/document-1/source', source_filename: 'sample.pdf',
+    source_media_type: 'application/pdf', source_page_count: 1,
+    generated_pdf_url: '/api/templates/template-1/render-pdf', limitations: ['No pixel-perfect equivalence is claimed.'],
+  }
+  const tinyPdf = 'JVBERi0xLjQKJUVPRgo='
+  await page.route('**/api/source-template-sessions/session-1/compare', route => route.fulfill({ json: comparison }))
+  await page.route('**/api/ingestions/document-1/source', route => route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.4\n%%EOF' }))
+  await page.route(/\/api\/templates\/template-1\?version=template-1-v2&draft=true$/, route => route.fulfill({ json: { sample_data: {} } }))
+  await page.route('**/api/templates/template-1/render-pdf', route => route.fulfill({ json: { document_base64: tinyPdf } }))
+  await page.goto('/?source-compare=session-1')
+  await expect(page.getByRole('heading', { name: 'Original and generated PDF' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Original source' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Generated PDF', exact: true })).toBeVisible()
+  await expect(page.locator('.source-compare-panes iframe')).toHaveCount(2)
+  await expect(page.locator('.source-compare-panes iframe').nth(0)).toHaveAttribute('src', /blob:/)
+  await expect(page.locator('.source-compare-panes iframe').nth(1)).toHaveAttribute('src', /blob:/)
+})
+
 test('project status lists every source story with evidence-backed status', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('link', { name: 'View project status' }).click()
