@@ -30,7 +30,7 @@ The current synchronous designer render is deterministic HTML. `POST /api/templa
 3. `POST /api/ingestions/{document_id}/extract` with `{"schema_id":"invoice"}` or an inline schema to receive and persist an extraction result.
 4. Poll/read `GET /api/extractions/{result_id}` for fields, confidence, provenance, revision, validation, and review state.
 
-This documents the local API contract for scan submission and result retrieval. Scanned-page OCR can use the optional `ocr_command` adapter, whose JSON output is validated for page numbers, text boxes and confidence values; without that deliberately configured local command, scan OCR remains unavailable. PaddleOCR model execution and accuracy evidence remain separate incomplete story gates.
+This documents the local API contract for scan submission and result retrieval. Scanned-page OCR uses a deliberately configured engine-specific `paddleocr_command` or `tesseract_command` (or a legacy custom `ocr_command`); the configured adapter's output is validated for page numbers, text boxes and confidence values. PDF pages are locally rendered and OCR pixel boxes map to PDF points. PaddleOCR also requires explicit local detection and recognition model directories; inference never fetches models. Per-attempt recovery diagnostics and low engine-score regions are retained, but the reported score is not calibrated correctness and no accuracy benchmark is claimed. See the [optional OCR installation and license review](dependencies.md#optional-ocr-engine-installation-2026-10-16).
 
 ## Browser action coverage
 

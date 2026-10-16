@@ -1,0 +1,835 @@
+{
+  "review_date": "2026-10-16",
+  "status": "installed optional OCR runtime inventory; license exceptions pending; not compliance approval",
+  "components": [
+    {
+      "name": "aiohappyeyeballs",
+      "version": "2.7.1",
+      "license_metadata": "Python Software Foundation License",
+      "license_classifiers": [
+        "Python Software Foundation License"
+      ],
+      "source": "https://pypi.org/project/aiohappyeyeballs/2.7.1/",
+      "sha256": "9243213661e29250eb41368e5daa826fc017156c3b8a11440826b2e3ed376472",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.14.5",
+      "license_metadata": "Apache-2.0 AND MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/aiohttp/3.14.5/",
+      "sha256": "d05e94cdfe0d15d0206f970722d2554780ce562787b21b218b275447f8751319",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "aiosignal",
+      "version": "1.4.0",
+      "license_metadata": "Apache Software License",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/aiosignal/1.4.0/",
+      "sha256": "053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "aistudio_sdk",
+      "version": "0.3.9",
+      "license_metadata": "Apache Software License",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/aistudio_sdk/0.3.9/",
+      "sha256": "41621d052ddb7a58643438a7ca541f58ef0ab94a2acdfff0a71db81bf68dc027",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "license_metadata": "MIT",
+      "license_classifiers": [
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/annotated-types/0.8.0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/anyio/4.15.1/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/attrs/26.1.0/",
+      "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "bce-python-sdk",
+      "version": "0.9.79",
+      "license_metadata": "not declared; source review needed",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/bce-python-sdk/0.9.79/",
+      "sha256": "71799ac8740505e0759d30873f6f1a478fa8f83aedf425d511f1419a5f30082e",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "license_metadata": "Mozilla Public License 2.0 (MPL 2.0)",
+      "license_classifiers": [
+        "Mozilla Public License 2.0 (MPL 2.0)"
+      ],
+      "source": "https://pypi.org/project/certifi/2026.7.22/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "cffi",
+      "version": "2.1.1",
+      "license_metadata": "MIT-0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/cffi/2.1.1/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "chardet",
+      "version": "7.6.0",
+      "license_metadata": "0BSD",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/chardet/7.6.0/",
+      "sha256": "b3b4c96c4df93899b3c8b9e8159e06b1f55c66d7ca384d91481108e251a06eb0",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.1",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/charset-normalizer/3.5.1/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "click",
+      "version": "8.5.0",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/click/8.5.0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "license_metadata": "BSD License",
+      "license_classifiers": [
+        "BSD License"
+      ],
+      "source": "https://pypi.org/project/colorama/0.4.6/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "colorlog",
+      "version": "6.12.0",
+      "license_metadata": "MIT License",
+      "license_classifiers": [
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/colorlog/6.12.0/",
+      "sha256": "30d392604e9110045a2c2aeefc27d7a017abbab63f3a8aee594eac0801df784e",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "crc32c",
+      "version": "2.9.post0",
+      "license_metadata": "GNU Lesser General Public License v2 or later (LGPLv2+)",
+      "license_classifiers": [
+        "GNU Lesser General Public License v2 or later (LGPLv2+)"
+      ],
+      "source": "https://pypi.org/project/crc32c/2.9.post0/",
+      "sha256": "ec93306e36242e1883de21d68a2a536e0b9603dfe0035ec9b6d7f2341075152f",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "cryptography",
+      "version": "50.0.1",
+      "license_metadata": "Apache-2.0 OR BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/cryptography/50.0.1/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "filelock",
+      "version": "4.2.0",
+      "license_metadata": "MIT",
+      "license_classifiers": [
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/filelock/4.2.0/",
+      "sha256": "2ff5690882e8cdb00ef31fb3d01a3094c29f30985426c59495afb1733f3b7238",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "frozenlist",
+      "version": "1.8.0",
+      "license_metadata": "Apache-2.0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/frozenlist/1.8.0/",
+      "sha256": "878be833caa6a3821caf85eb39c5ba92d28e85df26d57afb06b35b2efd937231",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.9.0",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/fsspec/2026.9.0/",
+      "sha256": "8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "future",
+      "version": "1.0.0",
+      "license_metadata": "MIT License",
+      "license_classifiers": [
+        "OSI Approved",
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/future/1.0.0/",
+      "sha256": "929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "license_metadata": "MIT License",
+      "license_classifiers": [
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/h11/0.16.0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "hf-xet",
+      "version": "1.7.0",
+      "license_metadata": "Apache-2.0",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/hf-xet/1.7.0/",
+      "sha256": "2b7bb5727889b0f2436dbaaad8fc4c3e66b8240d992716989e0c086b4278b1bc",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [
+        "BSD License"
+      ],
+      "source": "https://pypi.org/project/httpcore/1.0.9/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "httpcore2",
+      "version": "2.13.1",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [
+        "BSD License"
+      ],
+      "source": "https://pypi.org/project/httpcore2/2.13.1/",
+      "sha256": "e1e05d4f25f7d7d496bfb96748f6f4b67657b03da069b3a68c36069f3db73d0a",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "license_metadata": "BSD License",
+      "license_classifiers": [
+        "BSD License"
+      ],
+      "source": "https://pypi.org/project/httpx/0.28.1/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "httpx2",
+      "version": "2.13.1",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [
+        "BSD License"
+      ],
+      "source": "https://pypi.org/project/httpx2/2.13.1/",
+      "sha256": "6dff50fabc270ee5fd25d845d0b078ed20564579744d6d962850975996d2f9a4",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "huggingface_hub",
+      "version": "2.2.0",
+      "license_metadata": "Apache Software License",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/huggingface_hub/2.2.0/",
+      "sha256": "1667f145dc56dc210d60966069397df9ecfca9607a5d43db88b308c89dae56b3",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/idna/3.20/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "imagesize",
+      "version": "2.0.1",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/imagesize/2.0.1/",
+      "sha256": "ea0c9a0384df69ed86a943a15cde37d0360b82491b3910dc2215e202e62b5b02",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "modelscope",
+      "version": "1.40.2",
+      "license_metadata": "Apache-2.0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/modelscope/1.40.2/",
+      "sha256": "ea03e0ec4a73398a488d3d240cda4f0c5b62390377a134756d4074a3036cb909",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "modelscope-hub",
+      "version": "0.4.6",
+      "license_metadata": "Apache Software License",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/modelscope-hub/0.4.6/",
+      "sha256": "361bcec229bfbed645a9291ec5b167d76cd94b795207dc2eceba628108f4023a",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "multidict",
+      "version": "7.1.0",
+      "license_metadata": "Apache-2.0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/multidict/7.1.0/",
+      "sha256": "7de54b49e6da811b0321e412d14efdaa1ee0c0b6609296ea5b9022bc5b2bd843",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "networkx",
+      "version": "3.7",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/networkx/3.7/",
+      "sha256": "e3fd2c13a7814cee3746340d8d7f8598a67f16a58bf47fb7f8793fab6efca1b0",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "numpy",
+      "version": "2.3.5",
+      "license_metadata": "BSD License",
+      "license_classifiers": [
+        "BSD License"
+      ],
+      "source": "https://pypi.org/project/numpy/2.3.5/",
+      "sha256": "00dc4e846108a382c5869e77c6ed514394bdeb3403461d25a829711041217d5b",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "opencv-contrib-python",
+      "version": "4.10.0.84",
+      "license_metadata": "Apache Software License",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/opencv-contrib-python/4.10.0.84/",
+      "sha256": "47ec3160dae75f70e099b286d1a2e086d20dac8b06e759f60eaf867e6bdecba7",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "opt-einsum",
+      "version": "3.3.0",
+      "license_metadata": "MIT",
+      "license_classifiers": [
+        "OSI Approved"
+      ],
+      "source": "https://pypi.org/project/opt-einsum/3.3.0/",
+      "sha256": "2455e59e3947d3c275477df7f5205b30635e266fe6dc300e3d9f9646bfcea147",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "license_metadata": "Apache-2.0 OR BSD-2-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/packaging/26.3/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "paddleocr",
+      "version": "3.7.0",
+      "license_metadata": "not declared; source review needed",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/paddleocr/3.7.0/",
+      "sha256": "c0f0a81ad4112727f30c6fcf986ac0ef6a120d31ee0991a01fae0357ee32d338",
+      "scope": "optional-local-ocr",
+      "direct": true
+    },
+    {
+      "name": "paddlepaddle",
+      "version": "3.3.1",
+      "license_metadata": "Apache Software License",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/paddlepaddle/3.3.1/",
+      "sha256": "1203e2e1114b49e73a8440b68837ce5c93fdab51fe4838c5e5874ab40f58f747",
+      "scope": "optional-local-ocr",
+      "direct": true
+    },
+    {
+      "name": "paddlex",
+      "version": "3.7.2",
+      "license_metadata": "Apache-2.0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/paddlex/3.7.2/",
+      "sha256": "f1678bf650bbaccfd8f0d4e49d0ae631b4685c829fdae6e802ccd90d4fcb9a7f",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "pandas",
+      "version": "3.0.6",
+      "license_metadata": "BSD License",
+      "license_classifiers": [
+        "BSD License"
+      ],
+      "source": "https://pypi.org/project/pandas/3.0.6/",
+      "sha256": "f3ce8a6968045481e91a3990e797e348ce13db45ee164a7095bbc824e26c09dd",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "pillow",
+      "version": "12.3.0",
+      "license_metadata": "MIT-CMU",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/pillow/12.3.0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": true
+    },
+    {
+      "name": "prettytable",
+      "version": "3.18.0",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/prettytable/3.18.0/",
+      "sha256": "b3346e0e6f79180833aebaac088ae926340586cf6d7d991b9eb125b65f72313a",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "propcache",
+      "version": "0.5.4",
+      "license_metadata": "Apache-2.0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/propcache/0.5.4/",
+      "sha256": "0c889f6fa84957bc7e8b4eab71fd16a0455068d5045e3aa40c733071d2b2fd77",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "protobuf",
+      "version": "7.36.2",
+      "license_metadata": "not declared; source review needed",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/protobuf/7.36.2/",
+      "sha256": "a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/psutil/7.2.2/",
+      "sha256": "eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "py-cpuinfo",
+      "version": "9.0.0",
+      "license_metadata": "MIT License",
+      "license_classifiers": [
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/py-cpuinfo/9.0.0/",
+      "sha256": "859625bc251f64e21f077d099d4162689c762b5d6a4c3c97553d56241c9674d5",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "pyclipper",
+      "version": "1.4.0",
+      "license_metadata": "MIT License",
+      "license_classifiers": [
+        "OSI Approved",
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/pyclipper/1.4.0/",
+      "sha256": "d4b2d7c41086f1927d14947c563dfc7beed2f6c0d9af13c42fe3dcdc20d35832",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "pycparser",
+      "version": "3.0",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/pycparser/3.0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "pycryptodome",
+      "version": "4.0.0",
+      "license_metadata": "BSD-2-Clause AND Unlicense",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/pycryptodome/4.0.0/",
+      "sha256": "077819384ceb90461af9c398c1dfdb7da01a6e17b7c98817831404fb5bd93c1f",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "pydantic",
+      "version": "2.13.5",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/pydantic/2.13.5/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.46.5",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/pydantic_core/2.46.5/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "pypdfium2",
+      "version": "5.13.0",
+      "license_metadata": "Apache-2.0 OR BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/pypdfium2/5.13.0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "pytesseract",
+      "version": "0.3.13",
+      "license_metadata": "Apache Software License",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/pytesseract/0.3.13/",
+      "sha256": "7a99c6c2ac598360693d83a416e36e0b33a67638bb9d77fdcac094a3589d4b34",
+      "scope": "optional-local-ocr",
+      "direct": true
+    },
+    {
+      "name": "python-bidi",
+      "version": "0.6.11",
+      "license_metadata": "GNU Library or Lesser General Public License (LGPL)",
+      "license_classifiers": [
+        "GNU Library or Lesser General Public License (LGPL)"
+      ],
+      "source": "https://pypi.org/project/python-bidi/0.6.11/",
+      "sha256": "f563d20481f7d316adf605bb94d5b7182acecdbc4d431d60473e9b1d526d0210",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0",
+      "license_metadata": "BSD License",
+      "license_classifiers": [
+        "BSD License",
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/python-dateutil/2.9.0.post0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.2",
+      "license_metadata": "MIT License",
+      "license_classifiers": [
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/PyYAML/6.0.2/",
+      "sha256": "8388ee1976c416731879ac16da0aff3f63b286ffdd57cdeb95f3f2e085687563",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "license_metadata": "Apache Software License",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/requests/2.34.2/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "ruamel.yaml",
+      "version": "0.19.1",
+      "license_metadata": "MIT License",
+      "license_classifiers": [
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/ruamel.yaml/0.19.1/",
+      "sha256": "27592957fedf6e0b62f281e96effd28043345e0e66001f97683aa9a40c667c93",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "safetensors",
+      "version": "0.8.0",
+      "license_metadata": "Apache Software License",
+      "license_classifiers": [
+        "Apache Software License"
+      ],
+      "source": "https://pypi.org/project/safetensors/0.8.0/",
+      "sha256": "096ec1a98435df7beb08853bb5aa9081a84f23d0adc67ed1a0a10550f608373f",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "setuptools",
+      "version": "84.0.0",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/setuptools/84.0.0/",
+      "sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "shapely",
+      "version": "2.2.0",
+      "license_metadata": "BSD-3-Clause",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/shapely/2.2.0/",
+      "sha256": "1eaa2cb64cdedaf65d6bc86f2819c9cd7d6d68f969aa3ebfdc93743ab581f437",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "six",
+      "version": "1.17.0",
+      "license_metadata": "MIT License",
+      "license_classifiers": [
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/six/1.17.0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "tqdm",
+      "version": "4.70.1",
+      "license_metadata": "MIT OR MPL-2.0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/tqdm/4.70.1/",
+      "sha256": "c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "truststore",
+      "version": "0.10.5",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/truststore/0.10.5/",
+      "sha256": "9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "license_metadata": "PSF-2.0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/typing_extensions/4.16.0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/typing-inspection/0.4.4/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.5",
+      "license_metadata": "Apache-2.0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/tzdata/2026.5/",
+      "sha256": "b683bd1b6659ddcd810ff02ad09ba821d4bf1065072805063eb35c49617905ac",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "ujson",
+      "version": "6.0.0",
+      "license_metadata": "BSD-3-Clause AND TCL",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/ujson/6.0.0/",
+      "sha256": "88b237680c705fd37bacbaaa335106fecb234a47e1df0737d949b8e32c7eb5f9",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "license_metadata": "MIT",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/urllib3/2.8.0/",
+      "sha256": null,
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "wcwidth",
+      "version": "0.9.2",
+      "license_metadata": "MIT License",
+      "license_classifiers": [
+        "MIT License"
+      ],
+      "source": "https://pypi.org/project/wcwidth/0.9.2/",
+      "sha256": "2a9746de704242bd4fdaabb31dd46b82f694a56a8d21081ad89b679a89da9fec",
+      "scope": "optional-local-ocr",
+      "direct": false
+    },
+    {
+      "name": "yarl",
+      "version": "1.25.1",
+      "license_metadata": "Apache-2.0",
+      "license_classifiers": [],
+      "source": "https://pypi.org/project/yarl/1.25.1/",
+      "sha256": "1f51020b2eb8a003c84925638ec63c21a750a4bddd3a22ec8eac6a742dadf1b9",
+      "scope": "optional-local-ocr",
+      "direct": false
+    }
+  ],
+  "native_runtime": [
+    {
+      "name": "Tesseract OCR",
+      "version": "5.4.0.20240606",
+      "license_metadata": "Installer metadata: Apache-2.0; bundled Leptonica and other native components require separate notice/licence audit",
+      "source": "https://github.com/tesseract-ocr/tesseract",
+      "scope": "local system installation",
+      "direct": true,
+      "installer_package_id": "UB-Mannheim.TesseractOCR",
+      "installer_version": "5.4.0.20240606",
+      "installer_sha256": "c885fff6998e0608ba4bb8ab51436e1c6775c2bafc2559a19b423e18678b60c9",
+      "executable_path": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
+      "executable_sha256": "babb405f4366b480d02cd8ff2bac8d497170f6c1711ce6f3d5d8bf0fb7fa6ed9",
+      "leptonica_version": "1.84.1",
+      "language_data": [
+        {
+          "name": "eng.traineddata",
+          "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+        },
+        {
+          "name": "osd.traineddata",
+          "sha256": "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff"
+        }
+      ],
+      "license_followup": "Verify installer redistribution terms, bundled native notices including Leptonica BSD-2-Clause, and traineddata provenance before bundling."
+    }
+  ],
+  "models": []
+}

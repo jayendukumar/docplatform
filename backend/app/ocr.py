@@ -119,7 +119,14 @@ def _validate_pages(payload: Any) -> list[dict[str, Any]]:
                     raise OcrError(f"OCR returned an invalid confidence on page {page_number}")
                 item["confidence"] = float(confidence)
             checked.append(item)
-        pages.append({"page_number": page_number, "elements": checked})
+        page_result = {"page_number": page_number, "elements": checked}
+        for name in ("width", "height", "coordinate_space"):
+            if name in page and name != "coordinate_space" and (
+                    isinstance(page[name], bool) or not isinstance(page[name], (int, float)) or page[name] <= 0):
+                raise OcrError(f"OCR returned an invalid {name} on page {page_number}")
+            if name in page:
+                page_result[name] = page[name]
+        pages.append(page_result)
     return pages
 
 

@@ -4,6 +4,7 @@ import csv
 import hashlib
 import hmac
 import json
+import math
 import re
 import threading
 import urllib.error
@@ -19,6 +20,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
 from sqlalchemy import and_, func, select
 
 from app.auth import (
@@ -58,6 +60,7 @@ from app.ingestion import (
     markdown_for,
     page_model,
     simple_docx_document,
+    simple_pdf_document,
 )
 from app.jobs import claim, claim_next, enqueue
 from app.migrations import expected_revision
@@ -470,6 +473,21 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
             engine.dispose()
 
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+
+    @app.get("/api/schemas/e22-logical-document-v1.json", tags=["ingestion"])
+    def e22_logical_schema():
+        from app.document_models import LogicalDocumentModel
+        return JSONResponse(LogicalDocumentModel.model_json_schema())
+
+    @app.get("/api/schemas/e22-physical-content-v2.json", tags=["ingestion"])
+    def e22_physical_schema():
+        from app.document_models import PhysicalContentModel
+        return JSONResponse(PhysicalContentModel.model_json_schema())
+
+    @app.get("/api/schemas/e22-canonical-document-v1.json", tags=["ingestion"])
+    def e22_canonical_schema():
+        from app.document_models import CanonicalDocumentModel
+        return JSONResponse(CanonicalDocumentModel.model_json_schema())
 
     def authenticated_user(request: Request, csrf: bool = False, scope: str | None = None,
                            allow_api_key: bool = True):
@@ -1641,6 +1659,9 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
     async def ingest(request: Request, filename: str,
                      ocr_language: str = Query("eng", min_length=2, max_length=20),
                      ocr_engine: str = Query("paddleocr", min_length=2, max_length=40),
+                     ocr_mode: str = Query("auto", pattern="^(auto|disabled|force)$"),
+                     ocr_preprocessing: str = Query("{}", max_length=1000),
+                     ocr_regions: str = Query("{}", max_length=12000),
                      include_characters: bool = Query(False)):
         authenticated_user(request, scope="read")
         raw = await request.body()
@@ -1690,6 +1711,39 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         page_routes = (pdf_inspection["page_routes"] if pdf_inspection
                        else detect_page_routes(raw, pages_total, classification.route))
         try:
+            requested_regions = json.loads(ocr_regions)
+            if not isinstance(requested_regions, dict):
+                raise TypeError
+        except (json.JSONDecodeError, TypeError):
+            raise HTTPException(status_code=422, detail="ocr_regions must be a JSON object") from None
+        normalized_regions: list[dict[str, object]] = []
+        if requested_regions:
+            if classification.media_type != "application/pdf" or not pdf_inspection:
+                raise HTTPException(status_code=422, detail="ocr_regions are supported for PDF pages only")
+            page_metadata = pdf_inspection["metadata"].get("pages", [])
+            for page_key, boxes in requested_regions.items():
+                if not isinstance(page_key, str) or not page_key.isdigit():
+                    raise HTTPException(status_code=422, detail="ocr_regions page keys must be page numbers")
+                page_number = int(page_key)
+                if not 1 <= page_number <= pages_total or not isinstance(boxes, list) or not boxes:
+                    raise HTTPException(status_code=422, detail="ocr_regions contains an invalid page or empty region list")
+                page_info = page_metadata[page_number - 1]
+                width = float(page_info.get("width_points", 0))
+                height = float(page_info.get("height_points", 0))
+                for box in boxes:
+                    if (not isinstance(box, list) or len(box) != 4 or
+                            any(isinstance(value, bool) or not isinstance(value, (int, float)) or
+                                not math.isfinite(float(value)) for value in box)):
+                        raise HTTPException(status_code=422, detail="each OCR region must be four finite coordinates")
+                    x0, y0, x1, y1 = map(float, box)
+                    if x0 < 0 or y0 < 0 or x1 <= x0 or y1 <= y0 or x1 > width or y1 > height:
+                        raise HTTPException(status_code=422, detail="OCR regions must fit within their PDF page")
+                    normalized_regions.append({"page_number": page_number, "box": [x0, y0, x1, y1]})
+            if len(normalized_regions) > 100 or any(
+                    sum(region["page_number"] == number for region in normalized_regions) > 25
+                    for number in range(1, pages_total + 1)):
+                raise HTTPException(status_code=422, detail="OCR region count exceeds the configured limit")
+        try:
             scan_upload(raw, settings.virus_scan_command, settings.virus_scan_timeout_seconds)
         except UploadScanError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from None
@@ -1699,17 +1753,41 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
         extracted_pdf_pages = ({int(number): values for number, values in pdf_inspection["page_elements"].items()}
                                if pdf_inspection else {})
         pdf_page_elements = {number: page_elements for number, page_elements in extracted_pdf_pages.items()
-                             if number <= len(page_routes) and page_routes[number - 1] == "digital"}
+                             if number <= len(page_routes) and page_routes[number - 1] != "scan"}
         elements = []
         ocr_page_elements: dict[int, list[dict]] = {}
         ocr_report: dict[str, object]
-        ocr_target_pages = {index + 1 for index, route in enumerate(page_routes) if route == "scan"}
-        if ocr_target_pages and settings.ocr_command:
+        if ocr_mode == "disabled":
+            ocr_target_pages = set()
+        elif normalized_regions:
+            ocr_target_pages = {int(region["page_number"]) for region in normalized_regions}
+        elif ocr_mode == "auto":
+            ocr_target_pages = {index + 1 for index, route in enumerate(page_routes)
+                                if route in {"scan", "mixed"}}
+        else:
+            ocr_target_pages = set(range(1, pages_total + 1))
+        try:
+            preprocessing_options = json.loads(ocr_preprocessing)
+            if not isinstance(preprocessing_options, dict):
+                raise TypeError
+        except (json.JSONDecodeError, TypeError):
+            raise HTTPException(status_code=422, detail="ocr_preprocessing must be a JSON object") from None
+        selected_engine = ocr_engine.casefold()
+        engine_command = settings.paddleocr_command if selected_engine == "paddleocr" else settings.tesseract_command
+        command_engine = selected_engine
+        if not engine_command and settings.ocr_command:
+            engine_command = settings.ocr_command
+            command_engine = "custom"
+        ocr_available = bool(engine_command) and not settings.strict_no_ml_mode and ocr_mode != "disabled"
+        if ocr_target_pages and ocr_available:
             try:
                 worker_output = run_isolated(
                     "ocr", {"data_base64": base64.b64encode(raw).decode("ascii"),
-                            "command": settings.ocr_command, "language": normalized_language,
-                            "timeout_seconds": settings.ocr_timeout_seconds},
+                            "command": engine_command, "language": normalized_language,
+                            "timeout_seconds": settings.ocr_timeout_seconds,
+                            "preprocessing": preprocessing_options,
+                            "regions": normalized_regions,
+                            "max_pixels": settings.max_image_pixels},
                     timeout_seconds=settings.ocr_timeout_seconds,
                     cpu_seconds=settings.job_cpu_seconds,
                     memory_bytes=settings.job_memory_bytes,
@@ -1722,24 +1800,34 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                 raise HTTPException(status_code=422, detail="OCR output contains a page beyond the upload page limit")
             ocr_page_elements = {page_number: elements for page_number, elements in returned_page_elements.items()
                                  if page_number in ocr_target_pages}
-            ocr_report = {"engine": ocr_engine.casefold(), "language": normalized_language,
-                          "status": "completed", "pages": len(ocr_page_elements),
+            ocr_report = {"engine": command_engine, "requested_engine": selected_engine,
+                          "language": normalized_language,
+                          "status": "failed" if not ocr_page_elements and ocr_output.get("recovery", {}).get("failures") else "completed",
+                          "pages": len(ocr_page_elements),
                           "requested_pages": sorted(ocr_target_pages),
-                          "adapter": "configured-local-command"}
-        elif classification.route == "scan":
-            ocr_report = {"engine": ocr_engine.casefold(), "language": normalized_language,
+                          "requested_regions": len(normalized_regions),
+                          "adapter": "configured-local-command",
+                          "preprocessing": ocr_output.get("preprocessing", {}),
+                          "recovery": ocr_output.get("recovery", {})}
+        elif ocr_target_pages and settings.strict_no_ml_mode:
+            ocr_report = {"engine": selected_engine, "language": normalized_language,
+                          "status": "disabled", "reason": "strict no-ML mode is enabled",
+                          "requested_pages": sorted(ocr_target_pages)}
+        elif ocr_target_pages:
+            ocr_report = {"engine": selected_engine, "language": normalized_language,
                           "status": "unavailable", "reason": "configured OCR engine is not installed"}
-        elif "scan" in page_routes:
-            ocr_report = {"engine": ocr_engine.casefold(), "language": normalized_language,
-                          "status": "unavailable",
-                          "reason": "mixed documents require page-aware OCR dispatch"}
+        elif ocr_mode == "disabled":
+            ocr_report = {"status": "skipped", "reason": "OCR disabled by request"}
         else:
             ocr_report = {"status": "skipped", "reason": "digital text route"}
         if dimensions and not ocr_page_elements:
             width, height = dimensions
             elements = [{"id": "image-1", "type": "image", "text": "",
                          "box": [0, 0, width, height]}]
-        model_page_elements = {**pdf_page_elements, **ocr_page_elements}
+        model_page_elements = dict(pdf_page_elements)
+        for page_number, candidates in ocr_page_elements.items():
+            if page_routes[page_number - 1] == "scan" or page_number not in model_page_elements:
+                model_page_elements[page_number] = candidates
         model_elements = elements
         if ocr_target_pages and elements and any(route == "digital" for route in page_routes):
             model_elements = []
@@ -1752,6 +1840,55 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
             model["source"]["metadata"] = pdf_inspection["metadata"]
             physical = pdf_inspection.get("physical_content")
             if isinstance(physical, dict):
+                if isinstance(pdf_inspection.get("logical_content"), dict):
+                    model["logical_content"] = pdf_inspection["logical_content"]
+                # OCR remains a candidate stream: native text is retained and overlaps
+                # are labelled for review instead of being silently replaced.
+                import difflib
+                physical_pages = {int(page.get("page_number", 0)): page
+                                  for page in physical.get("pages", [])}
+                for page_number, candidates in ocr_page_elements.items():
+                    target_page = physical_pages.get(page_number)
+                    if target_page is None:
+                        continue
+                    native_lines = target_page.get("lines", [])
+                    observations = []
+                    for index, candidate in enumerate(candidates):
+                        candidate_text = re.sub(r"\s+", " ", candidate["text"]).strip().casefold()
+                        overlaps = []
+                        for line in native_lines:
+                            native_box, candidate_box = line.get("box"), candidate.get("box")
+                            if not native_box or not candidate_box:
+                                continue
+                            ix = max(0, min(native_box[2], candidate_box[2]) - max(native_box[0], candidate_box[0]))
+                            iy = max(0, min(native_box[3], candidate_box[3]) - max(native_box[1], candidate_box[1]))
+                            area = ix * iy
+                            union = ((native_box[2] - native_box[0]) * (native_box[3] - native_box[1]) +
+                                     (candidate_box[2] - candidate_box[0]) * (candidate_box[3] - candidate_box[1]) - area)
+                            if union > 0 and area / union >= 0.2:
+                                native_text = re.sub(r"\s+", " ", str(line.get("text", ""))).strip().casefold()
+                                similarity = difflib.SequenceMatcher(None, candidate_text, native_text).ratio()
+                                overlaps.append((similarity, line.get("id")))
+                        best = max(overlaps, default=(0.0, None))
+                        status = "duplicate_candidate" if best[0] >= 0.85 else "conflict_candidate" if overlaps else "unique_candidate"
+                        observations.append({"id": f"p{page_number}/ocr-v1/{index + 1}",
+                                            "text": candidate["text"], "box": candidate["box"],
+                                            "confidence": candidate.get("confidence"),
+                                            "source_method": "configured_local_ocr",
+                                            "engine": command_engine if ocr_available else selected_engine,
+                                            "language": normalized_language,
+                                            "reconciliation": status,
+                                            "overlapping_native_line_ids": [item[1] for item in overlaps if item[1]],
+                                            "best_text_similarity": round(best[0], 4)})
+                    target_page["ocr_observations"] = observations
+                    if page_routes[page_number - 1] == "mixed":
+                        unique_candidates = [
+                            {**candidate, "source_method": "configured_local_ocr",
+                             "engine": command_engine, "language": normalized_language}
+                            for candidate, observation in zip(candidates, observations)
+                            if observation["reconciliation"] == "unique_candidate"
+                        ]
+                        model["pages"][page_number - 1]["elements"].extend(unique_candidates)
                 for asset in physical.get("assets", []):
                     encoded = asset.pop("data_base64", None)
                     if not isinstance(encoded, str):
@@ -1910,9 +2047,99 @@ def create_app(settings=None, engine=None, store=None, frontend=FRONTEND):
                                                IngestionDocument.id == document_id)).mappings().one_or_none()
             if row is None:
                 raise HTTPException(status_code=404, detail="Ingestion not found")
-            return {"id": row["id"], "status": row["status"], "page_model": json.loads(row["page_model_json"]),
+            model = json.loads(row["page_model_json"])
+            canonical = None
+            if isinstance(model.get("physical_content"), dict) and isinstance(model.get("logical_content"), dict):
+                from app.pdf_analysis import canonical_document
+                try:
+                    canonical = canonical_document(model, model["physical_content"], model["logical_content"])
+                except (ValueError, TypeError, KeyError):
+                    canonical = None
+            return {"id": row["id"], "status": row["status"], "page_model": model,
+                    "canonical_document": canonical,
                     "markdown": row["markdown"], "extraction": None,
-                    "pending": "OCR fallback, advanced layout analysis, and logical interpretation are not implemented"}
+                    "pending": "OCR engine availability, calibrated scores, and corpus validation remain incomplete"}
+
+    @app.get("/api/ingestions/{document_id}/export", tags=["ingestion"])
+    def export_ingestion(document_id: str, request: Request,
+                         view: str = Query("combined", pattern="^(physical|logical|combined)$"),
+                         scope: str = Query("document", pattern="^(document|page)$"),
+                         page_number: int | None = Query(None, ge=1),
+                         format: str = Query("json", pattern="^(json|jsonl|zip)$")):
+        authenticated_user(request, scope="read")
+        with engine.connect() as connection:
+            row = connection.execute(select(IngestionDocument.page_model_json).where(
+                IngestionDocument.id == document_id)).mappings().one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Ingestion not found")
+        model = json.loads(row["page_model_json"])
+        physical = model.get("physical_content", {})
+        logical = model.get("logical_content", {})
+        if scope == "page" and page_number is None:
+            raise HTTPException(status_code=422, detail="page_number is required for page scope")
+        available = {int(item.get("page_number", 0)) for item in physical.get("pages", [])}
+        if scope == "page" and page_number not in available:
+            raise HTTPException(status_code=404, detail="Page not found")
+        if view == "physical":
+            output: dict = {"schema_version": physical.get("schema_version", 2),
+                            "document_id": document_id, "physical_content": physical}
+        elif view == "logical":
+            output = {"schema_version": logical.get("schema_version", 1),
+                      "document_id": document_id, "logical_content": logical}
+        else:
+            from app.pdf_analysis import canonical_document
+            try:
+                output = canonical_document(model, physical, logical)
+            except (ValidationError, ValueError, TypeError, KeyError) as exc:
+                raise HTTPException(status_code=422, detail=f"canonical document validation failed: {type(exc).__name__}") from None
+        if scope == "page":
+            for key in ("physical_content", "logical_content"):
+                section = output.get(key)
+                if isinstance(section, dict):
+                    section["pages"] = [item for item in section.get("pages", [])
+                                        if item.get("page_number") == page_number]
+                    for page_key in ("layout_pages",):
+                        if page_key in section:
+                            section[page_key] = [item for item in section[page_key]
+                                                 if item.get("page_number") == page_number]
+                    for collection in ("paragraphs", "sections", "lists", "tables"):
+                        if collection in section:
+                            section[collection] = [item for item in section[collection]
+                                                   if item.get("page_number") == page_number
+                                                   or page_number in item.get("page_numbers", [])]
+                    if "assets" in section:
+                        refs = {asset_id for item in section.get("pages", [])
+                                for image in item.get("images", [])
+                                for asset_id in (image.get("asset_id"), image.get("mask_asset_id")) if asset_id}
+                        section["assets"] = [asset for asset in section["assets"] if asset.get("id") in refs]
+        if format == "jsonl":
+            records = output.get("logical_content", {}).get("pages", []) if view != "physical" else output.get("physical_content", {}).get("pages", [])
+            payload = "".join(json.dumps(item, ensure_ascii=False, separators=(",", ":")) + "\n" for item in records).encode("utf-8")
+            media_type, extension = "application/x-ndjson", "jsonl"
+        elif format == "zip":
+            archive = BytesIO()
+            export_physical = output.get("physical_content", {})
+            export_assets = export_physical.get("assets", [])
+            for asset in export_assets:
+                if asset.get("id") and asset.get("extension"):
+                    asset["url"] = f"assets/{asset['id']}.{asset['extension']}"
+            with ZipFile(archive, "w", compression=ZIP_DEFLATED) as bundle:
+                bundle.writestr("document.json", json.dumps(output, ensure_ascii=False, indent=2).encode("utf-8"))
+                for asset in export_assets:
+                    if asset.get("id") and asset.get("extension"):
+                        try:
+                            binary = store.get(f"ingestions/{document_id}/assets/{asset['id']}.{asset['extension']}")
+                        except FileNotFoundError:
+                            continue
+                        bundle.writestr(f"assets/{asset['id']}.{asset['extension']}", binary)
+            payload, media_type, extension = archive.getvalue(), "application/zip", "zip"
+        else:
+            payload = json.dumps(output, ensure_ascii=False, indent=2).encode("utf-8")
+            media_type, extension = "application/json; charset=utf-8", "json"
+        if len(payload) > min(settings.max_object_bytes, 50_000_000):
+            raise HTTPException(status_code=413, detail="complete export exceeds the configured output limit")
+        return Response(content=payload, media_type=media_type,
+                        headers={"Content-Disposition": f'attachment; filename="{document_id}.{extension}"'})
 
     @app.post("/api/ingestions/{document_id}/extract", tags=["extraction"])
     def extract_ingestion(document_id: str, payload: dict, request: Request):

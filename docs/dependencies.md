@@ -187,6 +187,16 @@ The candidate distributions were inspected with `pip download --no-deps` only; t
 
 Consequently, E8-03 and E8-04 remain partial and E8-08 remains a capability registry/contract rather than an installed-engine claim. The local deterministic extraction path and explicit unavailable-OCR state remain the supported offline behavior until the dependency, model, sandbox and acceptance evidence is complete. See DD-160.
 
+## Optional OCR engine installation (2026-10-16)
+
+Following DD-515, the OCR packages are installed in the local `backend/.venv` only; they are not part of the default runtime/test lock or application image. The direct versions are PaddleOCR 3.7.0, CPU PaddlePaddle 3.3.1, pytesseract 0.3.13 and Pillow 12.3.0. The exact resolved Python dependency set is pinned in [requirements-ocr.lock](../backend/requirements-ocr.lock), with package metadata and wheel hashes where available in [ocr-dependency-inventory.json](ocr-dependency-inventory.json). Tesseract OCR 5.4.0.20240606 is installed under `C:\Program Files\Tesseract-OCR`; `eng` and `osd` language data are present.
+
+The Paddle CPU runtime check passed. Paddle model weights were not installed, and the adapter requires explicit local detection/recognition model directories to prevent inference-time downloads. The worker denies network access. Tesseract completed an isolated worker smoke run on `scan-invoice.pdf`, returning 13 line observations, boxes mapped to PDF points, engine scores and one low-score region; this is not an accuracy benchmark.
+
+This optional graph is not cleared for redistribution. The direct package metadata and transitive graph contain undeclared licenses and BSD, PSF, MPL, LGPL and compound expressions outside the strict MIT/Apache-2.0/OFL allow-list. The Tesseract installer metadata says Apache-2.0, but bundled Leptonica (BSD-2-Clause) and other native DLL notices still need review. Model-weight licensing is also unreviewed because no model is installed. DD-013 remains unresolved; installation and successful execution are not approval.
+
+For local use, configure `paddleocr_command` and/or `tesseract_command` as JSON/TOML string arrays that invoke `backend/scripts/ocr_adapter.py`. Use absolute executable/script/model paths because the worker starts in a temporary directory. Paddle commands must include `--det-model-dir` and `--rec-model-dir`; Tesseract commands must include `--tesseract-binary`. The bundled adapters use CPU inference and emit the shared validated JSON protocol. Strict no-ML mode still suppresses both adapters.
+
 ## Strict scan
 
 Run `python scripts/check_licenses.py` from the repository root to scan the checked-in dependency inventory, emit `artifacts/sbom.cdx.json` and `artifacts/license-report.json`, and fail on unknown, compound or non-MIT/Apache-2.0/OFL metadata. `--allow-findings` is available only to produce evidence while the policy decision is unresolved; it must not be used as a compliance claim. The GitHub Actions workflow runs the strict command and uploads both reports even when the check fails.

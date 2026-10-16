@@ -1,18 +1,26 @@
+import json
 import sys
 import zlib
+from io import BytesIO
+from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.pool import StaticPool
-from io import BytesIO
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject, NumberObject
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
-from app.ingestion import UploadClassification, _pdf_sources, count_pages, detect_page_routes, page_model
-from app.pdf_classification import PageClassificationThresholds, classify_pdf_pages
+from app.ingestion import (
+    UploadClassification,
+    _pdf_sources,
+    count_pages,
+    detect_page_routes,
+    page_model,
+)
 from app.main import create_app
 from app.models import Base
+from app.pdf_classification import PageClassificationThresholds, classify_pdf_pages
 from app.storage import LocalStore
 
 
@@ -114,6 +122,7 @@ def test_pdf_page_model_keeps_elements_on_their_source_pages_without_fake_geomet
 
 def test_pdf_page_count_uses_parsed_page_tree():
     from io import BytesIO
+
     from pypdf import PdfWriter
 
     writer = PdfWriter()
@@ -163,7 +172,7 @@ def test_mixed_pdf_page_routes_are_exposed_in_result_metadata(tmp_path):
         assert [page["route"] for page in result["page_model"]["pages"]] == ["digital", "scan"]
         assert result["page_model"]["processing"]["page_routes"] == ["digital", "scan"]
         assert result["page_model"]["processing"]["ocr"]["status"] == "unavailable"
-        assert result["page_model"]["processing"]["ocr"]["reason"] == "mixed documents require page-aware OCR dispatch"
+        assert result["page_model"]["processing"]["ocr"]["reason"] == "configured OCR engine is not installed"
 
 
 def test_configured_ocr_dispatches_only_mixed_scan_pages(tmp_path):
@@ -181,10 +190,79 @@ def test_configured_ocr_dispatches_only_mixed_scan_pages(tmp_path):
         pages = result["page_model"]["pages"]
         assert pages[0]["elements"][0]["text"] == "digital page"
         assert pages[1]["elements"][0]["text"] == "scanned page"
-        assert result["page_model"]["processing"]["ocr"] == {
-            "engine": "paddleocr", "language": "eng", "status": "completed",
-            "pages": 1, "requested_pages": [2], "adapter": "configured-local-command",
-        }
+        report = result["page_model"]["processing"]["ocr"]
+        assert report["engine"] == "custom"
+        assert report["requested_engine"] == "paddleocr"
+        assert report["language"] == "eng"
+        assert report["status"] == "completed"
+        assert report["pages"] == 1
+        assert report["requested_pages"] == [2]
+        assert report["requested_regions"] == 0
+        assert report["adapter"] == "configured-local-command"
+
+
+def test_ocr_can_target_bounded_pdf_page_regions(tmp_path):
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    command = [sys.executable, "-c", "import json; print(json.dumps({'pages':[{'page_number':1,'elements':[{'text':'crop only','box':[2,3,44,16]}]}]}))"]
+    settings = Settings(tesseract_command=command)
+    payload = _pdf_pages("digital page", None)
+    regions = json.dumps({"2": [[50, 50, 200, 120]]})
+    with TestClient(create_app(settings=settings, engine=engine,
+                               store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
+        response = client.post("/api/ingestions", params={"filename": "mixed.pdf", "ocr_engine": "tesseract",
+                                                           "ocr_regions": regions},
+                               content=payload, headers={"content-type": "application/pdf"})
+        assert response.status_code == 201, response.text
+        result = client.get(f"/api/ingestions/{response.json()['id']}/result").json()["page_model"]
+        report = result["processing"]["ocr"]
+        assert report["requested_pages"] == [2]
+        assert report["requested_regions"] == 1
+        assert result["pages"][1]["elements"][0]["text"] == "crop only"
+        box = result["pages"][1]["elements"][0]["box"]
+        assert box == [50.8, 51.2, 67.6, 56.4]
+
+
+def test_ocr_retries_alternative_preprocessing_and_reports_low_scores(tmp_path):
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    response_json = "{'pages':[{'page_number':1,'elements':[{'text':'uncertain','box':[2,3,44,16],'confidence':0.4}]}]}"
+    command = [sys.executable, "-c", f"import json; print(json.dumps({response_json}))"]
+    settings = Settings(tesseract_command=command)
+    root = Path(__file__).resolve().parents[2]
+    payload = (root / "e22-corpus/generated/scan-invoice.pdf").read_bytes()
+    with TestClient(create_app(settings=settings, engine=engine,
+                               store=LocalStore(tmp_path / "objects", 10_000_000), frontend=tmp_path)) as client:
+        response = client.post("/api/ingestions?filename=scan-invoice.pdf&ocr_engine=tesseract",
+                               content=payload, headers={"content-type": "application/pdf"})
+        assert response.status_code == 201, response.text
+        result = client.get(f"/api/ingestions/{response.json()['id']}/result").json()["page_model"]
+        recovery = result["processing"]["ocr"]["recovery"]
+        assert [attempt["status"] for attempt in recovery["attempts"]] == [
+            "completed", "completed", "completed"]
+        assert recovery["low_confidence_regions"][0]["confidence"] == 0.4
+
+
+def test_mixed_page_duplicate_ocr_does_not_replace_native_text(tmp_path):
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    text = "Native text that should be preserved"
+    response_json = {"pages": [{"page_number": 1, "elements": [
+        {"text": text, "box": [150, 125, 750, 200], "confidence": 0.9}]}]}
+    command = [sys.executable, "-c", f"import json; print(json.dumps({response_json!r}))"]
+    settings = Settings(tesseract_command=command)
+    with TestClient(create_app(settings=settings, engine=engine,
+                               store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
+        response = client.post("/api/ingestions?filename=mixed.pdf&ocr_engine=tesseract&ocr_mode=force",
+                               content=_pdf_with_full_page_image(text),
+                               headers={"content-type": "application/pdf"})
+        assert response.status_code == 201, response.text
+        page_model = client.get(f"/api/ingestions/{response.json()['id']}/result").json()["page_model"]
+        assert page_model["processing"]["page_routes"] == ["mixed"]
+        elements = page_model["pages"][0]["elements"]
+        assert [element["id"] for element in elements if element["type"] == "text"] == ["p1-text-1"]
+        observations = page_model["physical_content"]["pages"][0]["ocr_observations"]
+        assert observations[0]["reconciliation"] == "duplicate_candidate"
 
 
 def test_simple_digital_text_exposes_bounded_layout_roles_and_order(tmp_path):
@@ -375,7 +453,6 @@ def test_ingestion_classifies_hexadecimal_pdf_text_as_digital(tmp_path):
 def test_ingestion_classifies_bounded_flate_pdf_text_as_digital(tmp_path):
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
-    content = zlib.compress(b"BT (Compressed hello) Tj ET")
     payload = _pdf_pages("Compressed hello")
     with TestClient(create_app(engine=engine, store=LocalStore(tmp_path / "objects", 10_000), frontend=tmp_path)) as client:
         response = client.post("/api/ingestions?filename=compressed.pdf", content=payload,

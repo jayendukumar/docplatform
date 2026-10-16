@@ -67,7 +67,10 @@ class Settings(BaseModel):
     prince_license_file: Path | None = None
     pdf_renderer_timeout_seconds: int = Field(default=60, ge=1, le=3600)
     ocr_command: list[str] = Field(default_factory=list)
+    paddleocr_command: list[str] = Field(default_factory=list)
+    tesseract_command: list[str] = Field(default_factory=list)
     ocr_timeout_seconds: int = Field(default=120, ge=1, le=3600)
+    strict_no_ml_mode: bool = False
     seed_sample: bool = True
     template_publish_requires_approval: bool = False
 
@@ -103,7 +106,7 @@ def load_settings() -> Settings:
                 field = name.removeprefix("DOCPLATFORM_").lower()
                 if field not in Settings.model_fields:
                     raise ConfigurationError("Unknown DOCPLATFORM setting")
-                if field in {"virus_scan_command", "word_converter_command", "pdf_renderer_command", "chromium_renderer_command", "prince_renderer_command", "ocr_command"}:
+                if field in {"virus_scan_command", "word_converter_command", "pdf_renderer_command", "chromium_renderer_command", "prince_renderer_command", "ocr_command", "paddleocr_command", "tesseract_command"}:
                     try:
                         value = json.loads(value)
                     except json.JSONDecodeError:
